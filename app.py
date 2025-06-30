@@ -12,23 +12,34 @@ EXCHANGE_RATE = 350  # 환율 (1위안 = 350원)
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 좌측 탭 메뉴 구성
+# 좌측 탭 메뉴 구성 (label 삭제)
 tab_options = ["간단마진계산기", "세부마진계산기"]
-selected_tab = st.sidebar.radio("메뉴 선택", tab_options)
+selected_tab = st.sidebar.radio("", tab_options)
 
 # 현재 탭 스타일링
 tab_titles = {tab: f"**{tab}**" if tab == selected_tab else tab for tab in tab_options}
 
-# 상단 타이틀 중앙 정렬
-col1, col2, col3 = st.columns([1, 1, 1])
-with col2:
+# 전체 3분할 레이아웃
+left, center, right = st.columns([1, 1, 1])
+
+# 왼쪽 고정 설정값 박스
+with left:
+    st.markdown("### ⚙️ 설정값")
+    st.markdown(f"- 수수료율: **{FEE_RATE}%**")
+    st.markdown(f"- 광고비율: **{AD_RATE}%**")
+    st.markdown(f"- 입출고비: **{BASE_INOUT_COST:,}원**")
+    st.markdown(f"- 반품비: **{BASE_PICKUP_COST + BASE_RESTOCK_COST:,}원**")
+    st.markdown(f"- 반품율: **{RETURN_RATE * 100}%**")
+    st.markdown(f"- 환율: **1위안 = {EXCHANGE_RATE}원**")
+
+# 중앙 타이틀
+with center:
     st.title(tab_titles[selected_tab])
 
 # 간단마진계산기 탭 내용
 if selected_tab == "간단마진계산기":
-    _, center, _ = st.columns([1, 1, 1])
     with center:
-        st.markdown("#### **판매가 (₩)**")
+        st.markdown("#### **판매가**")
         selling_price_input = st.text_input("판매가", value="20000", max_chars=10, label_visibility="collapsed", key="price_input")
 
         st.markdown("#### **원가**")
