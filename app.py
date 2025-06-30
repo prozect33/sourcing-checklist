@@ -1,51 +1,53 @@
 
 import streamlit as st
 
-st.set_page_config(page_title="소싱 체크리스트 데모", layout="centered")
-st.title("📦 해외 사입 소싱 체크리스트 데모")
+# 상수 설정
+FEE_RATE = 10.8  # 수수료율 (%)
+AD_RATE = 20  # 광고비율 (%)
+BASE_INOUT_COST = 3000  # 입출고비
+BASE_PICKUP_COST = 1500  # 반품 회수비
+BASE_RESTOCK_COST = 500  # 재입고비
+RETURN_RATE = 0.1  # 반품율
+EXCHANGE_RATE = 300  # 환율 (1위안 = 300원)
 
-# 1. 마진 계산기
-st.header("1. 마진 계산기")
-sale_price = st.number_input("판매가 (원)", value=20000)
-product_cost = st.number_input("상품 원가 (위안)", value=20.0)
-exchange_rate = st.number_input("환율 (1위안 → 원)", value=190.0)
-intl_shipping = st.number_input("국제 배송비 (원)", value=2000)
-fee_percent = st.slider("플랫폼 수수료 (%)", 0, 30, 10)
-ad_percent = st.slider("광고비 비율 (%)", 0, 50, 10)
+st.set_page_config(page_title="간단 마진 계산기", layout="centered")
+st.title("📦 간단 마진 계산기")
 
-product_cost_krw = product_cost * exchange_rate
-total_cost = product_cost_krw + intl_shipping + (sale_price * (fee_percent + ad_percent) / 100)
-profit = sale_price - total_cost
-margin = profit / sale_price * 100 if sale_price > 0 else 0
+# 탭 구분
+tab = st.selectbox("🔍 기능 선택", ["간단 마진 계산기"])
 
-st.markdown(f"**순이익:** {int(profit):,}원")
-st.markdown(f"**마진율:** {margin:.1f}%")
-if margin < 20:
-    st.warning("❌ 마진율이 낮습니다. 상품 탈락 권장")
-else:
-    st.success("✅ 마진 기준 통과")
+if tab == "간단 마진 계산기":
+    st.header("판매가 및 원가 입력")
 
-# 2. 시장성 판단
-st.header("2. 시장성 판단")
-review_count = st.number_input("경쟁 상품 평균 리뷰 수", value=120)
-if review_count > 500:
-    st.warning("❌ 경쟁 과열. 신규 진입 어려움")
-elif review_count > 100:
-    st.info("⚠️ 중간 수준 경쟁")
-else:
-    st.success("✅ 진입 가능성 양호")
+    selling_price = st.number_input("판매가 (₩)", min_value=0, step=100, value=20000)
+    cost_unit = st.radio("원가 단위 선택", ["₩ 원화", "¥ 위안화"])
+    cost_input = st.number_input("원가", min_value=0.0, step=1.0, value=20.0)
 
-# 3. 전략 적합성
-st.header("3. 전략 적합성")
-seasonal = st.selectbox("시즌 상품인가요?", ["예", "아니오"])
-if seasonal == "예":
-    st.warning("⚠️ 시즌성 상품. 재고 관리 유의 필요")
-else:
-    st.success("✅ 연중 판매 가능")
+    if cost_unit == "¥ 위안화":
+        cost = round(cost_input * EXCHANGE_RATE)
+    else:
+        cost = int(round(cost_input))
 
-# 최종 결과
-st.header("🧾 최종 판단")
-if margin >= 20 and review_count <= 100:
-    st.success("🔥 이 상품은 소싱 검토 가치가 충분합니다!")
-else:
-    st.info("⏳ 보완 필요 또는 상품 제외 고려")
+    if st.button("✅ 계산하기"):
+        fee = round((selling_price * FEE_RATE * 1.1) / 100)
+        ad_fee = round((selling_price * AD_RATE * 1.1) / 100)
+        inout_cost = round(BASE_INOUT_COST * 1.1)
+        return_cost = round((BASE_PICKUP_COST + BASE_RESTOCK_COST) * RETURN_RATE * 1.1)
+        etc_cost = round(selling_price * 0.02)
+        total_cost = round(cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
+        profit = selling_price - total_cost
+        supply_price = selling_price / 1.1
+        margin_rate = round((profit / supply_price) * 100, 2)
+        roi = round((profit / cost) * 100, 2)
+        roi_ratio = round((profit / cost) + 1, 1)
+
+        st.subheader("📊 결과")
+        st.markdown(f"**수수료:** {fee:,} 원")
+        st.markdown(f"**광고비:** {ad_fee:,} 원")
+        st.markdown(f"**입출고비용:** {inout_cost:,} 원")
+        st.markdown(f"**반품비용:** {return_cost:,} 원")
+        st.markdown(f"**기타비용:** {etc_cost:,} 원")
+        st.markdown(f"**총비용:** {total_cost:,} 원")
+        st.markdown(f"**이익:** {profit:,} 원")
+        st.markdown(f"**순마진율:** {margin_rate:.2f}%")
+        st.markdown(f"**ROI:** {roi:.2f}% (투자금 {cost:,}원 대비 수익금 {profit:,}원, {roi_ratio}배)")
