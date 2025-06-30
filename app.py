@@ -12,7 +12,7 @@ EXCHANGE_RATE = 350  # 환율 (1위안 = 350원)
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 좌측 탭 메뉴 구성 (label 삭제)
+# 좌측 탭 메뉴 구성
 tab_options = ["간단마진계산기", "세부마진계산기"]
 selected_tab = st.sidebar.radio("", tab_options)
 
@@ -22,14 +22,14 @@ tab_titles = {tab: f"**{tab}**" if tab == selected_tab else tab for tab in tab_o
 # 전체 3분할 레이아웃
 left, center, right = st.columns([1, 1, 1])
 
-# 왼쪽 고정 설정값 박스
+# 왼쪽 고정 설정값 박스 (최종 정리 버전)
 with left:
     st.markdown("### ⚙️ 설정값")
     st.markdown(f"- 수수료율: **{FEE_RATE}%**")
     st.markdown(f"- 광고비율: **{AD_RATE}%**")
+    st.markdown(f"- 기타비용: **판매가의 2%**")
     st.markdown(f"- 입출고비: **{BASE_INOUT_COST:,}원**")
-    st.markdown(f"- 반품비: **{BASE_PICKUP_COST + BASE_RESTOCK_COST:,}원**")
-    st.markdown(f"- 반품율: **{RETURN_RATE * 100}%**")
+    st.markdown(f"- 반품비: **회수 {BASE_PICKUP_COST:,}원 + 재입고 {BASE_RESTOCK_COST:,}원 (반품율 {int(RETURN_RATE * 100)}%)**")
     st.markdown(f"- 환율: **1위안 = {EXCHANGE_RATE}원**")
 
 # 중앙 타이틀
@@ -88,7 +88,7 @@ if selected_tab == "간단마진계산기":
                 st.markdown(f"**기타비용:** {etc_cost:,} 원")
                 st.markdown(f"**총비용:** {total_cost:,} 원")
                 st.markdown(f"**이익:** {profit:,} 원")
-                st.markdown(f"**순마진율:** {margin_rate:.2f}%")
+                st.markdown(f"**마진율:** {margin_rate:.2f}%")
                 st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
 
         except ValueError:
