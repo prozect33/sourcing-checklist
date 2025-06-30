@@ -22,24 +22,21 @@ col1, col2, col3 = st.columns([1, 1, 1])
 with col2:
     st.title("📦 간단 마진 계산기")
 
-# 공란 삽입
-st.markdown("## ")
-
 # 가운데 정렬 블록
 _, center, _ = st.columns([1, 1, 1])
 
 with center:
     st.markdown("#### **판매가**")
-    selling_price_input = st.text_input("", value="20000", max_chars=10)
+    selling_price_input = st.text_input("판매가", value="20000", max_chars=10, label_visibility="collapsed", key="price_input")
 
     st.markdown("#### **원가**")
     col_yuan, col_won = st.columns(2)
     with col_yuan:
         st.markdown("###### 위안화")
-        cost_cny_input = st.text_input("", value="", max_chars=10)
+        cost_cny_input = st.text_input("위안화 입력", value="", max_chars=10, label_visibility="collapsed", key="cny_input")
     with col_won:
         st.markdown("###### 원화")
-        cost_krw_input = st.text_input("", value="", max_chars=10)
+        cost_krw_input = st.text_input("원화 입력", value="", max_chars=10, label_visibility="collapsed", key="krw_input")
 
     calculate_button = st.button("✅ 계산하기")
 
