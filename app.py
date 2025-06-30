@@ -2,47 +2,42 @@
 import streamlit as st
 
 # 상수 설정
-FEE_RATE = 10.8  # 수수료율 (%)
-AD_RATE = 20  # 광고비율 (%)
-BASE_INOUT_COST = 3000  # 입출고비
-BASE_PICKUP_COST = 1500  # 반품 회수비
-BASE_RESTOCK_COST = 500  # 재입고비
-RETURN_RATE = 0.1  # 반품율
-EXCHANGE_RATE = 350  # 환율 (1위안 = 350원)
+FEE_RATE = 10.8
+AD_RATE = 20
+BASE_INOUT_COST = 3000
+BASE_PICKUP_COST = 1500
+BASE_RESTOCK_COST = 500
+RETURN_RATE = 0.1
+EXCHANGE_RATE = 350
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 좌측 탭 메뉴 구성
 tab_options = ["간단마진계산기", "세부마진계산기"]
 selected_tab = st.sidebar.radio("", tab_options)
 
-# 현재 탭 스타일링
 tab_titles = {tab: f"**{tab}**" if tab == selected_tab else tab for tab in tab_options}
 
-# 전체 3분할 레이아웃
 left, center, right = st.columns([1, 1, 1])
 
-# 왼쪽 고정 설정값 박스 (최종 정리 버전)
+# 왼쪽 설정값 – 강조 없이 동일 스타일로
 with left:
     st.markdown("### ⚙️ 설정값")
-    st.markdown(f"- 수수료율: **{FEE_RATE}%**")
-    st.markdown(f"- 광고비율: **{AD_RATE}%**")
-    st.markdown(f"- 기타비용: **판매가의 2%**")
-    st.markdown(f"- 입출고비: **{BASE_INOUT_COST:,}원**")
-    st.markdown(f"- 반품비: **회수 {BASE_PICKUP_COST:,}원 + 재입고 {BASE_RESTOCK_COST:,}원 (반품율 {int(RETURN_RATE * 100)}%)**")
-    st.markdown(f"- 환율: **1위안 = {EXCHANGE_RATE}원**")
+    st.markdown("- 수수료율: 10.8%")
+    st.markdown("- 광고비율: 20%")
+    st.markdown("- 기타비용: 판매가의 2%")
+    st.markdown("- 입출고비: 3,000원")
+    st.markdown("- 반품비: 회수 1,500원 + 재입고 500원 (반품율 10%)")
+    st.markdown("- 환율: 1위안 = 350원")
 
-# 중앙 타이틀
 with center:
     st.title(tab_titles[selected_tab])
 
-# 간단마진계산기 탭 내용
 if selected_tab == "간단마진계산기":
     with center:
-        st.markdown("#### **판매가**")
+        st.markdown("#### 판매가")
         selling_price_input = st.text_input("판매가", value="20000", max_chars=10, label_visibility="collapsed", key="price_input")
 
-        st.markdown("#### **원가**")
+        st.markdown("#### 원가")
         col_yuan, col_won = st.columns(2)
         with col_yuan:
             st.markdown("###### 위안화 (¥)")
@@ -53,7 +48,6 @@ if selected_tab == "간단마진계산기":
 
         calculate_button = st.button("계산하기")
 
-    # 결과 계산 및 출력
     if calculate_button:
         try:
             selling_price = int(selling_price_input.replace(",", "").strip())
@@ -66,7 +60,6 @@ if selected_tab == "간단마진계산기":
                 st.error("원가를 입력하세요.")
                 st.stop()
 
-            # 계산
             fee = round((selling_price * FEE_RATE * 1.1) / 100)
             ad_fee = round((selling_price * AD_RATE * 1.1) / 100)
             inout_cost = round(BASE_INOUT_COST * 1.1)
@@ -81,15 +74,15 @@ if selected_tab == "간단마진계산기":
 
             st.markdown("## ")
             with center:
-                st.markdown(f"**수수료:** {fee:,} 원")
-                st.markdown(f"**광고비:** {ad_fee:,} 원")
-                st.markdown(f"**입출고비용:** {inout_cost:,} 원")
-                st.markdown(f"**반품비용:** {return_cost:,} 원")
-                st.markdown(f"**기타비용:** {etc_cost:,} 원")
-                st.markdown(f"**총비용:** {total_cost:,} 원")
-                st.markdown(f"**이익:** {profit:,} 원")
-                st.markdown(f"**마진율:** {margin_rate:.2f}%")
-                st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
+                st.markdown(f"수수료: {fee:,} 원")
+                st.markdown(f"광고비: {ad_fee:,} 원")
+                st.markdown(f"입출고비용: {inout_cost:,} 원")
+                st.markdown(f"반품비용: {return_cost:,} 원")
+                st.markdown(f"기타비용: {etc_cost:,} 원")
+                st.markdown(f"총비용: {total_cost:,} 원")
+                st.markdown(f"이익: {profit:,} 원")
+                st.markdown(f"마진율: {margin_rate:.2f}%")
+                st.markdown(f"ROI: {roi:.2f}% ({roi_ratio}배 수익)")
 
         except ValueError:
             st.error("입력값에 숫자만 사용하세요.")
