@@ -8,35 +8,32 @@ BASE_INOUT_COST = 3000  # 입출고비
 BASE_PICKUP_COST = 1500  # 반품 회수비
 BASE_RESTOCK_COST = 500  # 재입고비
 RETURN_RATE = 0.1  # 반품율
-EXCHANGE_RATE = 300  # 환율 (1위안 = 300원)
+EXCHANGE_RATE = 350  # 환율 (1위안 = 350원)
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-col1, col2 = st.columns([8, 2])
-with col1:
-    st.title("📦 간단 마진 계산기")
+# 상단 버튼
+col1, col2, col3 = st.columns([1, 1, 1])
 with col2:
-    st.markdown("### ")
-    st.button("간단 마진 계산기", disabled=True)
+    st.title("📦 간단 마진 계산기")
 
-st.header("판매가 및 원가 입력")
+# 입력 영역
+st.markdown("## ")
+st.markdown("### 🧮 입력값", unsafe_allow_html=True)
 
-# 입력: 판매가 (숫자 버튼 제거)
-selling_price_input = st.text_input("판매가 (₩)", value="20000")
+left, center, right = st.columns([1, 1, 1])
 
-# 입력: 원화와 위안화 입력창 분리
-col_krw, col_cny = st.columns(2)
-with col_krw:
-    cost_krw_input = st.text_input("원가 (₩ 원화)", value="")
-with col_cny:
-    cost_cny_input = st.text_input("원가 (¥ 위안화)", value="")
+with center:
+    selling_price_input = st.text_input("판매가 (₩)", value="20000", max_chars=10)
+    cost_krw_input = st.text_input("원가 (₩ 원화)", value="", max_chars=10)
+    cost_cny_input = st.text_input("원가 (¥ 위안화)", value="", max_chars=10)
+    calculate_button = st.button("✅ 계산하기")
 
-# 계산 버튼
-if st.button("✅ 계산하기"):
+# 결과 계산 및 출력
+if calculate_button:
     try:
         selling_price = int(selling_price_input.replace(",", "").strip())
 
-        # 원가 우선순위: 원화 입력 > 위안화 입력
         if cost_krw_input.strip():
             cost = int(cost_krw_input.replace(",", "").strip())
         elif cost_cny_input.strip():
@@ -45,7 +42,7 @@ if st.button("✅ 계산하기"):
             st.error("원가를 입력하세요.")
             st.stop()
 
-        # 계산식 적용
+        # 계산
         fee = round((selling_price * FEE_RATE * 1.1) / 100)
         ad_fee = round((selling_price * AD_RATE * 1.1) / 100)
         inout_cost = round(BASE_INOUT_COST * 1.1)
@@ -58,17 +55,19 @@ if st.button("✅ 계산하기"):
         roi = round((profit / cost) * 100, 2)
         roi_ratio = round((profit / cost) + 1, 1)
 
-        # 결과 출력
-        st.subheader("📊 결과")
-        st.markdown(f"**수수료:** {fee:,} 원 (판매가 × {FEE_RATE}% × 1.1)")
-        st.markdown(f"**광고비:** {ad_fee:,} 원 (판매가 × {AD_RATE}% × 1.1)")
-        st.markdown(f"**입출고비용:** {inout_cost:,} 원 (기본 {BASE_INOUT_COST} × 1.1)")
-        st.markdown(f"**반품비용:** {return_cost:,} 원 (({BASE_PICKUP_COST}+{BASE_RESTOCK_COST}) × {RETURN_RATE} × 1.1)")
-        st.markdown(f"**기타비용:** {etc_cost:,} 원 (판매가 × 2%)")
-        st.markdown(f"**총비용:** {total_cost:,} 원")
-        st.markdown(f"**이익:** {profit:,} 원 (판매가 - 총비용)")
-        st.markdown(f"**순마진율:** {margin_rate:.2f}% (이익 ÷ 공급가액 {supply_price:,.0f})")
-        st.markdown(f"**ROI:** {roi:.2f}% (투자금 {cost:,}원 대비 수익금 {profit:,}원, {roi_ratio}배)")
+        # 출력
+        st.markdown("## ")
+        st.markdown("### 📊 결과", unsafe_allow_html=True)
+        with center:
+            st.markdown(f"**수수료:** {fee:,} 원")
+            st.markdown(f"**광고비:** {ad_fee:,} 원")
+            st.markdown(f"**입출고비용:** {inout_cost:,} 원")
+            st.markdown(f"**반품비용:** {return_cost:,} 원")
+            st.markdown(f"**기타비용:** {etc_cost:,} 원")
+            st.markdown(f"**총비용:** {total_cost:,} 원")
+            st.markdown(f"**이익:** {profit:,} 원")
+            st.markdown(f"**순마진율:** {margin_rate:.2f}%")
+            st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
 
     except ValueError:
         st.error("입력값에 숫자만 사용하세요.")
