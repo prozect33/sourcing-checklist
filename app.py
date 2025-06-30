@@ -12,21 +12,35 @@ EXCHANGE_RATE = 350  # 환율 (1위안 = 350원)
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 상단 버튼
+# 메뉴 상단에 다시 생성
+with st.sidebar:
+    st.header("📂 메뉴")
+    st.markdown("현재 페이지: **간단 마진 계산기**")
+
+# 타이틀 중앙 정렬
 col1, col2, col3 = st.columns([1, 1, 1])
 with col2:
     st.title("📦 간단 마진 계산기")
 
-# 입력 영역
+# 공란 삽입
 st.markdown("## ")
-st.markdown("### 🧮 입력값", unsafe_allow_html=True)
 
-left, center, right = st.columns([1, 1, 1])
+# 가운데 정렬 블록
+_, center, _ = st.columns([1, 1, 1])
 
 with center:
-    selling_price_input = st.text_input("판매가 (₩)", value="20000", max_chars=10)
-    cost_krw_input = st.text_input("원가 (₩ 원화)", value="", max_chars=10)
-    cost_cny_input = st.text_input("원가 (¥ 위안화)", value="", max_chars=10)
+    st.markdown("#### **판매가**")
+    selling_price_input = st.text_input("", value="20000", max_chars=10)
+
+    st.markdown("#### **원가**")
+    col_yuan, col_won = st.columns(2)
+    with col_yuan:
+        st.markdown("###### 위안화")
+        cost_cny_input = st.text_input("", value="", max_chars=10)
+    with col_won:
+        st.markdown("###### 원화")
+        cost_krw_input = st.text_input("", value="", max_chars=10)
+
     calculate_button = st.button("✅ 계산하기")
 
 # 결과 계산 및 출력
@@ -55,9 +69,7 @@ if calculate_button:
         roi = round((profit / cost) * 100, 2)
         roi_ratio = round((profit / cost) + 1, 1)
 
-        # 출력
         st.markdown("## ")
-        st.markdown("### 📊 결과", unsafe_allow_html=True)
         with center:
             st.markdown(f"**수수료:** {fee:,} 원")
             st.markdown(f"**광고비:** {ad_fee:,} 원")
