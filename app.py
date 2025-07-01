@@ -2,103 +2,92 @@
 import streamlit as st
 
 # 페이지 설정
-st.set_page_config(page_title="마진 계산기", layout="wide")
+st.set_page_config(layout="wide", page_title="간단 마진 계산기")
 
-# 초기 설정값
-default_config = {
-    "수수료율": 10.8,
-    "광고비율": 20.0,
-    "기타비용율": 2.0,
-    "입출고비": 3000,
-    "반품비(회수)": 1500,
-    "반품비(재입고)": 500,
-    "반품율": 0.1,
-    "환율(위안화)": 350
+# 초기 기본값 설정
+default_values = {
+    "수수료율 (%)": 10.8,
+    "광고비율 (%)": 20.0,
+    "기타비용율 (%)": 2.0,
+    "입출고비 (원)": 3000,
+    "반품 최소비 (원)": 1500,
+    "재입고비 (원)": 500,
+    "반품율 (%)": 10.0,
+    "환율 (1위안 = 원)": 350
 }
 
-# 설정값 저장
-for key, value in default_config.items():
-    if key not in st.session_state:
+if "기본값" not in st.session_state:
+    st.session_state["기본값"] = default_values.copy()
+
+def reset_to_default():
+    for key, value in st.session_state["기본값"].items():
         st.session_state[key] = value
 
-# 탭 메뉴
-col_tab1, col_tab2 = st.columns([1, 1])
-with col_tab1:
-    if st.button("**간단 마진 계산기**"):
-        st.session_state["current_tab"] = "simple"
-with col_tab2:
-    if st.button("세부 마진 계산기"):
-        st.session_state["current_tab"] = "detailed"
+# 페이지 선택
+col1, col2 = st.columns([1, 8])
+with col1:
+    with st.sidebar:
+        st.markdown("### ⚙️ 설정값")
+        for key in default_values:
+            if "비율" in key:
+                st.session_state[key] = st.number_input(key, value=st.session_state.get(key, default_values[key]), step=0.1, format="%.2f", key=key)
+            else:
+                st.session_state[key] = st.number_input(key, value=st.session_state.get(key, default_values[key]), step=100, key=key)
+        if st.button("💾 기본값으로 저장"):
+            st.session_state["기본값"] = {key: st.session_state[key] for key in default_values}
 
-if "current_tab" not in st.session_state:
-    st.session_state["current_tab"] = "simple"
+with col2:
+    st.markdown("### 페이지 선택")
+    mode = st.radio("", ["간단 마진 계산기", "세부 마진 계산기"], horizontal=True)
 
-if st.session_state["current_tab"] == "simple":
-    st.markdown("### 📦 간단 마진 계산기")
+    if mode == "간단 마진 계산기":
+        st.markdown("## 📦 **간단 마진 계산기**")
 
-    # 레이아웃: 왼쪽 설정 / 가운데 입력
-    col_left, col_center, col_right = st.columns([1, 1, 1])
+        판매가 = st.number_input("판매가 입력", value=0, step=100)
 
-    # 왼쪽 설정값
-    with col_left:
-        st.markdown("#### ⚙️ 설정값")
-        for key in default_config:
-            st.session_state[key] = st.number_input(
-                key, value=st.session_state[key], key=key, label_visibility="visible", format="%.2f"
-            )
-        st.button("기본값으로 저장", on_click=lambda: st.success("현재 설정이 기본값으로 저장되었습니다 (세션 기준)."))
+        st.markdown("### 단가")
+        col_위안, col_원화 = st.columns(2)
+        with col_위안:
+            위안화 = st.number_input("위안화 입력", value=0.0, format="%.2f")
+        with col_원화:
+            원화 = st.number_input("원화 입력", value=0)
 
-    # 가운데 입력값
-    with col_center:
-        st.markdown("#### 판매가")
-        selling_price = st.text_input("판매가 입력", value="20000", label_visibility="collapsed", key="판매가")
-        st.markdown("#### 단가")
-        col_cny, col_krw = st.columns(2)
-        with col_cny:
-            st.markdown("###### 위안화 (¥)")
-            unit_cny = st.text_input("위안화 단가", label_visibility="collapsed", key="단가_cny")
-        with col_krw:
-            st.markdown("###### 원화 (₩)")
-            unit_krw = st.text_input("원화 단가", label_visibility="collapsed", key="단가_krw")
-        st.markdown("#### 수량")
-        quantity = st.number_input("수량", min_value=1, value=1, step=1, key="수량")
+        수량 = st.number_input("수량 입력 (기본 1)", value=1, step=1)
 
-        if st.button("계산하기", type="primary"):
-            try:
-                price = int(selling_price.replace(",", "").strip())
-                if unit_krw.strip():
-                    unit_cost = int(unit_krw.replace(",", "").strip())
-                elif unit_cny.strip():
-                    unit_cost = round(float(unit_cny.strip()) * st.session_state["환율(위안화)"])
-                else:
-                    st.error("단가를 입력하세요.")
-                    st.stop()
+        if st.button("계산하기"):
+            # 단가 계산
+            환율 = st.session_state["환율 (1위안 = 원)"]
+            단가 = 0
+            if 위안화 > 0:
+                단가 = 위안화 * 환율
+            elif 원화 > 0:
+                단가 = 원화
+            원가 = 단가 * 수량
 
-                cost = unit_cost * quantity
+            공급가액 = 판매가 / 1.1
+            수수료 = round(공급가액 * (st.session_state["수수료율 (%)"] / 100))
+            광고비 = round(판매가 * (st.session_state["광고비율 (%)"] / 100))
+            기타비 = round(판매가 * (st.session_state["기타비용율 (%)"] / 100))
+            반품비 = round((st.session_state["반품 최소비 (원)"] + st.session_state["재입고비 (원)"]) * (st.session_state["반품율 (%)"] / 100))
+            총비용 = 원가 + 수수료 + 광고비 + 기타비 + 반품비 + st.session_state["입출고비 (원)"]
+            이익 = 판매가 - 총비용
+            공급가 = 판매가 / 1.1
+            순마진율 = round((이익 / 공급가) * 100, 2)
+            ROI = round((이익 / 원가) * 100, 2) if 원가 != 0 else 0
 
-                # 계산
-                fee = round((price * st.session_state["수수료율"] * 1.1) / 100)
-                inout_cost = round(st.session_state["입출고비"] * 1.1)
-                return_cost = round((st.session_state["반품비(회수)"] + st.session_state["반품비(재입고)"]) * st.session_state["반품율"] * 1.1)
-                etc_cost = round(price * st.session_state["기타비용율"] / 100)
-                total_cost = round(cost + fee + inout_cost + return_cost)
-                profit = price - total_cost
-                supply_price = price / 1.1
-                margin_rate = round((profit / supply_price) * 100, 2)
-                roi = round((profit / cost) * 100, 2)
-                roi_ratio = round((profit / cost) + 1, 1)
+            st.markdown("### 💡 결과")
+            st.write(f"- 단가: {int(단가)}원")
+            st.write(f"- 원가: {int(원가)}원 (단가 × 수량 = {int(단가)} × {int(수량)})")
+            st.write(f"- 수수료: {수수료}원 (공급가액 × 수수료율)")
+            st.write(f"- 광고비: {광고비}원 (판매가 × 광고비율)")
+            st.write(f"- 기타비: {기타비}원 (판매가 × 기타비율)")
+            st.write(f"- 반품비: {반품비}원 (최소비+재입고비 × 반품율)")
+            st.write(f"- 입출고비: {st.session_state['입출고비 (원)']}원")
+            st.write(f"- 총비용: {총비용}원")
+            st.write(f"- 이익: {이익}원")
+            st.write(f"- 순마진율: {순마진율}%")
+            st.write(f"- ROI: {ROI}% (투자금 {int(원가)}원 대비 수익금 {이익}원)")
 
-                st.markdown("### 💰 결과")
-                st.markdown(f"**수수료:** {fee:,} 원")
-                st.markdown(f"**입출고비용:** {inout_cost:,} 원")
-                st.markdown(f"**반품비용:** {return_cost:,} 원")
-                st.markdown(f"**기타비용:** {etc_cost:,} 원")
-                st.markdown(f"**총비용:** {total_cost:,} 원")
-                st.markdown(f"**이익:** {profit:,} 원")
-                st.markdown(f"**마진율:** {margin_rate:.2f}%")
-                st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
-
-            except ValueError:
-                st.error("숫자만 입력하세요.")
-else:
-    st.markdown("### 🔧 세부 마진 계산기는 개발 중입니다.")
+    else:
+        st.markdown("## ✏️ **세부 마진 계산기**")
+        st.info("세부 마진 계산기는 현재 준비 중입니다.")
