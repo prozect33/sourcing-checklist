@@ -36,24 +36,29 @@ if st.session_state.active_tab == "간단 마진 계산기":
         st.title("📦 간단 마진 계산기")
         selling_price_input = st.text_input("판매가", value="20000")
 
-        st.markdown("#### 원가")
+        st.markdown("#### 단가")
         col_cny, col_krw = st.columns(2)
         with col_cny:
             cost_cny_input = st.text_input("위안화 (¥)", value="")
         with col_krw:
             cost_krw_input = st.text_input("원화 (₩)", value="")
 
+        quantity_input = st.text_input("수량", value="1")
+
         if st.button("계산하기"):
             try:
                 selling_price = int(selling_price_input.replace(",", "").strip())
+                quantity = int(quantity_input.strip())
 
                 if cost_krw_input.strip():
-                    cost = int(cost_krw_input.replace(",", "").strip())
+                    unit_cost = int(cost_krw_input.replace(",", "").strip())
                 elif cost_cny_input.strip():
-                    cost = int(float(cost_cny_input.strip()) * exchange_rate)
+                    unit_cost = int(float(cost_cny_input.strip()) * exchange_rate)
                 else:
-                    st.error("원가를 입력하세요.")
+                    st.error("단가를 입력하세요.")
                     st.stop()
+
+                cost = unit_cost * quantity
 
                 fee = round((selling_price * fee_rate * 1.1) / 100)
                 ad_fee = round((selling_price * ad_rate * 1.1) / 100)
