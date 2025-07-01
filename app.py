@@ -67,7 +67,7 @@ with tab1:
         except:
             sell_price = None
 
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([1, 1])
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value="")
         with col2:
@@ -79,7 +79,12 @@ with tab1:
         except:
             qty = None
 
-        result = st.button("계산하기")
+        calc_col1, calc_col2 = st.columns([1, 1])
+        with calc_col1:
+            result = st.button("계산하기")
+        with calc_col2:
+            if st.button("새로고침"):
+                st.experimental_rerun()
 
     with right:
         if result:
@@ -93,7 +98,7 @@ with tab1:
                     cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
                 elif unit_won:
                     unit_cost_val = round(float(unit_won))
-                    cost_display = f"{unit_cost_val:,}원 (원화 입력)"
+                    cost_display = f"{unit_cost_val:,}원"
                 else:
                     unit_cost_val = 0
                     cost_display = "0원"
