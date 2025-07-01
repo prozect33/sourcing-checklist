@@ -1,7 +1,7 @@
 
 import streamlit as st
 
-st.title("테스트: 기타비용과 원가 계산")
+st.title("테스트: 기타비용 및 원가 계산식 출력")
 
 sell_price_raw = st.text_input("판매가", "")
 etc_rate_raw = st.text_input("기타비용률 (%)", "")
@@ -19,7 +19,7 @@ except:
 try:
     if unit_yuan_raw:
         unit_cost_val = round(float(unit_yuan_raw) * exchange_rate)
-        cost_display = f"{unit_cost_val:,}원 (위안화 환산: {unit_yuan_raw} × {exchange_rate})"
+        cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {unit_yuan_raw} × {exchange_rate})"
     elif unit_won_raw:
         unit_cost_val = round(float(unit_won_raw))
         cost_display = f"{unit_cost_val:,}원 (원화 입력)"
@@ -34,6 +34,7 @@ if st.button("계산하기"):
     if sell_price is None or etc_rate is None:
         st.error("판매가와 기타비용률을 정확히 입력하세요.")
     else:
+        etc_calc = f"({sell_price} × {etc_rate} ÷ 100) × 1.1"
         etc = round(sell_price * etc_rate / 100 * 1.1)
-        st.write(f"기타비용 (부가세 포함): {etc:,}원")
+        st.write(f"기타비용 계산식: {etc_calc} = {etc:,}원")
         st.write(f"원가: {cost_display}")
