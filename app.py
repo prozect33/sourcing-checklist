@@ -58,38 +58,54 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-        sell_price_raw = st.text_input("판매가", value="")
-        try:
-            sell_price = int(float(sell_price_raw)) if sell_price_raw else None
-        except:
-            sell_price = None
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            unit_yuan = st.text_input("위안화 (¥)", value="")
-        with col2:
-            unit_won = st.text_input("원화 (₩)", value="")
+        if 'sell_price' not in st.session_state:
+            st.session_state.sell_price = ""
+        if 'unit_yuan' not in st.session_state:
+            st.session_state.unit_yuan = ""
+        if 'unit_won' not in st.session_state:
+            st.session_state.unit_won = ""
+        if 'qty' not in st.session_state:
+            st.session_state.qty = ""
+        if 'result' not in st.session_state:
+            st.session_state.result = False
 
-        qty_raw = st.text_input("수량", value="")
-        try:
-            qty = int(float(qty_raw)) if qty_raw else None
-        except:
-            qty = None
+        sell_price_raw = st.text_input("판매가", value=st.session_state.sell_price, key="sell_price")
+        unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.unit_yuan, key="unit_yuan")
+        unit_won = st.text_input("원화 (₩)", value=st.session_state.unit_won, key="unit_won")
+        qty_raw = st.text_input("수량", value=st.session_state.qty, key="qty")
 
-        result = st.button("계산하기")
+        calc_col1, spacer, calc_col2 = st.columns([1, 8, 1])
+        with calc_col1:
+            if st.button("계산하기"):
+                st.session_state.sell_price = sell_price_raw
+                st.session_state.unit_yuan = unit_yuan
+                st.session_state.unit_won = unit_won
+                st.session_state.qty = qty_raw
+                st.session_state.result = True
+        with calc_col2:
+            if st.button("새로고침"):
+                st.session_state.sell_price = ""
+                st.session_state.unit_yuan = ""
+                st.session_state.unit_won = ""
+                st.session_state.qty = ""
+                st.session_state.result = False
 
     with right:
-        if result:
-            if sell_price is None or qty is None:
+        if st.session_state.result:
+            try:
+                sell_price = int(float(st.session_state.sell_price))
+                qty = int(float(st.session_state.qty))
+            except:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
                 st.stop()
 
             try:
-                if unit_yuan:
-                    unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
-                    cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
-                elif unit_won:
-                    unit_cost_val = round(float(unit_won))
+                if st.session_state.unit_yuan:
+                    unit_cost_val = round(float(st.session_state.unit_yuan) * float(config["EXCHANGE_RATE"]))
+                    cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {st.session_state.unit_yuan} × {config['EXCHANGE_RATE']})"
+                elif st.session_state.unit_won:
+                    unit_cost_val = round(float(st.session_state.unit_won))
                     cost_display = f"{unit_cost_val:,}원"
                 else:
                     unit_cost_val = 0
