@@ -1,6 +1,5 @@
 import streamlit as st
 
-# Streamlit 저장용 세션 상태 초기화
 if "custom_defaults" not in st.session_state:
     st.session_state.custom_defaults = {
         "fee_rate": 10.8,
@@ -13,25 +12,21 @@ if "custom_defaults" not in st.session_state:
         "exchange_rate": 350,
     }
 
-# 기본 설정값 불러오기
 defaults = st.session_state.custom_defaults
-
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 레이아웃 분할
 left, center, right = st.columns([1, 1.5, 1])
 
-# 왼쪽 설정 영역
 with left:
     st.markdown("### ⚙️ 설정값")
-    fee_rate = float(st.text_input("수수료율 (%)", value=str(defaults["fee_rate"]), key="fee_rate_input"))
-    ad_rate = float(st.text_input("광고비율 (%)", value=str(defaults["ad_rate"]), key="ad_rate_input"))
-    etc_rate = float(st.text_input("기타비용 (% 판매가 대비)", value=str(defaults["etc_rate"]), key="etc_rate_input"))
-    inout_cost = int(st.text_input("입출고비 (원)", value=str(defaults["inout_cost"]), key="inout_cost_input"))
-    pickup_cost = int(st.text_input("반품 회수비 (원)", value=str(defaults["pickup_cost"]), key="pickup_cost_input"))
-    restock_cost = int(st.text_input("재입고비 (원)", value=str(defaults["restock_cost"]), key="restock_cost_input"))
-    return_rate = float(st.text_input("반품율 (%)", value=str(defaults["return_rate"]), key="return_rate_input"))
-    exchange_rate = int(st.text_input("환율 (1위안 = 원)", value=str(defaults["exchange_rate"]), key="exchange_rate_input"))
+    fee_rate = float(st.text_input("수수료율 (%)", value=str(defaults["fee_rate"]), key="fee_rate_input", max_chars=6))
+    ad_rate = float(st.text_input("광고비율 (%)", value=str(defaults["ad_rate"]), key="ad_rate_input", max_chars=6))
+    etc_rate = float(st.text_input("기타비용 (% 판매가 대비)", value=str(defaults["etc_rate"]), key="etc_rate_input", max_chars=6))
+    inout_cost = int(st.text_input("입출고비 (원)", value=str(defaults["inout_cost"]), key="inout_cost_input", max_chars=8))
+    pickup_cost = int(st.text_input("반품 회수비 (원)", value=str(defaults["pickup_cost"]), key="pickup_cost_input", max_chars=8))
+    restock_cost = int(st.text_input("재입고비 (원)", value=str(defaults["restock_cost"]), key="restock_cost_input", max_chars=8))
+    return_rate = float(st.text_input("반품율 (%)", value=str(defaults["return_rate"]), key="return_rate_input", max_chars=6))
+    exchange_rate = int(st.text_input("환율 (1위안 = 원)", value=str(defaults["exchange_rate"]), key="exchange_rate_input", max_chars=8))
 
     if st.button("💾 기본값으로 저장"):
         st.session_state.custom_defaults = {
@@ -46,7 +41,6 @@ with left:
         }
         st.success("기본값이 저장되었습니다. 새로고침 후 반영됩니다.")
 
-# 가운데 입력 및 출력 영역
 with center:
     st.title("📦 간단 마진 계산기")
     st.markdown("#### **판매가**")
