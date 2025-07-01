@@ -1,41 +1,43 @@
-
 import streamlit as st
 
 # 기본 설정값
 default_values = {
-    "FEE_RATE": 10.8,
-    "AD_RATE": 20.0,
-    "INOUT_COST": 3000,
-    "PICKUP_COST": 1500,
-    "RESTOCK_COST": 500,
-    "RETURN_RATE": 0.1,
-    "ETC_RATE": 2.0,
-    "EXCHANGE_RATE": 350
+    "수수료율 (%)": 10.8,
+    "광고비율 (%)": 20.0,
+    "입출고비용 (원)": 3000,
+    "회수비용 (원)": 1500,
+    "재입고비용 (원)": 500,
+    "반품률 (%)": 0.1,
+    "기타비용률 (%)": 2.0,
+    "위안화 환율": 350
 }
+
+# 세션 상태 초기화
+for key, value in default_values.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 설정값 슬라이드 패널
+# 설정값 탭
 with st.sidebar:
     st.header("⚙️ 설정값")
-    for key in default_values:
-        st.session_state[key] = st.number_input(
-            key,
-            value=st.session_state.get(key, default_values[key]),
-            step=1.0 if isinstance(default_values[key], float) else 100,
-            format="%.2f" if isinstance(default_values[key], float) else "%d"
-        )
+    with st.form("settings_form"):
+        new_values = {}
+        for key in default_values:
+            new_values[key] = st.text_input(key, value=str(st.session_state[key]))
+        submitted = st.form_submit_button("기본값으로 저장")
+        if submitted:
+            for key in default_values:
+                try:
+                    st.session_state[key] = float(new_values[key])
+                except ValueError:
+                    st.warning(f"{key} 값이 유효하지 않습니다. 숫자만 입력하세요.")
 
-# 탭 선택
-tab1, tab2 = st.columns(2)
+# 탭 구성
+tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
+
 with tab1:
-    if st.button("**간단 마진 계산기**"):
-        st.session_state["tab"] = "simple"
-with tab2:
-    if st.button("세부 마진 계산기"):
-        st.session_state["tab"] = "detailed"
-
-if st.session_state.get("tab", "simple") == "simple":
     st.markdown("### 간단 마진 계산기")
 
     _, center, _ = st.columns([1, 2, 1])
@@ -59,17 +61,17 @@ if st.session_state.get("tab", "simple") == "simple":
             if krw_price:
                 unit_cost = int(krw_price.replace(",", "").strip())
             elif cny_price:
-                unit_cost = int(float(cny_price.strip()) * st.session_state["EXCHANGE_RATE"])
+                unit_cost = int(float(cny_price.strip()) * st.session_state["위안화 환율"])
             else:
                 st.error("단가를 입력해주세요.")
                 st.stop()
 
             total_cost_price = unit_cost * quantity
-            fee = round(selling_price * st.session_state["FEE_RATE"] / 100)
-            ad_fee = round(selling_price * st.session_state["AD_RATE"] / 100)
-            inout_cost = round(st.session_state["INOUT_COST"])
-            return_cost = round((st.session_state["PICKUP_COST"] + st.session_state["RESTOCK_COST"]) * st.session_state["RETURN_RATE"])
-            etc_cost = round(selling_price * st.session_state["ETC_RATE"] / 100)
+            fee = round(selling_price * st.session_state["수수료율 (%)"] / 100)
+            ad_fee = round(selling_price * st.session_state["광고비율 (%)"] / 100)
+            inout_cost = round(st.session_state["입출고비용 (원)"])
+            return_cost = round((st.session_state["회수비용 (원)"] + st.session_state["재입고비용 (원)"]) * st.session_state["반품률 (%)"])
+            etc_cost = round(selling_price * st.session_state["기타비용률 (%)"] / 100)
 
             total_expense = total_cost_price + fee + ad_fee + inout_cost + return_cost + etc_cost
             profit = selling_price - total_expense
@@ -87,3 +89,6 @@ if st.session_state.get("tab", "simple") == "simple":
             st.markdown(f"**이익:** {profit:,} 원")
             st.markdown(f"**마진율:** {margin_rate:.2f}%")
             st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
+
+with tab2:
+    st.info("세부 마진 계산기는 아직 구현되지 않았습니다.")
