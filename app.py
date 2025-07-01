@@ -4,7 +4,6 @@ import os
 
 SETTINGS_FILE = "settings.json"
 
-# 기본값
 default_values = {
     "수수료율 (%)": 10.8,
     "광고비율 (%)": 20.0,
@@ -18,7 +17,6 @@ default_values = {
 
 int_keys = ["입출고비용 (원)", "회수비용 (원)", "재입고비용 (원)", "위안화 환율"]
 
-# 설정값 불러오기
 if os.path.exists(SETTINGS_FILE):
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
@@ -33,7 +31,7 @@ if os.path.exists(SETTINGS_FILE):
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 설정값 입력 (form 제거, 실시간 반영)
+# 설정값 입력
 with st.sidebar:
     st.header("⚙️ 설정값")
     current_settings = {}
@@ -57,7 +55,7 @@ with st.sidebar:
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
-    st.markdown("### 간단 마진 계산기")
+    st.markdown("## 간단 마진 계산기")
 
     _, center, _ = st.columns([1, 2, 1])
     with center:
@@ -110,4 +108,5 @@ with tab1:
             st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
 
 with tab2:
+    st.markdown("## 세부 마진 계산기")
     st.info("세부 마진 계산기는 아직 구현되지 않았습니다.")
