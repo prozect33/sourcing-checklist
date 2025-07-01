@@ -5,7 +5,6 @@ import os
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# --- 기본 설정값 ---
 DEFAULT_CONFIG_FILE = "default_config.json"
 default_config = {
     "FEE_RATE": 10.8,
@@ -35,7 +34,6 @@ def save_config(config):
 
 config = load_config()
 
-# --- 사이드바: 설정값 입력 ---
 st.sidebar.header("🛠️ 설정값")
 for key, label in [
     ("FEE_RATE", "수수료율 (%)"),
@@ -53,7 +51,6 @@ if st.sidebar.button("💾 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
-# --- 본문: 탭 ---
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
@@ -79,7 +76,7 @@ with tab1:
         except:
             qty = None
 
-        calc_col1, calc_col2 = st.columns([1, 1])
+        calc_col1, spacer, calc_col2 = st.columns([1, 8, 1])
         with calc_col1:
             result = st.button("계산하기")
         with calc_col2:
@@ -136,6 +133,3 @@ with tab1:
             st.write(f"**공급가액:** {round(supply_price):,}원 (판매가 ÷ 1.1)")
             st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가 × 100)")
             st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
-
-with tab2:
-    st.info("세부 마진 계산기는 아직 준비 중입니다.")
