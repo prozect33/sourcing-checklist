@@ -101,7 +101,7 @@ with tab1:
             st.write(f"**입출고비용:** {inout:,}원 ({config['INOUT_COST']} × 1.1)")
             st.write(f"**회수비용:** {pickup:,}원 ({config['PICKUP_COST']} × 1.1)")
             st.write(f"**재입고비용:** {restock:,}원 ({config['RESTOCK_COST']} × 1.1)")
-            st.write(f"**반품비용:** {return_cost:,}원 (({pickup} + {restock}) × {return_rate * 100:.1f}%)")
+            st.write(f"**반품비용:** {return_cost:,}원 ((({config['PICKUP_COST']} × 1.1) + ({config['RESTOCK_COST']} × 1.1)) × {return_rate * 100:.1f}%)")
             st.write(f"**기타비용:** {etc:,}원 (판매가 × {config['ETC_RATE']}%)")
             st.write(f"**총비용:** {total_cost:,}원 (원가 + 위 항목 합산)")
             st.write(f"**이익:** {profit:,}원 (판매가 - 총비용)")
