@@ -17,7 +17,6 @@ default_values = {
 }
 
 int_keys = ["입출고비용 (원)", "회수비용 (원)", "재입고비용 (원)", "위안화 환율"]
-float_keys = [k for k in default_values if k not in int_keys]
 
 # 설정값 불러오기
 if os.path.exists(SETTINGS_FILE):
@@ -34,26 +33,26 @@ if os.path.exists(SETTINGS_FILE):
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 설정값 입력
+# 설정값 입력 (form 제거, 실시간 반영)
 with st.sidebar:
     st.header("⚙️ 설정값")
-    with st.form("settings_form"):
-        new_values = {}
-        for key in default_values:
-            new_values[key] = st.text_input(key, value=str(int(default_values[key]) if key in int_keys else default_values[key]))
-        submitted = st.form_submit_button("기본값으로 저장")
-        if submitted:
-            try:
-                for key in default_values:
-                    if key in int_keys:
-                        default_values[key] = int(float(new_values[key]))
-                    else:
-                        default_values[key] = float(new_values[key])
-                with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                    json.dump({k: int(default_values[k]) if k in int_keys else default_values[k] for k in default_values}, f, ensure_ascii=False, indent=2)
-                st.success("기본값이 저장되었습니다.")
-            except Exception as e:
-                st.error(f"저장 중 오류 발생: {e}")
+    st.markdown("💡 왼쪽 값 수정 후 계산하면 바로 반영됩니다.")
+    current_settings = {}
+    for key in default_values:
+        value = st.text_input(key, value=str(int(default_values[key]) if key in int_keys else default_values[key]))
+        try:
+            current_settings[key] = int(float(value)) if key in int_keys else float(value)
+        except:
+            current_settings[key] = default_values[key]
+            st.warning(f"{key} 항목이 잘못되었습니다. 기본값 사용.")
+
+    if st.button("💾 기본값으로 저장"):
+        try:
+            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump({k: int(current_settings[k]) if k in int_keys else current_settings[k] for k in current_settings}, f, ensure_ascii=False, indent=2)
+            st.success("기본값이 저장되었습니다.")
+        except Exception as e:
+            st.error(f"저장 중 오류 발생: {e}")
 
 # 탭 구성
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
@@ -79,16 +78,6 @@ with tab1:
         quantity = st.number_input("수량", min_value=1, value=1, step=1)
 
         if st.button("계산하기"):
-            # 최신 설정값 반영
-            current_settings = {}
-            for key in default_values:
-                input_value = new_values.get(key, str(default_values[key]))
-                try:
-                    current_settings[key] = int(float(input_value)) if key in int_keys else float(input_value)
-                except:
-                    st.error(f"'{key}' 항목의 입력이 잘못되었습니다.")
-                    st.stop()
-
             if krw_price:
                 unit_cost = int(krw_price.replace(",", "").strip())
             elif cny_price:
