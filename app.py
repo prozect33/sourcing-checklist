@@ -36,7 +36,6 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 # 설정값 입력 (form 제거, 실시간 반영)
 with st.sidebar:
     st.header("⚙️ 설정값")
-    st.markdown("💡 왼쪽 값 수정 후 계산하면 바로 반영됩니다.")
     current_settings = {}
     for key in default_values:
         value = st.text_input(key, value=str(int(default_values[key]) if key in int_keys else default_values[key]))
