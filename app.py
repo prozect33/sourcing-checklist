@@ -61,13 +61,13 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-        sell_price = st.number_input("판매가", value=20000)
+        sell_price = st.number_input("판매가", min_value=0, step=1000)
         col1, col2 = st.columns(2)
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value="")
         with col2:
             unit_won = st.text_input("원화 (₩)", value="")
-        qty = st.number_input("수량", value=1, min_value=1)
+        qty = st.number_input("수량", min_value=1)
         result = st.button("계산하기")
 
     with right:
