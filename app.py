@@ -1,6 +1,10 @@
 import streamlit as st
+import json
+import os
 
-# 기본 설정값
+SETTINGS_FILE = "settings.json"
+
+# 초기 불러오기: settings.json이 있으면 로드, 없으면 기본값 설정
 default_values = {
     "수수료율 (%)": 10.8,
     "광고비율 (%)": 20.0,
@@ -11,6 +15,14 @@ default_values = {
     "기타비용률 (%)": 2.0,
     "위안화 환율": 350
 }
+
+if os.path.exists(SETTINGS_FILE):
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            loaded_values = json.load(f)
+            default_values.update({k: float(v) for k, v in loaded_values.items()})
+    except Exception as e:
+        st.error(f"설정값 불러오기 실패: {e}")
 
 # 세션 상태 초기화
 for key, value in default_values.items():
@@ -28,11 +40,14 @@ with st.sidebar:
             new_values[key] = st.text_input(key, value=str(st.session_state[key]))
         submitted = st.form_submit_button("기본값으로 저장")
         if submitted:
-            for key in default_values:
-                try:
+            try:
+                for key in default_values:
                     st.session_state[key] = float(new_values[key])
-                except ValueError:
-                    st.warning(f"{key} 값이 유효하지 않습니다. 숫자만 입력하세요.")
+                with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(new_values, f, ensure_ascii=False, indent=2)
+                st.success("기본값이 저장되었습니다.")
+            except Exception as e:
+                st.error(f"저장 중 오류 발생: {e}")
 
 # 탭 구성
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
