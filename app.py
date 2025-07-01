@@ -1,6 +1,12 @@
 
 import streamlit as st
 
+def format_num(num):
+    if int(num) == num:
+        return f"{int(num):,}"
+    else:
+        return f"{num:,.2f}"
+
 st.title("테스트: 기타비용 및 원가 계산식 출력")
 
 sell_price_raw = st.text_input("판매가", "")
@@ -34,7 +40,9 @@ if st.button("계산하기"):
     if sell_price is None or etc_rate is None:
         st.error("판매가와 기타비용률을 정확히 입력하세요.")
     else:
-        etc_calc = f"({sell_price} × {etc_rate} ÷ 100) × 1.1"
+        sell_price_str = format_num(sell_price)
+        etc_rate_str = format_num(etc_rate)
+        etc_calc = f"({sell_price_str} × {etc_rate_str} ÷ 100) × 1.1"
         etc = round(sell_price * etc_rate / 100 * 1.1)
         st.write(f"기타비용 계산식: {etc_calc} = {etc:,}원")
         st.write(f"원가: {cost_display}")
