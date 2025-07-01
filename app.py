@@ -107,7 +107,7 @@ with tab1:
                 st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가액 × 100)")
                 st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
             else:
-                st.markdown("💡 왼쪽에 값을 입력하고 **계산하기** 버튼을 누르면 결과가 여기에 표시됩니다.")
+                st.empty()
     
             # 원가 계산
             if unit_yuan:
