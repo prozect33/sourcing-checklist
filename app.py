@@ -61,36 +61,34 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-        sell_price_raw = st.text_input("판매가", value="")
-        try:
-            sell_price = int(float(sell_price_raw)) if sell_price_raw else None
-        except:
-            sell_price = None
-
+        sell_price = st.number_input("판매가", value=20000)
         col1, col2 = st.columns(2)
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value="")
         with col2:
             unit_won = st.text_input("원화 (₩)", value="")
-
-        qty_raw = st.text_input("수량", value="")
-        try:
-            qty = int(float(qty_raw)) if qty_raw else None
-        except:
-            qty = None
-
+        qty = st.number_input("수량", value=1, min_value=1)
         result = st.button("계산하기")
 
     with right:
         if result:
-            if sell_price is None or qty is None:
-                st.warning("판매가와 수량을 정확히 입력해주세요.")
-                st.stop()
-
+            
+            # 원가 계산
             try:
-                unit_cost = round(float(unit_yuan) * float(config["EXCHANGE_RATE"])) if unit_yuan else round(float(unit_won)) if unit_won else 0
+                if unit_yuan:
+                    unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
+                    cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
+                elif unit_won:
+                    unit_cost_val = round(float(unit_won))
+                    cost_display = f"{unit_cost_val:,}원 (원화 입력)"
+                else:
+                    unit_cost_val = 0
+                    cost_display = "0원"
+                unit_cost = unit_cost_val
             except:
                 unit_cost = 0
+                cost_display = "0원"
+    
 
             fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
             ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
@@ -99,16 +97,17 @@ with tab1:
             restock = round(float(config["RESTOCK_COST"]) * 1.1)
             return_rate = float(config["RETURN_RATE"])
             return_cost = round((pickup + restock) * return_rate)
-            etc = round(sell_price * float(config["ETC_RATE"]) / 100)
+            etc = round(sell_price * float(config["ETC_RATE"]) / 100 * 1.1)
             total_cost = round(unit_cost + fee + ad + inout + return_cost + etc)
             profit = sell_price - total_cost
             supply_price = sell_price / 1.1
             margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
             roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
 
+            # 결과 출력
             st.markdown("### 📊 계산 결과")
-            st.write(f"**판매가:** {sell_price:,}원")
-            st.write(f"**원가:** {unit_cost:,}원")
+            st.write(f"**판매가:** {int(sell_price):,}원")
+            st.write(f"**원가:** {int(unit_cost):,}원")
             st.write(f"**수수료:** {fee:,}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
             st.write(f"**광고비:** {ad:,}원 (판매가 × {config['AD_RATE']}% × 1.1)")
             st.write(f"**입출고비용:** {inout:,}원 ({config['INOUT_COST']} × 1.1)")
