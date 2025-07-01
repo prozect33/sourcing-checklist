@@ -75,7 +75,6 @@ with tab1:
         
         result = st.button("계산하기")
         with right:
-            st.subheader("📊 계산 결과")
             if result:
                 # 원가 계산
                 if unit_yuan:
@@ -134,7 +133,6 @@ with tab1:
             roi = (profit / unit_cost) * 100 if unit_cost != 0 else 0
 
             with right:
-                st.subheader("📊 계산 결과")
                 st.write(f"**공급가액:** {int(supply_price):,}원 (판매가 ÷ 1.1)")
                 st.write(f"**총비용:** {int(total_cost):,}원 (원가 + 수수료 + 광고비 + 입출고비 + 반품비 + 기타)")
                 st.write(f"**이익:** {int(profit):,}원 (판매가 - 총비용)")
