@@ -16,47 +16,41 @@ default_values = {
     "위안화 환율": 350
 }
 
-# 정수 항목 정의
 int_keys = ["입출고비용 (원)", "회수비용 (원)", "재입고비용 (원)", "위안화 환율"]
 float_keys = [k for k in default_values if k not in int_keys]
 
-# 설정 파일 불러오기
+# 설정값 불러오기
 if os.path.exists(SETTINGS_FILE):
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             loaded_values = json.load(f)
             for k, v in loaded_values.items():
                 if k in int_keys:
-                    default_values[k] = int(float(v))  # fix: float() 먼저
+                    default_values[k] = int(float(v))
                 else:
                     default_values[k] = float(v)
     except Exception as e:
         st.error(f"설정값 불러오기 실패: {e}")
 
-# 세션 상태 초기화
-for key, value in default_values.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
-
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 설정값 탭
+# 설정값 입력
 with st.sidebar:
     st.header("⚙️ 설정값")
     with st.form("settings_form"):
         new_values = {}
         for key in default_values:
-            new_values[key] = st.text_input(key, value=str(int(st.session_state[key]) if key in int_keys else st.session_state[key]))
+            new_values[key] = st.text_input(key, value=str(int(default_values[key]) if key in int_keys else default_values[key]))
         submitted = st.form_submit_button("기본값으로 저장")
         if submitted:
             try:
                 for key in default_values:
                     if key in int_keys:
-                        st.session_state[key] = int(float(new_values[key]))
+                        default_values[key] = int(float(new_values[key]))
                     else:
-                        st.session_state[key] = float(new_values[key])
+                        default_values[key] = float(new_values[key])
                 with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                    json.dump({k: int(st.session_state[k]) if k in int_keys else st.session_state[k] for k in default_values}, f, ensure_ascii=False, indent=2)
+                    json.dump({k: int(default_values[k]) if k in int_keys else default_values[k] for k in default_values}, f, ensure_ascii=False, indent=2)
                 st.success("기본값이 저장되었습니다.")
             except Exception as e:
                 st.error(f"저장 중 오류 발생: {e}")
@@ -85,20 +79,30 @@ with tab1:
         quantity = st.number_input("수량", min_value=1, value=1, step=1)
 
         if st.button("계산하기"):
+            # 최신 설정값 반영
+            current_settings = {}
+            for key in default_values:
+                input_value = new_values.get(key, str(default_values[key]))
+                try:
+                    current_settings[key] = int(float(input_value)) if key in int_keys else float(input_value)
+                except:
+                    st.error(f"'{key}' 항목의 입력이 잘못되었습니다.")
+                    st.stop()
+
             if krw_price:
                 unit_cost = int(krw_price.replace(",", "").strip())
             elif cny_price:
-                unit_cost = int(float(cny_price.strip()) * st.session_state["위안화 환율"])
+                unit_cost = int(float(cny_price.strip()) * current_settings["위안화 환율"])
             else:
                 st.error("단가를 입력해주세요.")
                 st.stop()
 
             total_cost_price = unit_cost * quantity
-            fee = round(selling_price * st.session_state["수수료율 (%)"] / 100)
-            ad_fee = round(selling_price * st.session_state["광고비율 (%)"] / 100)
-            inout_cost = round(st.session_state["입출고비용 (원)"])
-            return_cost = round((st.session_state["회수비용 (원)"] + st.session_state["재입고비용 (원)"]) * st.session_state["반품률 (%)"])
-            etc_cost = round(selling_price * st.session_state["기타비용률 (%)"] / 100)
+            fee = round(selling_price * current_settings["수수료율 (%)"] / 100)
+            ad_fee = round(selling_price * current_settings["광고비율 (%)"] / 100)
+            inout_cost = round(current_settings["입출고비용 (원)"])
+            return_cost = round((current_settings["회수비용 (원)"] + current_settings["재입고비용 (원)"]) * current_settings["반품률 (%)"])
+            etc_cost = round(selling_price * current_settings["기타비용률 (%)"] / 100)
 
             total_expense = total_cost_price + fee + ad_fee + inout_cost + return_cost + etc_cost
             profit = selling_price - total_expense
