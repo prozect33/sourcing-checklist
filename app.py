@@ -72,7 +72,43 @@ with tab1:
 
         qty = st.number_input("수량", value=1, min_value=1)
 
-        if st.button("계산하기"):
+        
+        result = st.button("계산하기")
+        with right:
+            st.subheader("📊 계산 결과")
+            if result:
+                # 원가 계산
+                if unit_yuan:
+                    try:
+                        unit_cost = int(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
+                    except:
+                        unit_cost = 0
+                elif unit_won:
+                    try:
+                        unit_cost = int(float(unit_won))
+                    except:
+                        unit_cost = 0
+                else:
+                    unit_cost = 0
+
+                fee = sell_price * float(config["FEE_RATE"]) / 100
+                ad = sell_price * float(config["AD_RATE"]) / 100
+                return_cost = float(config["RETURN_RATE"]) * (float(config["PICKUP_COST"]) + float(config["RESTOCK_COST"]))
+                etc = sell_price * float(config["ETC_RATE"]) / 100
+                supply_price = sell_price / 1.1
+                total_cost = unit_cost + fee + ad + float(config["INOUT_COST"]) + return_cost + etc
+                profit = sell_price - total_cost
+                margin = (profit / supply_price) * 100 if supply_price != 0 else 0
+                roi = (profit / unit_cost) * 100 if unit_cost != 0 else 0
+
+                st.write(f"**공급가액:** {int(supply_price):,}원 (판매가 ÷ 1.1)")
+                st.write(f"**총비용:** {int(total_cost):,}원 (원가 + 수수료 + 광고비 + 입출고비 + 반품비 + 기타)")
+                st.write(f"**이익:** {int(profit):,}원 (판매가 - 총비용)")
+                st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가액 × 100)")
+                st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
+            else:
+                st.markdown("💡 왼쪽에 값을 입력하고 **계산하기** 버튼을 누르면 결과가 여기에 표시됩니다.")
+    
             # 원가 계산
             if unit_yuan:
                 try:
