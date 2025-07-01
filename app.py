@@ -79,21 +79,35 @@ with tab1:
             except:
                 unit_cost = 0
 
-            fee = sell_price * float(config["FEE_RATE"]) / 100
-            ad = sell_price * float(config["AD_RATE"]) / 100
-            return_cost = float(config["RETURN_RATE"]) * (float(config["PICKUP_COST"]) + float(config["RESTOCK_COST"]))
+            fee = sell_price * float(config["FEE_RATE"]) / 100 * 1.1
+            ad = sell_price * float(config["AD_RATE"]) / 100 * 1.1
+            inout = float(config["INOUT_COST"]) * 1.1
+            pickup = float(config["PICKUP_COST"])
+            restock = float(config["RESTOCK_COST"])
+            return_rate = float(config["RETURN_RATE"])
+            return_cost = (pickup + restock) * return_rate * 1.1
             etc = sell_price * float(config["ETC_RATE"]) / 100
-            supply_price = sell_price / 1.1
-            total_cost = unit_cost + fee + ad + float(config["INOUT_COST"]) + return_cost + etc
+            total_cost = unit_cost + fee + ad + inout + return_cost + etc
             profit = sell_price - total_cost
+            supply_price = sell_price / 1.1
             margin = (profit / supply_price) * 100 if supply_price != 0 else 0
             roi = (profit / unit_cost) * 100 if unit_cost != 0 else 0
 
             # 결과 출력
-            st.write(f"**공급가액:** {int(supply_price):,}원 (판매가 ÷ 1.1)")
-            st.write(f"**총비용:** {int(total_cost):,}원 (원가 + 수수료 + 광고비 + 입출고비 + 반품비 + 기타)")
+            st.markdown("### 📊 계산 결과")
+            st.write(f"**판매가:** {int(sell_price):,}원")
+            st.write(f"**원가:** {int(unit_cost):,}원")
+            st.write(f"**수수료:** {int(fee):,}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+            st.write(f"**광고비:** {int(ad):,}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+            st.write(f"**입출고비용:** {int(inout):,}원 ({config['INOUT_COST']} × 1.1)")
+            st.write(f"**회수비용:** {int(pickup):,}원")
+            st.write(f"**재입고비용:** {int(restock):,}원")
+            st.write(f"**반품률:** {float(return_rate) * 100:.1f}%")
+            st.write(f"**기타비용:** {int(etc):,}원 (판매가 × {config['ETC_RATE']}%)")
+            st.write(f"**총비용:** {int(total_cost):,}원 (원가 + 위 항목 합산)")
             st.write(f"**이익:** {int(profit):,}원 (판매가 - 총비용)")
-            st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가액 × 100)")
+            st.write(f"**공급가액:** {int(supply_price):,}원 (판매가 ÷ 1.1)")
+            st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가 × 100)")
             st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
 
 with tab2:
