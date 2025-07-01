@@ -1,94 +1,88 @@
 
 import streamlit as st
 
-# 기본 설정값
+# 상수 초기값
 DEFAULTS = {
-    "FEE_RATE": 10.8,
-    "AD_RATE": 20.0,
-    "BASE_INOUT_COST": 3000,
-    "BASE_PICKUP_COST": 1500,
-    "BASE_RESTOCK_COST": 500,
-    "RETURN_RATE": 10.0,
-    "ETC_COST_RATE": 2.0,
-    "EXCHANGE_RATE": 350
+    "수수료율(%)": 10.8,
+    "광고비율(%)": 20.0,
+    "기타비용(%)": 2.0,
+    "입출고비(원)": 3000,
+    "반품 회수비(원)": 1500,
+    "재입고비(원)": 500,
+    "반품율(%)": 10.0,
+    "환율(1위안 = 원)": 350,
 }
 
-# 세션 상태 초기화
-if "settings" not in st.session_state:
-    st.session_state["settings"] = DEFAULTS.copy()
+# 세션 상태에 저장된 값 불러오기 또는 초기화
+for key, val in DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
 
-# 저장 함수
-def save_defaults():
-    for key in DEFAULTS:
-        st.session_state["settings"][key] = st.session_state.get(key, DEFAULTS[key])
-    st.success("✅ 설정값이 저장되었습니다.")
+st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 탭 전환
-tab = st.radio("페이지 선택", ["간단 마진 계산기", "세부 마진 계산기"], horizontal=True,
-               label_visibility="collapsed")
+# 탭 선택
+tab1, tab2 = st.columns([1, 8])
+with tab1:
+    tab_selection = st.radio("페이지 선택", ["간단 마진 계산기", "세부 마진 계산기"], horizontal=True, label_visibility="collapsed")
+st.markdown("## ")
 
-# 설정값 사이드바
-with st.sidebar:
-    st.subheader("⚙️ 설정값")
-    st.number_input("수수료율 (%)", key="FEE_RATE", value=st.session_state["settings"]["FEE_RATE"])
-    st.number_input("광고비율 (%)", key="AD_RATE", value=st.session_state["settings"]["AD_RATE"])
-    st.number_input("기타비용 (% 판매가 대비)", key="ETC_COST_RATE", value=st.session_state["settings"]["ETC_COST_RATE"])
-    st.number_input("입출고비 (원)", key="BASE_INOUT_COST", value=st.session_state["settings"]["BASE_INOUT_COST"])
-    st.number_input("반품 회수비 (원)", key="BASE_PICKUP_COST", value=st.session_state["settings"]["BASE_PICKUP_COST"])
-    st.number_input("재입고비 (원)", key="BASE_RESTOCK_COST", value=st.session_state["settings"]["BASE_RESTOCK_COST"])
-    st.number_input("반품율 (%)", key="RETURN_RATE", value=st.session_state["settings"]["RETURN_RATE"])
-    st.number_input("환율 (1위안 = 원)", key="EXCHANGE_RATE", value=st.session_state["settings"]["EXCHANGE_RATE"])
-    st.button("💾 기본값으로 저장", on_click=save_defaults)
+if tab_selection == "간단 마진 계산기":
+    # 왼쪽 설정값 입력
+    with st.sidebar:
+        st.markdown("### ⚙️ 설정값")
+        for key in DEFAULTS:
+            st.session_state[key] = st.number_input(key, value=st.session_state[key], key=key)
 
-if tab == "간단 마진 계산기":
-    st.markdown("<h2 style='text-align: center;'>📦 간단 마진 계산기</h2>", unsafe_allow_html=True)
+        if st.button("📄 기본값으로 저장"):
+            for key in DEFAULTS:
+                DEFAULTS[key] = st.session_state[key]
 
-    _, center, _ = st.columns([1, 2, 1])
-    with center:
+    # 중앙 입력 폼
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown("#### **📦 간단 마진 계산기**")
         st.markdown("#### 판매가")
-        price_input = st.text_input("판매가", key="price", label_visibility="collapsed")
+        selling_price_input = st.text_input("판매가", value="", key="selling_price", label_visibility="collapsed")
 
         st.markdown("#### 단가")
-        col_yuan, col_won = st.columns(2)
-        with col_yuan:
-            yuan_price = st.text_input("위안화 (¥)", key="cny_price")
-        with col_won:
-            won_price = st.text_input("원화 (₩)", key="krw_price")
+        cny, krw = st.columns(2)
+        with cny:
+            st.markdown("###### 위안화 (¥)")
+            cost_cny_input = st.text_input("위안화", value="", key="cny_input", label_visibility="collapsed")
+        with krw:
+            st.markdown("###### 원화 (₩)")
+            cost_krw_input = st.text_input("원화", value="", key="krw_input", label_visibility="collapsed")
 
         st.markdown("#### 수량")
-        quantity = st.text_input("수량", key="qty", value="1")
+        quantity_input = st.text_input("수량", value="1", key="quantity", label_visibility="collapsed")
 
-        calculate_button = st.button("계산하기")
+        if st.button("계산하기"):
+            try:
+                selling_price = int(selling_price_input.replace(",", "").strip())
+                quantity = int(quantity_input.replace(",", "").strip())
+                if cost_krw_input.strip():
+                    unit_cost = int(cost_krw_input.replace(",", "").strip())
+                elif cost_cny_input.strip():
+                    unit_cost = float(cost_cny_input.replace(",", "").strip()) * st.session_state["환율(1위안 = 원)"]
+                else:
+                    st.error("단가를 입력하세요.")
+                    st.stop()
 
-    if calculate_button:
-        try:
-            selling_price = int(price_input.replace(",", "").strip())
-            quantity = int(quantity.strip())
+                cost = round(unit_cost * quantity)
+                fee = round((selling_price * st.session_state["수수료율(%)"] * 1.1) / 100)
+                ad_fee = round((selling_price * st.session_state["광고비율(%)"] * 1.1) / 100)
+                inout_cost = round(st.session_state["입출고비(원)"] * 1.1)
+                return_cost = round((st.session_state["반품 회수비(원)"] + st.session_state["재입고비(원)"])
+                                    * st.session_state["반품율(%)"] / 100 * 1.1)
+                etc_cost = round(selling_price * st.session_state["기타비용(%)"] / 100)
+                total_cost = round(cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
+                profit = selling_price - total_cost
+                supply_price = selling_price / 1.1
+                margin_rate = round((profit / supply_price) * 100, 2)
+                roi = round((profit / cost) * 100, 2)
+                roi_ratio = round((profit / cost) + 1, 1)
 
-            if won_price.strip():
-                cost = int(won_price.replace(",", "").strip()) * quantity
-            elif yuan_price.strip():
-                cost = int(float(yuan_price.strip()) * st.session_state["settings"]["EXCHANGE_RATE"]) * quantity
-            else:
-                st.error("단가를 입력하세요.")
-                st.stop()
-
-            fee = round((selling_price * st.session_state["settings"]["FEE_RATE"] * 1.1) / 100)
-            ad_fee = round((selling_price * st.session_state["settings"]["AD_RATE"] * 1.1) / 100)
-            inout_cost = round(st.session_state["settings"]["BASE_INOUT_COST"] * 1.1)
-            return_cost = round((st.session_state["settings"]["BASE_PICKUP_COST"] +
-                                 st.session_state["settings"]["BASE_RESTOCK_COST"]) *
-                                 (st.session_state["settings"]["RETURN_RATE"] / 100) * 1.1)
-            etc_cost = round(selling_price * st.session_state["settings"]["ETC_COST_RATE"] / 100)
-
-            total_cost = round(cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
-            profit = selling_price - total_cost
-            supply_price = selling_price / 1.1
-            margin_rate = round((profit / supply_price) * 100, 2)
-            roi = round((profit / cost) * 100, 2)
-            roi_ratio = round((profit / cost) + 1, 1)
-
-            with center:
+                st.markdown("---")
                 st.markdown(f"**수수료:** {fee:,} 원")
                 st.markdown(f"**광고비:** {ad_fee:,} 원")
                 st.markdown(f"**입출고비용:** {inout_cost:,} 원")
@@ -98,6 +92,5 @@ if tab == "간단 마진 계산기":
                 st.markdown(f"**이익:** {profit:,} 원")
                 st.markdown(f"**마진율:** {margin_rate:.2f}%")
                 st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
-
-        except Exception as e:
-            st.error("입력값 오류 또는 계산 중 문제 발생")
+            except ValueError:
+                st.error("입력값에 숫자만 사용하세요.")
