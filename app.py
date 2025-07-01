@@ -27,7 +27,7 @@ if os.path.exists(SETTINGS_FILE):
             loaded_values = json.load(f)
             for k, v in loaded_values.items():
                 if k in int_keys:
-                    default_values[k] = int(v)
+                    default_values[k] = int(float(v))  # fix: float() 먼저
                 else:
                     default_values[k] = float(v)
     except Exception as e:
