@@ -61,17 +61,34 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-        sell_price = st.text_input("판매가", value="")
+        
+sell_price_raw = st.text_input("판매가", value="")
+try:
+    sell_price = int(float(sell_price_raw)) if sell_price_raw else None
+except:
+    sell_price = None
+
         col1, col2 = st.columns(2)
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value="")
         with col2:
             unit_won = st.text_input("원화 (₩)", value="")
-        qty = st.text_input("수량", value="")
+        
+qty_raw = st.text_input("수량", value="")
+try:
+    qty = int(float(qty_raw)) if qty_raw else None
+except:
+    qty = None
+
         result = st.button("계산하기")
 
     with right:
-        if result:
+        
+if result:
+    if sell_price is None or qty is None:
+        st.warning("판매가와 수량을 정확히 입력해주세요.")
+        st.stop()
+
             # 원가 계산
             try:
                 unit_cost = round(float(unit_yuan) * float(config["EXCHANGE_RATE"])) if unit_yuan else round(float(unit_won)) if unit_won else 0
