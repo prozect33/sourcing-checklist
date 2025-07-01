@@ -18,7 +18,6 @@ default_config = {
     "EXCHANGE_RATE": 350
 }
 
-# --- 설정 불러오기/저장 ---
 def load_config():
     if os.path.exists(DEFAULT_CONFIG_FILE):
         try:
@@ -75,38 +74,38 @@ with tab1:
         if result:
             # 원가 계산
             try:
-                unit_cost = int(float(unit_yuan) * float(config["EXCHANGE_RATE"])) if unit_yuan else int(float(unit_won)) if unit_won else 0
+                unit_cost = round(float(unit_yuan) * float(config["EXCHANGE_RATE"])) if unit_yuan else round(float(unit_won)) if unit_won else 0
             except:
                 unit_cost = 0
 
-            fee = sell_price * float(config["FEE_RATE"]) / 100 * 1.1
-            ad = sell_price * float(config["AD_RATE"]) / 100 * 1.1
-            inout = float(config["INOUT_COST"]) * 1.1
-            pickup = float(config["PICKUP_COST"])
-            restock = float(config["RESTOCK_COST"])
+            fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
+            ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
+            inout = round(float(config["INOUT_COST"]) * 1.1)
+            pickup = round(float(config["PICKUP_COST"]) * 1.1)
+            restock = round(float(config["RESTOCK_COST"]) * 1.1)
             return_rate = float(config["RETURN_RATE"])
-            return_cost = (pickup + restock) * return_rate * 1.1
-            etc = sell_price * float(config["ETC_RATE"]) / 100
-            total_cost = unit_cost + fee + ad + inout + return_cost + etc
+            return_cost = round((pickup + restock) * return_rate)
+            etc = round(sell_price * float(config["ETC_RATE"]) / 100)
+            total_cost = round(unit_cost + fee + ad + inout + return_cost + etc)
             profit = sell_price - total_cost
             supply_price = sell_price / 1.1
-            margin = (profit / supply_price) * 100 if supply_price != 0 else 0
-            roi = (profit / unit_cost) * 100 if unit_cost != 0 else 0
+            margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
+            roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
 
             # 결과 출력
             st.markdown("### 📊 계산 결과")
             st.write(f"**판매가:** {int(sell_price):,}원")
             st.write(f"**원가:** {int(unit_cost):,}원")
-            st.write(f"**수수료:** {int(fee):,}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
-            st.write(f"**광고비:** {int(ad):,}원 (판매가 × {config['AD_RATE']}% × 1.1)")
-            st.write(f"**입출고비용:** {int(inout):,}원 ({config['INOUT_COST']} × 1.1)")
-            st.write(f"**회수비용:** {int(pickup):,}원")
-            st.write(f"**재입고비용:** {int(restock):,}원")
+            st.write(f"**수수료:** {fee:,}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+            st.write(f"**광고비:** {ad:,}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+            st.write(f"**입출고비용:** {inout:,}원 ({config['INOUT_COST']} × 1.1)")
+            st.write(f"**회수비용:** {pickup:,}원 ({config['PICKUP_COST']} × 1.1)")
+            st.write(f"**재입고비용:** {restock:,}원 ({config['RESTOCK_COST']} × 1.1)")
             st.write(f"**반품률:** {float(return_rate) * 100:.1f}%")
-            st.write(f"**기타비용:** {int(etc):,}원 (판매가 × {config['ETC_RATE']}%)")
-            st.write(f"**총비용:** {int(total_cost):,}원 (원가 + 위 항목 합산)")
-            st.write(f"**이익:** {int(profit):,}원 (판매가 - 총비용)")
-            st.write(f"**공급가액:** {int(supply_price):,}원 (판매가 ÷ 1.1)")
+            st.write(f"**기타비용:** {etc:,}원 (판매가 × {config['ETC_RATE']}%)")
+            st.write(f"**총비용:** {total_cost:,}원 (원가 + 위 항목 합산)")
+            st.write(f"**이익:** {profit:,}원 (판매가 - 총비용)")
+            st.write(f"**공급가액:** {round(supply_price):,}원 (판매가 ÷ 1.1)")
             st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가 × 100)")
             st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
 
