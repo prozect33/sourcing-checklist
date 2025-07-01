@@ -31,7 +31,20 @@ if os.path.exists(SETTINGS_FILE):
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 설정값 입력 (form 없이 실시간 적용)
+# 스타일 커스터마이징 - 탭 텍스트 크기 조정
+st.markdown(
+    """
+    <style>
+    .stTabs [data-baseweb="tab"] button {
+        font-size: 18px !important;
+        font-weight: 600 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# 설정값 입력
 with st.sidebar:
     st.header("⚙️ 설정값")
     current_settings = {}
@@ -51,7 +64,7 @@ with st.sidebar:
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
 
-# st.tabs 복구 (글씨 색상 강조로 탭 표시, 큰 제목 제거)
+# 탭 구성
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
