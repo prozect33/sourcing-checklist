@@ -33,14 +33,6 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 # 스타일 커스터마이징 - 탭 텍스트 크기 조정
 st.markdown(
-    """
-    <style>
-    .stTabs [data-baseweb="tab"] button {
-        font-size: 18px !important;
-        font-weight: 600 !important;
-    }
-    </style>
-    """,
     unsafe_allow_html=True
 )
 
