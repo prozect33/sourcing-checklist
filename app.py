@@ -32,7 +32,6 @@ if os.path.exists(SETTINGS_FILE):
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 # 스타일 커스터마이징 - 탭 텍스트 크기 조정
-)
 
 # 설정값 입력
 with st.sidebar:
