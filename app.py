@@ -19,14 +19,17 @@ left, center, right = st.columns([1, 1.5, 1])
 
 with left:
     st.markdown("### ⚙️ 설정값")
-    fee_rate = float(st.text_input("수수료율 (%)", value=str(defaults["fee_rate"]), key="fee_rate_input", max_chars=6))
-    ad_rate = float(st.text_input("광고비율 (%)", value=str(defaults["ad_rate"]), key="ad_rate_input", max_chars=6))
-    etc_rate = float(st.text_input("기타비용 (% 판매가 대비)", value=str(defaults["etc_rate"]), key="etc_rate_input", max_chars=6))
-    inout_cost = int(st.text_input("입출고비 (원)", value=str(defaults["inout_cost"]), key="inout_cost_input", max_chars=8))
-    pickup_cost = int(st.text_input("반품 회수비 (원)", value=str(defaults["pickup_cost"]), key="pickup_cost_input", max_chars=8))
-    restock_cost = int(st.text_input("재입고비 (원)", value=str(defaults["restock_cost"]), key="restock_cost_input", max_chars=8))
-    return_rate = float(st.text_input("반품율 (%)", value=str(defaults["return_rate"]), key="return_rate_input", max_chars=6))
-    exchange_rate = int(st.text_input("환율 (1위안 = 원)", value=str(defaults["exchange_rate"]), key="exchange_rate_input", max_chars=8))
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        fee_rate = float(st.text_input("수수료율 (%)", value=str(defaults["fee_rate"]), key="fee_rate_input", max_chars=6))
+        ad_rate = float(st.text_input("광고비율 (%)", value=str(defaults["ad_rate"]), key="ad_rate_input", max_chars=6))
+        etc_rate = float(st.text_input("기타비용 (% 판매가 대비)", value=str(defaults["etc_rate"]), key="etc_rate_input", max_chars=6))
+        inout_cost = int(st.text_input("입출고비 (원)", value=str(defaults["inout_cost"]), key="inout_cost_input", max_chars=8))
+    with col2:
+        pickup_cost = int(st.text_input("반품 회수비 (원)", value=str(defaults["pickup_cost"]), key="pickup_cost_input", max_chars=8))
+        restock_cost = int(st.text_input("재입고비 (원)", value=str(defaults["restock_cost"]), key="restock_cost_input", max_chars=8))
+        return_rate = float(st.text_input("반품율 (%)", value=str(defaults["return_rate"]), key="return_rate_input", max_chars=6))
+        exchange_rate = int(st.text_input("환율 (1위안 = 원)", value=str(defaults["exchange_rate"]), key="exchange_rate_input", max_chars=8))
 
     if st.button("💾 기본값으로 저장"):
         st.session_state.custom_defaults = {
@@ -47,7 +50,7 @@ with center:
     selling_price_input = st.text_input("판매가", value="20000", label_visibility="collapsed", key="price_input")
 
     st.markdown("#### **원가**")
-    col_yuan, col_won = st.columns([1, 1])
+    col_yuan, spacer, col_won = st.columns([1, 0.5, 1])
     with col_yuan:
         st.markdown("###### 위안화 (¥)")
         cost_cny_input = st.text_input("위안화 입력", value="", label_visibility="collapsed", key="cny_input")
