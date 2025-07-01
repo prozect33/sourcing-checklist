@@ -76,12 +76,7 @@ with tab1:
         except:
             qty = None
 
-        calc_col1, spacer, calc_col2 = st.columns([1, 8, 1])
-        with calc_col1:
-            result = st.button("계산하기")
-        with calc_col2:
-            if st.button("새로고침"):
-                st.experimental_rerun()
+        result = st.button("계산하기")
 
     with right:
         if result:
