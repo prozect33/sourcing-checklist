@@ -31,7 +31,7 @@ if os.path.exists(SETTINGS_FILE):
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# 설정값 입력
+# 설정값 입력 (왼쪽 사이드바)
 with st.sidebar:
     st.header("⚙️ 설정값")
     current_settings = {}
@@ -51,10 +51,10 @@ with st.sidebar:
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
 
-# 탭 구성
-tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
+# 탭 대체: 라디오 버튼으로 현재 탭 상태 관리
+selected_tab = st.radio("", ["간단 마진 계산기", "세부 마진 계산기"], horizontal=True)
 
-with tab1:
+if selected_tab == "간단 마진 계산기":
     st.markdown("## 간단 마진 계산기")
 
     _, center, _ = st.columns([1, 2, 1])
@@ -107,6 +107,6 @@ with tab1:
             st.markdown(f"**마진율:** {margin_rate:.2f}%")
             st.markdown(f"**ROI:** {roi:.2f}% ({roi_ratio}배 수익)")
 
-with tab2:
+elif selected_tab == "세부 마진 계산기":
     st.markdown("## 세부 마진 계산기")
     st.info("세부 마진 계산기는 아직 구현되지 않았습니다.")
