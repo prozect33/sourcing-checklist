@@ -131,6 +131,11 @@ with tab1:
             st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
 
         # 결과 출력이 없는 경우에도 리셋 가능하게
+        
+if st.session_state.get("reset_triggered", False):
+            st.session_state["reset_triggered"] = False
+", unsafe_allow_html=True)
+        # 결과 출력이 없는 경우에도 리셋 가능하게
         st.markdown("<div style='text-align:right;'>", unsafe_allow_html=True)
         if st.button("리셋"):
             st.session_state["sell_price_raw"] = ""
@@ -139,6 +144,3 @@ with tab1:
             st.session_state["qty_raw"] = ""
             st.session_state["reset_triggered"] = True
         st.markdown("</div>", unsafe_allow_html=True)
-if st.session_state.get("reset_triggered", False):
-            st.session_state["reset_triggered"] = False
-", unsafe_allow_html=True)
