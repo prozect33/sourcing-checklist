@@ -34,6 +34,11 @@ def save_config(config):
 
 config = load_config()
 
+def reset_config():
+    save_config(default_config)
+    st.session_state.update(default_config)
+    st.sidebar.success("기본값으로 되돌렸습니다.")
+
 st.sidebar.header("🛠️ 설정값")
 for key, label in [
     ("FEE_RATE", "수수료율 (%)"),
@@ -47,9 +52,14 @@ for key, label in [
 ]:
     config[key] = st.sidebar.text_input(label, value=str(config[key]), key=key)
 
-if st.sidebar.button("💾 기본값으로 저장"):
-    save_config(config)
-    st.sidebar.success("기본값이 저장되었습니다.")
+col1, col2 = st.sidebar.columns([1, 1])
+with col1:
+    if st.button("💾 기본값으로 저장", key="save_btn"):
+        save_config(config)
+        st.sidebar.success("기본값이 저장되었습니다.")
+with col2:
+    if st.button("🔄 리셋하기", key="reset_sidebar"):
+        reset_config()
 
 # 콜백으로 리셋 처리
 def reset_inputs():
@@ -79,7 +89,7 @@ with tab1:
         with col_calc:
             result = st.button("계산하기")
         with col_reset:
-            st.button("리셋", on_click=reset_inputs, key="reset_button")
+            st.button("리셋하기", on_click=reset_inputs, key="reset_button")
 
     with right:
         if 'result' in locals() and result:
