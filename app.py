@@ -134,7 +134,6 @@ with tab1:
         
 if st.session_state.get("reset_triggered", False):
             st.session_state["reset_triggered"] = False
-", unsafe_allow_html=True)
         # 결과 출력이 없는 경우에도 리셋 가능하게
                 if st.button("리셋"):
             st.session_state["sell_price_raw"] = ""
