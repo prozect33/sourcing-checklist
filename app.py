@@ -80,7 +80,7 @@ with tab1:
 
     
     with right:
-        if result and not st.session_state.get("reset_triggered", False):
+            if result and not st.session_state.get("reset_triggered", False):
             if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
                 st.stop()
@@ -132,10 +132,10 @@ with tab1:
 
         # 결과 출력이 없는 경우에도 리셋 가능하게
         
-if st.session_state.get("reset_triggered", False):
+            if st.session_state.get("reset_triggered", False):
             st.session_state["reset_triggered"] = False
         # 결과 출력이 없는 경우에도 리셋 가능하게
-                if st.button("리셋"):
+        if st.button("리셋"):
             st.session_state["sell_price_raw"] = ""
             st.session_state["unit_yuan"] = ""
             st.session_state["unit_won"] = ""
