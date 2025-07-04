@@ -58,28 +58,42 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-        sell_price_raw = st.text_input("판매가", value="")
+
+        if "reset_triggered" not in st.session_state:
+            st.session_state.reset_triggered = False
+
+        if st.session_state.reset_triggered:
+            sell_price_raw = st.text_input("판매가", value="", key="sell_price_reset")
+            unit_yuan = st.text_input("위안화 (¥)", value="", key="yuan_reset")
+            unit_won = st.text_input("원화 (₩)", value="", key="won_reset")
+            qty_raw = st.text_input("수량", value="", key="qty_reset")
+        else:
+            sell_price_raw = st.text_input("판매가", value="")
+            unit_yuan = st.text_input("위안화 (¥)", value="")
+            unit_won = st.text_input("원화 (₩)", value="")
+            qty_raw = st.text_input("수량", value="")
+
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            result = st.button("계산하기")
+        with col_btn2:
+            if st.button("리셋"):
+                st.session_state.reset_triggered = True
+                st.experimental_rerun()
+
         try:
             sell_price = int(float(sell_price_raw)) if sell_price_raw else None
         except:
             sell_price = None
-
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            unit_yuan = st.text_input("위안화 (¥)", value="")
-        with col2:
-            unit_won = st.text_input("원화 (₩)", value="")
-
-        qty_raw = st.text_input("수량", value="")
         try:
             qty = int(float(qty_raw)) if qty_raw else None
         except:
             qty = None
 
-        result = st.button("계산하기")
-
     with right:
-        if result:
+        if result and not st.session_state.reset_triggered:
+            st.session_state.reset_triggered = False
+
             if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
                 st.stop()
