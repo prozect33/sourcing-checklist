@@ -17,24 +17,6 @@ default_config = {
     "EXCHANGE_RATE": 350
 }
 
-def load_config():
-    if os.path.exists(DEFAULT_CONFIG_FILE):
-        try:
-            with open(DEFAULT_CONFIG_FILE, "r") as f:
-                data = json.load(f)
-                return {k: int(float(v)) if isinstance(v, str) and v.replace(".", "", 1).isdigit() else v for k, v in data.items()}
-        except:
-            return default_config
-    else:
-        return default_config
-
-def save_config(config):
-    with open(DEFAULT_CONFIG_FILE, "w") as f:
-        json.dump(config, f)
-
-config = load_config()
-
-st.sidebar.header("🛠️ 설정값")
 setting_keys = [
     ("FEE_RATE", "수수료율 (%)"),
     ("AD_RATE", "광고비율 (%)"),
@@ -46,28 +28,65 @@ setting_keys = [
     ("EXCHANGE_RATE", "위안화 환율")
 ]
 
-for key, label in setting_keys:
-    config[key] = st.sidebar.text_input(label, value=str(config[key]), key=key)
+def load_config():
+    if os.path.exists(DEFAULT_CONFIG_FILE):
+        try:
+            with open(DEFAULT_CONFIG_FILE, "r") as f:
+                data = json.load(f)
+                return {k: float(v) if isinstance(v, str) and v.replace(".", "", 1).isdigit() else v for k, v in data.items()}
+        except:
+            return default_config
+    else:
+        return default_config
 
-save_clicked = st.sidebar.button("💾 기본값으로 저장", key="save_btn")
-reset_clicked = st.sidebar.button("🔄 리셋하기", key="reset_sidebar")
+def save_config(config):
+    with open(DEFAULT_CONFIG_FILE, "w") as f:
+        json.dump(config, f)
 
-if save_clicked:
+# 미리 세션 상태 초기화
+def initialize_session_state():
+    for key, _ in setting_keys:
+        if key not in st.session_state:
+            st.session_state[key] = str(default_config[key])
+    for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
+        if key not in st.session_state:
+            st.session_state[key] = ""
+
+initialize_session_state()
+
+# 리셋 함수
+def reset_config():
+    for key, _ in setting_keys:
+        st.session_state[key] = str(default_config[key])
+    save_config(default_config)
+
+# 입력 리셋 함수
+def reset_inputs():
+    for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
+        st.session_state[key] = ""
+
+# 사이드바 설정 입력
+st.sidebar.header("🛠️ 설정값")
+
+with st.sidebar.form("settings_form"):
+    for key, label in setting_keys:
+        st.text_input(label, key=key)
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        save_btn = st.form_submit_button("💾 기본값으로 저장")
+    with col2:
+        reset_btn = st.form_submit_button("🔄 리셋하기")
+
+if save_btn:
+    config = {k: st.session_state[k] for k, _ in setting_keys}
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
-if reset_clicked:
-    for key, _ in setting_keys:
-        if key in st.session_state:
-            st.session_state[key] = str(default_config[key])
-    save_config(default_config)
+if reset_btn:
+    reset_config()
     st.sidebar.success("기본값으로 되돌렸습니다.")
 
-def reset_inputs():
-    for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
-        if key in st.session_state:
-            st.session_state[key] = ""
-
+# 탭 구성
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
@@ -75,40 +94,40 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-
-        sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
+        st.text_input("판매가", key="sell_price_raw")
 
         col1, col2 = st.columns([1, 1])
         with col1:
-            unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
+            st.text_input("위안화 (¥)", key="unit_yuan")
         with col2:
-            unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
+            st.text_input("원화 (₩)", key="unit_won")
 
-        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", ""), key="qty_raw")
+        st.text_input("수량", key="qty_raw")
 
         col_calc, col_reset = st.columns([1, 1])
         with col_calc:
-            result = st.button("계산하기")
+            calculate = st.button("계산하기", key="calc_button")
         with col_reset:
-            st.button("리셋하기", on_click=reset_inputs, key="reset_button")
+            st.button("리셋하기", on_click=reset_inputs, key="reset_input_button")
 
     with right:
-        if 'result' in locals() and result:
+        if calculate:
             try:
-                sell_price = int(float(sell_price_raw)) if sell_price_raw else None
-                qty = int(float(qty_raw)) if qty_raw else None
+                sell_price = int(float(st.session_state["sell_price_raw"])) if st.session_state["sell_price_raw"] else None
+                qty = int(float(st.session_state["qty_raw"])) if st.session_state["qty_raw"] else None
             except:
                 sell_price, qty = None, None
 
             if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
             else:
+                config = load_config()
                 try:
-                    if unit_yuan:
-                        unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
-                        cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
-                    elif unit_won:
-                        unit_cost_val = round(float(unit_won))
+                    if st.session_state["unit_yuan"]:
+                        unit_cost_val = round(float(st.session_state["unit_yuan"]) * float(config["EXCHANGE_RATE"]))
+                        cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {st.session_state['unit_yuan']} × {config['EXCHANGE_RATE']})"
+                    elif st.session_state["unit_won"]:
+                        unit_cost_val = round(float(st.session_state["unit_won"]))
                         cost_display = f"{unit_cost_val:,}원"
                     else:
                         unit_cost_val = 0
