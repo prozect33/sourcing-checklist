@@ -136,11 +136,18 @@ if st.session_state.get("reset_triggered", False):
             st.session_state["reset_triggered"] = False
 ", unsafe_allow_html=True)
         # 결과 출력이 없는 경우에도 리셋 가능하게
-        st.markdown("<div style='text-align:right;'>", unsafe_allow_html=True)
-        if st.button("리셋"):
+                if st.button("리셋"):
             st.session_state["sell_price_raw"] = ""
             st.session_state["unit_yuan"] = ""
             st.session_state["unit_won"] = ""
             st.session_state["qty_raw"] = ""
             st.session_state["reset_triggered"] = True
-        st.markdown("</div>", unsafe_allow_html=True)
+        
+
+        # 결과 출력이 없는 경우에도 리셋 가능하게
+        if st.button("리셋", key="reset_button"):
+            st.session_state["sell_price_raw"] = ""
+            st.session_state["unit_yuan"] = ""
+            st.session_state["unit_won"] = ""
+            st.session_state["qty_raw"] = ""
+            st.session_state["reset_triggered"] = True
