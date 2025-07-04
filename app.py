@@ -34,19 +34,9 @@ def save_config(config):
 
 config = load_config()
 
-def reset_config():
-    reset_keys = [
-        "FEE_RATE", "AD_RATE", "INOUT_COST", "PICKUP_COST",
-        "RESTOCK_COST", "RETURN_RATE", "ETC_RATE", "EXCHANGE_RATE"
-    ]
-    for key in reset_keys:
-        if key in st.session_state:
-            st.session_state[key] = str(default_config[key])
-    save_config(default_config)
-    st.sidebar.success("기본값으로 되돌렸습니다.")
-
+# 설정값 입력 필드 생성
 st.sidebar.header("🛠️ 설정값")
-for key, label in [
+setting_keys = [
     ("FEE_RATE", "수수료율 (%)"),
     ("AD_RATE", "광고비율 (%)"),
     ("INOUT_COST", "입출고비용 (원)"),
@@ -55,17 +45,24 @@ for key, label in [
     ("RETURN_RATE", "반품률 (%)"),
     ("ETC_RATE", "기타비용률 (%)"),
     ("EXCHANGE_RATE", "위안화 환율")
-]:
+]
+for key, label in setting_keys:
     config[key] = st.sidebar.text_input(label, value=str(config[key]), key=key)
 
-col1, col2 = st.sidebar.columns([1, 1])
-with col1:
-    if st.button("💾 기본값으로 저장", key="save_btn"):
-        save_config(config)
-        st.sidebar.success("기본값이 저장되었습니다.")
-with col2:
-    if st.button("🔄 리셋하기", key="reset_sidebar"):
-        reset_config()
+# 버튼 클릭 여부 저장
+save_clicked = st.sidebar.button("💾 기본값으로 저장", key="save_btn")
+reset_clicked = st.sidebar.button("🔄 리셋하기", key="reset_sidebar")
+
+# 버튼 클릭 후 처리 (렌더링 이후에 실행되므로 안전)
+if save_clicked:
+    save_config(config)
+    st.sidebar.success("기본값이 저장되었습니다.")
+
+if reset_clicked:
+    for key, _ in setting_keys:
+        st.session_state[key] = str(default_config[key])
+    save_config(default_config)
+    st.sidebar.success("기본값으로 되돌렸습니다.")
 
 def reset_inputs():
     for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
