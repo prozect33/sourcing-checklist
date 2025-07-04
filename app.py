@@ -53,9 +53,6 @@ if st.sidebar.button("💾 기본값으로 저장"):
 
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
-if "reset_triggered" not in st.session_state:
-    st.session_state.reset_triggered = False
-
 with tab1:
     left, right = st.columns(2)
 
@@ -72,10 +69,18 @@ with tab1:
 
         qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", ""), key="qty_raw")
 
-        result = st.button("계산하기")
+        col_calc, col_reset = st.columns([1, 1])
+        with col_calc:
+            result = st.button("계산하기")
+        with col_reset:
+            if st.button("리셋", key="reset_button"):
+                st.session_state["sell_price_raw"] = ""
+                st.session_state["unit_yuan"] = ""
+                st.session_state["unit_won"] = ""
+                st.session_state["qty_raw"] = ""
 
     with right:
-        if result and not st.session_state.get("reset_triggered", False):
+        if 'result' in locals() and result:
             try:
                 sell_price = int(float(sell_price_raw)) if sell_price_raw else None
                 qty = int(float(qty_raw)) if qty_raw else None
@@ -129,13 +134,3 @@ with tab1:
                 st.write(f"**공급가액:** {round(supply_price):,}원 (판매가 ÷ 1.1)")
                 st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가 × 100)")
                 st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
-
-        # 항상 리셋 버튼 출력
-        if st.button("리셋"):
-            st.session_state["sell_price_raw"] = ""
-            st.session_state["unit_yuan"] = ""
-            st.session_state["unit_won"] = ""
-            st.session_state["qty_raw"] = ""
-            st.session_state["reset_triggered"] = True
-        else:
-            st.session_state["reset_triggered"] = False
