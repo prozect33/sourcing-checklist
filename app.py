@@ -138,7 +138,7 @@ with tab1:
             st.session_state["unit_won"] = ""
             st.session_state["qty_raw"] = ""
             st.session_state["reset_triggered"] = True
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        elif st.session_state.get("reset_triggered", False):
+        st.markdown("</div>
+        if st.session_state.get("reset_triggered", False):
             st.session_state["reset_triggered"] = False
+", unsafe_allow_html=True)
