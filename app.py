@@ -58,41 +58,36 @@ with tab1:
 
     with left:
         st.subheader("판매정보 입력")
-
+        # 리셋 기능용 session_state 초기화
         if "reset_triggered" not in st.session_state:
             st.session_state.reset_triggered = False
 
-        if st.session_state.reset_triggered:
-            sell_price_raw = st.text_input("판매가", value="", key="sell_price_reset")
-            unit_yuan = st.text_input("위안화 (¥)", value="", key="yuan_reset")
-            unit_won = st.text_input("원화 (₩)", value="", key="won_reset")
-            qty_raw = st.text_input("수량", value="", key="qty_reset")
-        else:
-            sell_price_raw = st.text_input("판매가", value="")
-            unit_yuan = st.text_input("위안화 (¥)", value="")
-            unit_won = st.text_input("원화 (₩)", value="")
-            qty_raw = st.text_input("수량", value="")
-
-        col_btn1, col_btn2 = st.columns([1, 1])
-        with col_btn1:
+        # 버튼 나란히 배치
+        col_calc, col_reset = st.columns([1, 1])
+        with col_calc:
             result = st.button("계산하기")
-        with col_btn2:
+        with col_reset:
             if st.button("리셋"):
-                st.session_state.reset_triggered = True
-                st.experimental_rerun()
+                st.session_state["sell_price_raw"] = ""
+                st.session_state["unit_yuan"] = ""
+                st.session_state["unit_won"] = ""
+                st.session_state["qty_raw"] = ""
+                st.session_state["reset_triggered"] = True
 
-        try:
-            sell_price = int(float(sell_price_raw)) if sell_price_raw else None
-        except:
-            sell_price = None
-        try:
-            qty = int(float(qty_raw)) if qty_raw else None
-        except:
-            qty = None
+        # 입력 필드 재구성 (session_state 기반)
+        sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
+        with col2:
+            unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
+
+        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", ""), key="qty_raw")
+
+    
     with right:
-        if result and not st.session_state.reset_triggered:
-            st.session_state.reset_triggered = False
+        if result and not st.session_state.get("reset_triggered", False):
 
             if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
@@ -142,3 +137,6 @@ with tab1:
             st.write(f"**공급가액:** {round(supply_price):,}원 (판매가 ÷ 1.1)")
             st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가 × 100)")
             st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
+
+        elif st.session_state.get("reset_triggered", False):
+            st.session_state["reset_triggered"] = False
