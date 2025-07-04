@@ -51,6 +51,12 @@ if st.sidebar.button("💾 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
+# 콜백으로 리셋 처리
+def reset_inputs():
+    for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
+        if key in st.session_state:
+            st.session_state[key] = ""
+
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
@@ -73,11 +79,7 @@ with tab1:
         with col_calc:
             result = st.button("계산하기")
         with col_reset:
-            if st.button("리셋", key="reset_button"):
-                st.session_state["sell_price_raw"] = ""
-                st.session_state["unit_yuan"] = ""
-                st.session_state["unit_won"] = ""
-                st.session_state["qty_raw"] = ""
+            st.button("리셋", on_click=reset_inputs, key="reset_button")
 
     with right:
         if 'result' in locals() and result:
