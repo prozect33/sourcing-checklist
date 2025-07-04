@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import os
@@ -58,23 +59,13 @@ with tab1:
     with left:
         st.subheader("판매정보 입력")
 
-        if 'reset_triggered' not in st.session_state:
-            st.session_state.reset_triggered = False
-
-        if st.session_state.reset_triggered:
-            sell_price_raw = ""
-            unit_yuan = ""
-            unit_won = ""
-            qty_raw = ""
-            st.session_state.reset_triggered = False
-        else:
-            sell_price_raw = st.text_input("판매가", value="")
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                unit_yuan = st.text_input("위안화 (¥)", value="")
-            with col2:
-                unit_won = st.text_input("원화 (₩)", value="")
-            qty_raw = st.text_input("수량", value="")
+        sell_price_raw = st.text_input("판매가", value="", key="판매가")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            unit_yuan = st.text_input("위안화 (¥)", value="", key="위안화 (¥)")
+        with col2:
+            unit_won = st.text_input("원화 (₩)", value="", key="원화 (₩)")
+        qty_raw = st.text_input("수량", value="", key="수량")
 
         try:
             sell_price = int(float(sell_price_raw)) if sell_price_raw else None
@@ -90,9 +81,10 @@ with tab1:
         with col_a:
             result = st.button("계산하기")
         with col_b:
-            reset = st.button("리셋하기")
-            if reset:
-                st.session_state.reset_triggered = True
+            if st.button("리셋하기"):
+                for key in ["판매가", "위안화 (¥)", "원화 (₩)", "수량"]:
+                    if key in st.session_state:
+                        del st.session_state[key]
                 st.experimental_rerun()
 
     with right:
