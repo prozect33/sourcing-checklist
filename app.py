@@ -35,8 +35,14 @@ def save_config(config):
 config = load_config()
 
 def reset_config():
+    reset_keys = [
+        "FEE_RATE", "AD_RATE", "INOUT_COST", "PICKUP_COST",
+        "RESTOCK_COST", "RETURN_RATE", "ETC_RATE", "EXCHANGE_RATE"
+    ]
+    for key in reset_keys:
+        if key in st.session_state:
+            st.session_state[key] = str(default_config[key])
     save_config(default_config)
-    st.session_state.update(default_config)
     st.sidebar.success("기본값으로 되돌렸습니다.")
 
 st.sidebar.header("🛠️ 설정값")
@@ -61,7 +67,6 @@ with col2:
     if st.button("🔄 리셋하기", key="reset_sidebar"):
         reset_config()
 
-# 콜백으로 리셋 처리
 def reset_inputs():
     for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
         if key in st.session_state:
