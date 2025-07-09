@@ -47,6 +47,10 @@ def format_input_value(val):
     return str(int(val)) if float(val).is_integer() else str(val)
 
 config = load_config()
+st.markdown("""<style>
+div[data-testid="metric-container"] > div { font-size: 18px !important; }
+div[data-testid="metric-container"] > label { font-size: 14px !important; }
+</style>""", unsafe_allow_html=True)
 
 st.sidebar.header("🛠️ 설정값")
 for key, label in [
