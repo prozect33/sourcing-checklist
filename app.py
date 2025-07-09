@@ -26,7 +26,7 @@ def load_config():
             return default_config
     else:
         return default_config
-
+    
 def save_config(config):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
         json.dump(config, f)
@@ -108,7 +108,7 @@ with tab1:
                 except:
                     unit_cost = 0
                     cost_display = "0원"
-
+    
                 fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
                 ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
                 inout = round(float(config["INOUT_COST"]) * 1.1)
@@ -122,12 +122,12 @@ with tab1:
                 supply_price = sell_price / 1.1
                 margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
-
+    
                 margin_profit = sell_price - (unit_cost + fee + inout)
                 margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
-
+    
                 st.markdown("### 📊 계산 결과")
-
+    
                 row2 = st.columns([1, 1, 1, 1, 1])
                 with row2[0]:
                     st.markdown("**마진**")
@@ -141,7 +141,7 @@ with tab1:
                     st.markdown("")
                 with row2[4]:
                     st.markdown("")
-
+    
                 row1 = st.columns([1, 1, 1, 1, 1])
                 with row1[0]:
                     st.markdown("**판매가**")
@@ -158,7 +158,7 @@ with tab1:
                 with row1[4]:
                     st.markdown("**투자수익률**")
                     st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
-
+    
                 
 row2 = st.columns([1, 1, 1, 1, 1])
 with row2[0]:
