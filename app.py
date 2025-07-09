@@ -34,6 +34,9 @@ def save_config(config):
 def format_number(val):
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
+def format_input_value(val):
+    return str(int(val)) if float(val).is_integer() else str(val)
+
 config = load_config()
 
 st.sidebar.header("🛠️ 설정값")
@@ -47,7 +50,7 @@ for key, label in [
     ("ETC_RATE", "기타비용률 (%)"),
     ("EXCHANGE_RATE", "위안화 환율")
 ]:
-    config[key] = st.sidebar.text_input(label, value=str(config[key]), key=key)
+    config[key] = st.sidebar.text_input(label, value=format_input_value(config[key]), key=key)
 
 if st.sidebar.button("💾 기본값으로 저장"):
     save_config(config)
