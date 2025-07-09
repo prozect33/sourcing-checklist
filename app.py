@@ -135,7 +135,15 @@ with tab1:
             with col3: st.write("**ROI**"); st.write(f"{roi:.2f}%")
             with col4: st.write("**최소 이익**"); st.write(f"{format_number(profit)}원")
             with col5: st.write("**최소마진율**"); st.write(f"{margin:.2f}%")
-            with st.expander("📦 상세 비용 항목 보기"):
+
+            st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+
+            _, _, _, _, col_btn = st.columns(5)
+            with col_btn:
+                show_detail = st.toggle("📦 상세비용 보기", value=False)
+
+            if show_detail:
+                st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                 st.write(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
                 st.write(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
                 st.write(f"**입출고비용:** {format_number(inout)}원 ({format_number(config['INOUT_COST'])} × 1.1)")
