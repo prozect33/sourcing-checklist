@@ -77,7 +77,7 @@ with tab1:
         with col2:
             unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
 
-        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", ""), key="qty_raw")
+        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
 
         col_calc, col_reset = st.columns([1, 1])
         with col_calc:
