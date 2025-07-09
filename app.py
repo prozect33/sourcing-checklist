@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import os
@@ -129,21 +130,35 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                row = st.columns(7)
-                row_labels = ["판매가", "원가", "최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
-                row_values = [
-                    f"{format_number(sell_price)}원",
-                    cost_display,
-                    f"{format_number(profit)}원",
-                    f"{margin:.2f}%",
-                    f"{roi:.2f}%",
-                    f"{format_number(margin_profit)}원",
-                    f"{margin_ratio:.2f}%"
-                ]
-                for i in range(7):
-                    with row[i]:
-                        st.markdown(f"**{row_labels[i]}**")
-                        st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
+                st.subheader("📌 기본 정보")
+                base_col1, base_col2 = st.columns(2)
+                with base_col1:
+                    st.markdown("#### 💰 판매가")
+                    st.metric(label="", value=f"{format_number(sell_price)}원")
+                with base_col2:
+                    st.markdown("#### 🧾 원가")
+                    st.metric(label="", value=f"{cost_display}")
+
+                st.subheader("📈 수익 분석")
+                row1 = st.columns(3)
+                with row1[0]:
+                    st.markdown("#### 📉 최소 이익")
+                    st.metric(label="", value=f"{format_number(profit)}원")
+                with row1[1]:
+                    st.markdown("#### 💸 마진")
+                    st.metric(label="", value=f"{format_number(margin_profit)}원")
+                with row1[2]:
+                    st.markdown("#### 📐 마진율")
+                    st.metric(label="", value=f"{margin_ratio:.2f}%")
+
+                st.subheader("📊 성과 지표")
+                row2 = st.columns(2)
+                with row2[0]:
+                    st.markdown("#### 📈 최소마진율")
+                    st.metric(label="", value=f"{margin:.2f}%")
+                with row2[1]:
+                    st.markdown("#### 🚀 투자수익률")
+                    st.metric(label="", value=f"{roi:.2f}%")
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
