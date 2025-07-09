@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import os
@@ -27,26 +26,26 @@ def load_config():
             return default_config
     else:
         return default_config
-
-def save_config(config):
-    with open(DEFAULT_CONFIG_FILE, "w") as f:
+    
+    def save_config(config):
+    def save_config(config):
         json.dump(config, f)
-
-def format_number(val):
+    
+    def format_number(val):
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
-
-def format_input_value(val):
+    
+    def format_input_value(val):
     return str(int(val)) if float(val).is_integer() else str(val)
-
-def reset_inputs():
+    
+    def reset_inputs():
     for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
         if key in st.session_state:
             st.session_state[key] = ""
-
-config = load_config()
-
-st.sidebar.header("🛠️ 설정값")
-for key, label in [
+    
+    config = load_config()
+    
+    st.sidebar.header("🛠️ 설정값")
+    for key, label in [
     ("FEE_RATE", "수수료율 (%)"),
     ("AD_RATE", "광고비율 (%)"),
     ("INOUT_COST", "입출고비용 (원)"),
@@ -55,45 +54,44 @@ for key, label in [
     ("RETURN_RATE", "반품률 (%)"),
     ("ETC_RATE", "기타비용률 (%)"),
     ("EXCHANGE_RATE", "위안화 환율")
-]:
+    ]:
     config[key] = st.sidebar.text_input(label, value=format_input_value(config[key]), key=key)
-
-if st.sidebar.button("💾 기본값으로 저장"):
+    
+    if st.sidebar.button("💾 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
-
-tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
-
-with tab1:
+    
+    tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
+    
+    with tab1:
     left, right = st.columns(2)
-
+    
     with left:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
-
+    
         col1, col2 = st.columns([1, 1])
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
         with col2:
             unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
-
+    
         qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
-
+    
         col_calc, col_reset = st.columns([1, 1])
         with col_calc:
             result = st.button("계산하기")
         with col_reset:
             st.button("리셋", on_click=reset_inputs, key="reset_button")
-
+    
     with right:
         if 'result' in locals() and result:
-            try:
+                try:
                 sell_price = int(float(sell_price_raw)) if sell_price_raw else None
                 qty = int(float(qty_raw)) if qty_raw else None
-            except:
+                except:
                 sell_price, qty = None, None
-
-            if sell_price is None or qty is None:
+                            if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
             else:
                 try:
@@ -110,7 +108,7 @@ with tab1:
                 except:
                     unit_cost = 0
                     cost_display = "0원"
-
+    
                 fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
                 ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
                 inout = round(float(config["INOUT_COST"]) * 1.1)
@@ -124,43 +122,78 @@ with tab1:
                 supply_price = sell_price / 1.1
                 margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
-
+    
                 margin_profit = sell_price - (unit_cost + fee + inout)
-                margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
-
+                margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
+    
                 st.markdown("### 📊 계산 결과")
-
-                st.subheader("📌 기본 정보")
-                base_col1, base_col2 = st.columns(2)
-                with base_col1:
-                    st.markdown("#### 💰 판매가")
-                    st.metric(label="", value=f"{format_number(sell_price)}원")
-                with base_col2:
-                    st.markdown("#### 🧾 원가")
-                    st.metric(label="", value=f"{cost_display}")
-
-                st.subheader("📈 수익 분석")
-                row1 = st.columns(3)
-                with row1[0]:
-                    st.markdown("#### 📉 최소 이익")
-                    st.metric(label="", value=f"{format_number(profit)}원")
-                with row1[1]:
-                    st.markdown("#### 💸 마진")
-                    st.metric(label="", value=f"{format_number(margin_profit)}원")
-                with row1[2]:
-                    st.markdown("#### 📐 마진율")
-                    st.metric(label="", value=f"{margin_ratio:.2f}%")
-
-                st.subheader("📊 성과 지표")
-                row2 = st.columns(2)
+    
+                row2 = st.columns([1, 1, 1, 1, 1])
                 with row2[0]:
-                    st.markdown("#### 📈 최소마진율")
-                    st.metric(label="", value=f"{margin:.2f}%")
+                    st.markdown("**마진**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
                 with row2[1]:
-                    st.markdown("#### 🚀 투자수익률")
-                    st.metric(label="", value=f"{roi:.2f}%")
+                    st.markdown("**마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
+                with row2[2]:
+                    st.markdown("")
+                with row2[3]:
+                    st.markdown("")
+                with row2[4]:
+                    st.markdown("")
+    
+                
+row1 = st.columns(7)
 
-                with st.expander("📦 상세 비용 항목 보기", expanded=False):
+with row1[0]:
+    st.markdown("**판매가**")
+    st.markdown(f"<div style='font-size: 16px;'>{{format_number(sell_price)}}원</div>", unsafe_allow_html=True)
+with row1[1]:
+    st.markdown("**원가**")
+    st.markdown(f"<div style='font-size: 16px;'>{{cost_display}}</div>", unsafe_allow_html=True)
+with row1[2]:
+    st.markdown("**최소 이익**")
+    st.markdown(f"<div style='font-size: 16px;'>{{format_number(profit)}}원</div>", unsafe_allow_html=True)
+with row1[3]:
+    st.markdown("**최소마진율**")
+    st.markdown(f"<div style='font-size: 16px;'>{{margin:.2f}}%</div>", unsafe_allow_html=True)
+with row1[4]:
+    st.markdown("**투자수익률**")
+    st.markdown(f"<div style='font-size: 16px;'>{{roi:.2f}}%</div>", unsafe_allow_html=True)
+with row1[5]:
+    st.markdown("**마진**")
+    st.markdown(f"<div style='font-size: 16px;'>{{format_number(margin_profit)}}원</div>", unsafe_allow_html=True)
+with row1[6]:
+    st.markdown("**마진율**")
+    st.markdown(f"<div style='font-size: 16px;'>{{margin_ratio:.2f}}%</div>", unsafe_allow_html=True)
+                    st.markdown("**최소 이익**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
+                with row1[3]:
+                    st.markdown("**최소마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin:.2f}%</div>", unsafe_allow_html=True)
+                with row1[4]:
+                    st.markdown("**투자수익률**")
+                    st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
+    
+                    
+    row2 = st.columns([1, 1, 1, 1, 1])
+    with row2[0]:
+    st.markdown("**마진**")
+    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
+    with row2[1]:
+    st.markdown("**마진율**")
+    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
+    with row2[2]:
+    st.markdown("")  # Empty
+    with row2[3]:
+    st.markdown("")  # Empty
+    with row2[4]:
+    st.markdown("")  # Empty
+        
+    
+                    
+    
+    with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
                     st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안)" if unit_yuan else f"**원가:** {format_number(unit_cost)}원")
                     st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
