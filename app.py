@@ -132,16 +132,43 @@ with tab1:
                 margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
 
                 st.markdown("### 📊 계산 결과")
-                col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
+                
+                
+                st.markdown("### 📊 계산 결과")
+                row1_col1, row1_col2, row1_col3, row1_col4, row1_col5 = st.columns(5)
+                with row1_col1:
                     st.markdown("**판매가**")
                     st.markdown(f"<div style='font-size: 16px;'>{format_number(sell_price)}원</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
-                with col2:
+                with row1_col2:
                     st.markdown("**원가**")
                     st.markdown(f"<div style='font-size: 16px;'>{cost_display}</div>", unsafe_allow_html=True)
+                with row1_col3:
+                    st.markdown("**최소 이익**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
+                with row1_col4:
+                    st.markdown("**최소마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin:.2f}%</div>", unsafe_allow_html=True)
+                with row1_col5:
+                    st.markdown("**투자수익률**")
+                    st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
+
+                row2_col1, row2_col2 = st.columns(2)
+                with row2_col1:
+                    st.markdown("**마진**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
+                with row2_col2:
+                    st.markdown("**마진율**")
                     st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
-                with col3:
+with col3:
+                    st.markdown("**최소 이익**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
+                with col4:
+                    st.markdown("**최소마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin:.2f}%</div>", unsafe_allow_html=True)
+                with col5:
+                    st.markdown("**투자수익률**")
+                    st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
+with col3:
                     st.markdown("**최소 이익**")
                     st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
                 with col4:
