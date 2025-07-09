@@ -153,8 +153,7 @@ with tab1:
                     st.markdown("**마진율**")
                     st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
 
-                st.markdown("#### 📦 상세 비용 항목 보기")
-                with st.expander("열기", expanded=False):
+                with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
                     st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안)" if unit_yuan else f"**원가:** {format_number(unit_cost)}원")
                     st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
