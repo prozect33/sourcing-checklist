@@ -31,6 +31,9 @@ def save_config(config):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
         json.dump(config, f)
 
+def format_number(val):
+    return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
+
 config = load_config()
 
 st.sidebar.header("🛠️ 설정값")
@@ -93,10 +96,10 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
-                        cost_display = f"{unit_cost_val:,}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
+                        cost_display = f"{format_number(unit_cost_val)}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
-                        cost_display = f"{unit_cost_val:,}원"
+                        cost_display = f"{format_number(unit_cost_val)}원"
                     else:
                         unit_cost_val = 0
                         cost_display = "0원"
@@ -120,17 +123,17 @@ with tab1:
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
 
                 st.markdown("### 📊 계산 결과")
-                st.write(f"**판매가:** {sell_price:,}원")
+                st.write(f"**판매가:** {format_number(sell_price)}원")
                 st.write(f"**원가:** {cost_display}")
-                st.write(f"**수수료:** {fee:,}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
-                st.write(f"**광고비:** {ad:,}원 (판매가 × {config['AD_RATE']}% × 1.1)")
-                st.write(f"**입출고비용:** {inout:,}원 ({config['INOUT_COST']} × 1.1)")
-                st.write(f"**회수비용:** {pickup:,}원 ({config['PICKUP_COST']} × 1.1)")
-                st.write(f"**재입고비용:** {restock:,}원 ({config['RESTOCK_COST']} × 1.1)")
-                st.write(f"**반품비용:** {return_cost:,}원 ((({config['PICKUP_COST']} × 1.1) + ({config['RESTOCK_COST']} × 1.1)) × {return_rate * 100:.1f}%)")
-                st.write(f"**기타비용:** {etc:,}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
-                st.write(f"**총비용:** {total_cost:,}원 (원가 + 위 항목 합산)")
-                st.write(f"**이익:** {profit:,}원 (판매가 - 총비용)")
-                st.write(f"**공급가액:** {round(supply_price):,}원 (판매가 ÷ 1.1)")
+                st.write(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+                st.write(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+                st.write(f"**입출고비용:** {format_number(inout)}원 ({config['INOUT_COST']} × 1.1)")
+                st.write(f"**회수비용:** {format_number(pickup)}원 ({config['PICKUP_COST']} × 1.1)")
+                st.write(f"**재입고비용:** {format_number(restock)}원 ({config['RESTOCK_COST']} × 1.1)")
+                st.write(f"**반품비용:** {format_number(return_cost)}원 ((({config['PICKUP_COST']} × 1.1) + ({config['RESTOCK_COST']} × 1.1)) × {return_rate * 100:.1f}%)")
+                st.write(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
+                st.write(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
+                st.write(f"**이익:** {format_number(profit)}원 (판매가 - 총비용)")
+                st.write(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
                 st.write(f"**순마진율:** {margin:.2f}% (이익 ÷ 공급가 × 100)")
                 st.write(f"**ROI:** {roi:.2f}% (이익 ÷ 원가 × 100)")
