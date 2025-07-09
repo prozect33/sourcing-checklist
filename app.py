@@ -99,10 +99,7 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
-                        cost_display = f"""<div style='display: flex; flex-direction: column; align-items: flex-start; justify-content: center; height: 100%; line-height: 1.3; font-size: 16px;'>
-                            <span style='padding-bottom: 2px;'>{format_number(unit_cost_val)}원</span>
-                            <span>({unit_yuan}위안 × {config['EXCHANGE_RATE']})</span>
-                        </div>"""
+                        cost_display = f"<div style='font-size: 16px;'>{format_number(unit_cost_val)}원({unit_yuan}위안)</div>"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
                         cost_display = f"<div style='font-size: 16px;'>{format_number(unit_cost_val)}원</div>"
