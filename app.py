@@ -126,7 +126,27 @@ with tab1:
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
 
                 
+
 st.markdown("### 📊 계산 결과")
+
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("판매가", f"{format_number(sell_price)}원")
+col2.metric("원가", cost_display)
+col3.metric("ROI", f"{roi:.2f}%")
+col4.metric("최소 이익", f"{format_number(profit)}원")
+col5.metric("최소마진율", f"{margin:.2f}%")
+
+with st.expander("📦 상세 비용 항목 보기"):
+    st.write(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+    st.write(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+    st.write(f"**입출고비용:** {format_number(inout)}원 ({config['INOUT_COST']} × 1.1)")
+    st.write(f"**회수비용:** {format_number(pickup)}원 ({config['PICKUP_COST']} × 1.1)")
+    st.write(f"**재입고비용:** {format_number(restock)}원 ({config['RESTOCK_COST']} × 1.1)")
+    st.write(f"**반품비용:** {format_number(return_cost)}원 ((({config['PICKUP_COST']} × 1.1) + ({config['RESTOCK_COST']} × 1.1)) × {return_rate * 100:.1f}%)")
+    st.write(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
+    st.write(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
+    st.write(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
+
 
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("판매가", f"{format_number(sell_price)}원")
