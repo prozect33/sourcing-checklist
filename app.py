@@ -72,7 +72,7 @@ with tab1:
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
         col1, col2 = st.columns([1, 1])
-        with col1:
+                with col1:
                     st.markdown("**판매가**")
                     st.markdown(f"<div style='font-size: 16px;'>{format_number(sell_price)}원</div>", unsafe_allow_html=True)
                 with col2:
@@ -87,10 +87,6 @@ with tab1:
                 with col5:
                     st.markdown("**투자수익률**")
                     st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='font-size: 16px;'>{margin:.2f}%</div>", unsafe_allow_html=True)
-
-                st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
-
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
                     st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
