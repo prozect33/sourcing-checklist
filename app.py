@@ -131,17 +131,17 @@ with tab1:
 
                 row2 = st.columns([1, 1, 1, 1, 1])
                 with row2[0]:
-                    st.markdown(\"**마진**\")
-                    st.markdown(f\"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>\", unsafe_allow_html=True)
+                    st.markdown("**마진**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
                 with row2[1]:
-                    st.markdown(\"**마진율**\")
-                    st.markdown(f\"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>\", unsafe_allow_html=True)
+                    st.markdown("**마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
                 with row2[2]:
-                    st.markdown(\"\")
+                    st.markdown("")
                 with row2[3]:
-                    st.markdown(\"\")
+                    st.markdown("")
                 with row2[4]:
-                    st.markdown(\"\")
+                    st.markdown("")
 
                 row1 = st.columns([1, 1, 1, 1, 1])
                 with row1[0]:
