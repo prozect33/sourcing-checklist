@@ -98,12 +98,15 @@ with tab1:
             else:
                 try:
                     if unit_yuan:
+                        unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
+                        cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안 × {config['EXCHANGE_RATE']})"
                         unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
-                    cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안 × " + str(config['EXCHANGE_RATE']) + ")"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
                         cost_display = f"{format_number(unit_cost_val)}원"
                     else:
+                        unit_cost_val = 0
+                        cost_display = "0원"
                         unit_cost_val = 0
                         cost_display = "0원"
                     unit_cost = unit_cost_val
