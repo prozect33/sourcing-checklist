@@ -87,6 +87,43 @@ with tab1:
 
     with right:
         if 'result' in locals() and result:
+            try:
+                sell_price = int(float(sell_price_raw)) if sell_price_raw else None
+                qty = int(float(qty_raw)) if qty_raw else None
+            except:
+                sell_price, qty = None, None
+
+            if sell_price is None or qty is None:
+                st.warning("판매가와 수량을 정확히 입력해주세요.")
+            else:
+                try:
+                    if unit_yuan:
+                        unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
+                        cost_display = f"{format_number(unit_cost_val)}원 (위안화 입력 환산: {unit_yuan} × {config['EXCHANGE_RATE']})"
+                    elif unit_won:
+                        unit_cost_val = round(float(unit_won))
+                        cost_display = f"{format_number(unit_cost_val)}원"
+                    else:
+                        unit_cost_val = 0
+                        cost_display = "0원"
+                    unit_cost = unit_cost_val
+                except:
+                    unit_cost = 0
+                    cost_display = "0원"
+
+                fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
+                ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
+                inout = round(float(config["INOUT_COST"]) * 1.1)
+                pickup = round(float(config["PICKUP_COST"]) * 1.1)
+                restock = round(float(config["RESTOCK_COST"]) * 1.1)
+                return_rate = float(config["RETURN_RATE"])
+                return_cost = round((pickup + restock) * return_rate)
+                etc = round(sell_price * float(config["ETC_RATE"]) / 100 * 1.1)
+                total_cost = round(unit_cost + fee + ad + inout + return_cost + etc)
+                profit = sell_price - total_cost
+                supply_price = sell_price / 1.1
+                margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
+                roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
             st.markdown("### 📊 계산 결과")
             col1, col2, col3, col4, col5 = st.columns(5)
             col1.metric("판매가", f"{format_number(sell_price)}원")
