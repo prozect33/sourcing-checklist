@@ -86,3 +86,4 @@ with tab1:
             st.button("리셋", on_click=reset_inputs, key="reset_button")
 
     with right:
+            pass  # placeholder to avoid IndentationError
