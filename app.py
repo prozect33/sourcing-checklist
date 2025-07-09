@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import os
@@ -22,7 +21,7 @@ def load_config():
         try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
-                return {k: int(float(v)) if isinstance(v, str) and v.replace(".", "", 1).isdigit() else v for k, v in data.items()}
+                return {k: float(v) if isinstance(v, str) and v.replace(".", "", 1).isdigit() else v for k, v in data.items()}
         except:
             return default_config
     else:
@@ -51,7 +50,6 @@ if st.sidebar.button("💾 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
-# 콜백으로 리셋 처리
 def reset_inputs():
     for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
         if key in st.session_state:
