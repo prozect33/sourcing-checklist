@@ -99,20 +99,20 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
-                        cost_display = f"""<div style='display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; line-height: 1.3;'>
-                            <span style='padding-top: 3px; padding-bottom: 2px;'>{format_number(unit_cost_val)}원</span>
+                        cost_display = f"""<div style='display: flex; flex-direction: column; align-items: flex-start; justify-content: center; height: 100%; line-height: 1.3; font-size: 16px;'>
+                            <span style='padding-bottom: 2px;'>{format_number(unit_cost_val)}원</span>
                             <span>({unit_yuan}위안 × {config['EXCHANGE_RATE']})</span>
                         </div>"""
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
-                        cost_display = f"{format_number(unit_cost_val)}원"
+                        cost_display = f"<div style='font-size: 16px;'>{format_number(unit_cost_val)}원</div>"
                     else:
                         unit_cost_val = 0
-                        cost_display = "0원"
+                        cost_display = "<div style='font-size: 16px;'>0원</div>"
                     unit_cost = unit_cost_val
                 except:
                     unit_cost = 0
-                    cost_display = "0원"
+                    cost_display = "<div style='font-size: 16px;'>0원</div>"
 
                 fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
                 ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
@@ -130,11 +130,21 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
                 col1, col2, col3, col4, col5 = st.columns(5)
-                with col1: st.markdown("**판매가**"); st.markdown(f"{format_number(sell_price)}원")
-                with col2: st.markdown("**원가**"); st.markdown(cost_display, unsafe_allow_html=True)
-                with col3: st.markdown("**ROI**"); st.markdown(f"{roi:.2f}%")
-                with col4: st.markdown("**최소 이익**"); st.markdown(f"{format_number(profit)}원")
-                with col5: st.markdown("**최소마진율**"); st.markdown(f"{margin:.2f}%")
+                with col1:
+                    st.markdown("**판매가**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(sell_price)}원</div>", unsafe_allow_html=True)
+                with col2:
+                    st.markdown("**원가**")
+                    st.markdown(cost_display, unsafe_allow_html=True)
+                with col3:
+                    st.markdown("**투자수익률**")
+                    st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
+                with col4:
+                    st.markdown("**최소 이익**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
+                with col5:
+                    st.markdown("**최소마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin:.2f}%</div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
 
