@@ -99,14 +99,11 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
-                        cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안 × {config['EXCHANGE_RATE']})"
-                        unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
+                        cost_display = f"<div style='text-align:center; line-height:1.3;'>{format_number(unit_cost_val)}원<br>({unit_yuan}위안 × {config['EXCHANGE_RATE']})</div>"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
                         cost_display = f"{format_number(unit_cost_val)}원"
                     else:
-                        unit_cost_val = 0
-                        cost_display = "0원"
                         unit_cost_val = 0
                         cost_display = "0원"
                     unit_cost = unit_cost_val
@@ -127,11 +124,11 @@ with tab1:
                 supply_price = sell_price / 1.1
                 margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
+
             st.markdown("### 📊 계산 결과")
             col1, col2, col3, col4, col5 = st.columns(5)
-            col1, col2, col3, col4, col5 = st.columns(5)
             with col1: st.write("**판매가**"); st.write(f"{format_number(sell_price)}원")
-            with col2: st.write("**원가**"); st.write(cost_display)
+            with col2: st.write("**원가**"); st.markdown(cost_display, unsafe_allow_html=True)
             with col3: st.write("**ROI**"); st.write(f"{roi:.2f}%")
             with col4: st.write("**최소 이익**"); st.write(f"{format_number(profit)}원")
             with col5: st.write("**최소마진율**"); st.write(f"{margin:.2f}%")
@@ -145,4 +142,3 @@ with tab1:
                 st.write(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
                 st.write(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
                 st.write(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
-            pass  # placeholder to avoid IndentationError
