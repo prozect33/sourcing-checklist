@@ -99,7 +99,7 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
-                        cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안 × " + str(config['EXCHANGE_RATE']) + ")"
+                    cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안 × " + str(config['EXCHANGE_RATE']) + ")"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
                         cost_display = f"{format_number(unit_cost_val)}원"
@@ -126,11 +126,12 @@ with tab1:
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
             st.markdown("### 📊 계산 결과")
             col1, col2, col3, col4, col5 = st.columns(5)
-            col1.metric("판매가", f"{format_number(sell_price)}원")
-            col2.metric("원가", cost_display)
-            col3.metric("ROI", f"{roi:.2f}%")
-            col4.metric("최소 이익", f"{format_number(profit)}원")
-            col5.metric("최소마진율", f"{margin:.2f}%")
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1: st.write("**판매가**"); st.write(f"{format_number(sell_price)}원")
+            with col2: st.write("**원가**"); st.write(cost_display)
+            with col3: st.write("**ROI**"); st.write(f"{roi:.2f}%")
+            with col4: st.write("**최소 이익**"); st.write(f"{format_number(profit)}원")
+            with col5: st.write("**최소마진율**"); st.write(f"{margin:.2f}%")
             with st.expander("📦 상세 비용 항목 보기"):
                 st.write(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
                 st.write(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
