@@ -150,7 +150,11 @@ with tab1:
                 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
-                    st.markdown(f"**원가:** {cost_display}", unsafe_allow_html=True)
+                    if unit_yuan:
+                        st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안 × 환율 {format_number(config['EXCHANGE_RATE'])})")
+                    else:
+                        st.markdown(f"**원가:** {format_number(unit_cost)}원")
+
                     st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
                     st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
                     st.markdown(f"**입출고비용:** {format_number(inout)}원 ({format_number(config['INOUT_COST'])} × 1.1)")
@@ -160,9 +164,9 @@ with tab1:
                     st.markdown(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
                     st.markdown(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
                     st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
-                    st.markdown(f"**최소 이익:** {format_number(profit)}원")
-                    st.markdown(f"**최소마진율:** {margin:.2f}%")
-                    st.markdown(f"**투자수익률:** {roi:.2f}%")
+                    st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
+                    st.markdown(f"**최소마진율:** {margin:.2f}% ((최소 이익 ÷ 공급가액) × 100)")
+                    st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
                     st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
                     st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
                     st.markdown(f"**입출고비용:** {format_number(inout)}원 ({format_number(config['INOUT_COST'])} × 1.1)")
