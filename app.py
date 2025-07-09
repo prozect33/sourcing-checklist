@@ -8,6 +8,16 @@ DEFAULT_CONFIG_FILE = "default_config.json"
 default_config = {
     "FEE_RATE": 10.8,
     "AD_RATE": 20.0,
+st.markdown("""
+<style>
+div[data-testid="metric-container"] > div {
+    font-size: 18px !important;
+}
+div[data-testid="metric-container"] > label {
+    font-size: 14px !important;
+}
+</style>
+""", unsafe_allow_html=True)
     "INOUT_COST": 3000,
     "PICKUP_COST": 1500,
     "RESTOCK_COST": 500,
