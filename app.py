@@ -126,7 +126,7 @@ with tab1:
                 margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
                 roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
 
-                # 마진 계산용 설정값 무시 계산
+                # 마진 계산 (광고, 기타 비용 제외)
                 fee_base = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
                 inout_base = round(float(config["INOUT_COST"]) * 1.1)
                 margin_profit = sell_price - (unit_cost + fee_base + inout_base)
@@ -172,18 +172,3 @@ with tab1:
                     st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
                     st.markdown(f"**최소마진율:** {margin:.2f}% ((최소 이익 ÷ 공급가액) × 100)")
                     st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
-
-                # 💰 마진 계산
-                fee_base = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
-                inout_base = round(float(config["INOUT_COST"]) * 1.1)
-                margin_profit = sell_price - (unit_cost + fee_base + inout_base)
-                margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
-
-                st.markdown("### 💰 기본 마진 기준")
-                colm1, colm2 = st.columns(2)
-                with colm1:
-                    st.markdown("**마진**")
-                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
-                with colm2:
-                    st.markdown("**마진율**")
-                    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
