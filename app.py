@@ -74,6 +74,67 @@ with tab1:
 
         col1, col2 = st.columns([1, 1])
         with col1:
+            unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
+        with col2:
+            unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
+
+        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
+
+        col_calc, col_reset = st.columns([1, 1])
+        with col_calc:
+            result = st.button("계산하기")
+        with col_reset:
+            st.button("리셋", on_click=reset_inputs, key="reset_button")
+
+    with right:
+        if 'result' in locals() and result:
+            try:
+                sell_price = int(float(sell_price_raw)) if sell_price_raw else None
+                qty = int(float(qty_raw)) if qty_raw else None
+            except:
+                sell_price, qty = None, None
+
+            if sell_price is None or qty is None:
+                st.warning("판매가와 수량을 정확히 입력해주세요.")
+            else:
+                try:
+                    if unit_yuan:
+                        unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
+                        cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안 × 환율 {format_number(config['EXCHANGE_RATE'])})"
+                    elif unit_won:
+                        unit_cost_val = round(float(unit_won))
+                        cost_display = f"{format_number(unit_cost_val)}원"
+                    else:
+                        unit_cost_val = 0
+                        cost_display = "0원"
+                    unit_cost = unit_cost_val
+                except:
+                    unit_cost = 0
+                    cost_display = "0원"
+
+                fee = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
+                ad = round((sell_price * float(config["AD_RATE"]) * 1.1) / 100)
+                inout = round(float(config["INOUT_COST"]) * 1.1)
+                pickup = round(float(config["PICKUP_COST"]) * 1.1)
+                restock = round(float(config["RESTOCK_COST"]) * 1.1)
+                return_rate = float(config["RETURN_RATE"])
+                return_cost = round((pickup + restock) * return_rate)
+                etc = round(sell_price * float(config["ETC_RATE"]) / 100 * 1.1)
+                total_cost = round(unit_cost + fee + ad + inout + return_cost + etc)
+                profit = sell_price - total_cost
+                supply_price = sell_price / 1.1
+                margin = round((profit / supply_price) * 100, 2) if supply_price != 0 else 0
+                roi = round((profit / unit_cost) * 100, 2) if unit_cost != 0 else 0
+
+                # 마진 계산용 설정값 무시 계산
+                fee_base = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
+                inout_base = round(float(config["INOUT_COST"]) * 1.1)
+                margin_profit = sell_price - (unit_cost + fee_base + inout_base)
+                margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
+
+                st.markdown("### 📊 계산 결과")
+                col1, col2, col3, col4, col5 = st.columns(5)
+                with col1:
                     st.markdown("**판매가**")
                     st.markdown(f"<div style='font-size: 16px;'>{format_number(sell_price)}원</div>", unsafe_allow_html=True)
                     st.markdown(f"<div style='font-size: 16px;'>마진: {format_number(margin_profit)}원</div>", unsafe_allow_html=True)
@@ -81,9 +142,6 @@ with tab1:
                     st.markdown("**원가**")
                     st.markdown(f"<div style='font-size: 16px;'>{cost_display}</div>", unsafe_allow_html=True)
                     st.markdown(f"<div style='font-size: 16px;'>마진율: {margin_ratio:.2f}%</div>", unsafe_allow_html=True)
-                with col2:
-                    st.markdown("**원가**")
-                    st.markdown(f"<div style='font-size: 16px;'>{cost_display}</div>", unsafe_allow_html=True)
                 with col3:
                     st.markdown("**최소 이익**")
                     st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
@@ -94,14 +152,7 @@ with tab1:
                     st.markdown("**투자수익률**")
                     st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
 
-                
-                # 마진 계산용 설정값 무시 계산
-                fee_base = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
-                inout_base = round(float(config["INOUT_COST"]) * 1.1)
-                margin_profit = sell_price - (unit_cost + fee_base + inout_base)
-                margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
-
-st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
 
                 # 💰 마진 계산
                 fee_base = round((sell_price * float(config["FEE_RATE"]) * 1.1) / 100)
@@ -109,6 +160,11 @@ st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
                 margin_profit = sell_price - (unit_cost + fee_base + inout_base)
                 margin_ratio = round((margin_profit / (sell_price / 1.1)) * 100, 2) if sell_price else 0
 
-                                with colm2:
+                st.markdown("### 💰 기본 마진 기준")
+                colm1, colm2 = st.columns(2)
+                with colm1:
+                    st.markdown("**마진**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
+                with colm2:
                     st.markdown("**마진율**")
                     st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
