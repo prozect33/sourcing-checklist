@@ -146,13 +146,21 @@ with tab1:
                     st.markdown("**투자수익률**")
                     st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
 
-                row2 = st.columns([1, 1])
-                with row2[0]:
-                    st.markdown("**마진**")
-                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
-                with row2[1]:
-                    st.markdown("**마진율**")
-                    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
+                
+row2 = st.columns([1, 1, 1, 1, 1])
+with row2[0]:
+    st.markdown("**마진**")
+    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
+with row2[1]:
+    st.markdown("**마진율**")
+    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
+with row2[2]:
+    st.markdown("")  # Empty
+with row2[3]:
+    st.markdown("")  # Empty
+with row2[4]:
+    st.markdown("")  # Empty
+    
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
