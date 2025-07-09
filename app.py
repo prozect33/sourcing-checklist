@@ -129,11 +129,24 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-with row2[3]:
-    st.markdown("")  # Empty
-with row2[4]:
-    st.markdown("")  # Empty
-    
+                row1 = st.columns([1, 1, 1, 1, 1])
+                with row1[0]:
+                    st.markdown("**판매가**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(sell_price)}원</div>", unsafe_allow_html=True)
+                with row1[1]:
+                    st.markdown("**원가**")
+                    st.markdown(f"<div style='font-size: 16px;'>{cost_display}</div>", unsafe_allow_html=True)
+                with row1[2]:
+                    st.markdown("**최소 이익**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(profit)}원</div>", unsafe_allow_html=True)
+                with row1[3]:
+                    st.markdown("**최소마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin:.2f}%</div>", unsafe_allow_html=True)
+                with row1[4]:
+                    st.markdown("**투자수익률**")
+                    st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
+
+                
 
                 
 
