@@ -86,13 +86,12 @@ with tab1:
 
     with right:
         if 'result' in locals() and result:
-            try:
+                try:
                 sell_price = int(float(sell_price_raw)) if sell_price_raw else None
                 qty = int(float(qty_raw)) if qty_raw else None
-            except:
+                except:
                 sell_price, qty = None, None
-
-            if sell_price is None or qty is None:
+                            if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
             else:
                 try:
@@ -129,6 +128,20 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
+                row2 = st.columns([1, 1, 1, 1, 1])
+                with row2[0]:
+                    st.markdown("**마진**")
+                    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
+                with row2[1]:
+                    st.markdown("**마진율**")
+                    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
+                with row2[2]:
+                    st.markdown("")
+                with row2[3]:
+                    st.markdown("")
+                with row2[4]:
+                    st.markdown("")
+
                 row1 = st.columns([1, 1, 1, 1, 1])
                 with row1[0]:
                     st.markdown("**판매가**")
@@ -147,6 +160,20 @@ with tab1:
                     st.markdown(f"<div style='font-size: 16px;'>{roi:.2f}%</div>", unsafe_allow_html=True)
 
                 
+row2 = st.columns([1, 1, 1, 1, 1])
+with row2[0]:
+    st.markdown("**마진**")
+    st.markdown(f"<div style='font-size: 16px;'>{format_number(margin_profit)}원</div>", unsafe_allow_html=True)
+with row2[1]:
+    st.markdown("**마진율**")
+    st.markdown(f"<div style='font-size: 16px;'>{margin_ratio:.2f}%</div>", unsafe_allow_html=True)
+with row2[2]:
+    st.markdown("")  # Empty
+with row2[3]:
+    st.markdown("")  # Empty
+with row2[4]:
+    st.markdown("")  # Empty
+    
 
                 
 
