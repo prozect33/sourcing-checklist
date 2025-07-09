@@ -28,7 +28,7 @@ def load_config():
         return default_config
     
     def save_config(config):
-    with open(DEFAULT_CONFIG_FILE, "w") as f:
+    def save_config(config):
         json.dump(config, f)
     
     def format_number(val):
