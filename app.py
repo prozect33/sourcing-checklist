@@ -145,7 +145,7 @@ with tab1:
                         st.markdown(f"**{row_labels[i]}**")
                         st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='height: 86px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 90px;'></div>", unsafe_allow_html=True)
 
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
