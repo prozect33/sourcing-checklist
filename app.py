@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import os
 
-st.set_page_config(page_title="간단 마진 계산기", layout="wide")
+st.set_page_config(page_title="간단 매진 계산기", layout="wide")
 
 DEFAULT_CONFIG_FILE = "default_config.json"
 default_config = {
@@ -46,18 +46,18 @@ config = load_config()
 
 st.sidebar.header("🛠️ 설정값")
 for key, label in [
-    ("FEE_RATE", "수수료율 (%)"),
+    ("FEE_RATE", "수수률 (%)"),
     ("AD_RATE", "광고비율 (%)"),
     ("INOUT_COST", "입출고비용 (원)"),
     ("PICKUP_COST", "회수비용 (원)"),
     ("RESTOCK_COST", "재입고비용 (원)"),
-    ("RETURN_RATE", "반품률 (%)"),
+    ("RETURN_RATE", "반할률 (%)"),
     ("ETC_RATE", "기타비용률 (%)"),
     ("EXCHANGE_RATE", "위안화 환율")
 ]:
     config[key] = st.sidebar.text_input(label, value=format_input_value(config[key]), key=key)
 
-if st.sidebar.button("💾 기본값으로 저장"):
+if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
@@ -130,29 +130,29 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                # ▶ 위쪽 3개: 마진, 마진율, 투자수익률
+                # 무엇인지 1줄차
+                cols1 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
                 labels1 = ["마진", "마진율", "투자수익률"]
                 values1 = [
                     f"{format_number(margin_profit)}원",
                     f"{margin_ratio:.2f}%",
                     f"{roi_margin:.2f}%"
                 ]
-                cols1 = st.columns([0.1, 1, 1, 1, 0.2])
                 for i in range(3):
                     with cols1[i + 1]:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values1[i]}</div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
-                # ▶ 아래쪽 3개: 최소 이익, 최소마진율, 투자수익률
+                # 복잡이지 2줄차
+                cols2 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
                 labels2 = ["최소 이익", "최소마진율", "투자수익률"]
                 values2 = [
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
                     f"{roi:.2f}%"
                 ]
-                cols2 = st.columns([0.1, 1, 1, 1, 0.2])
                 for i in range(3):
                     with cols2[i + 1]:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels2[i]}</div>", unsafe_allow_html=True)
