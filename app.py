@@ -143,7 +143,7 @@ with tab1:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values1[i]}</div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
 
                 # ▶ 아래쪽 3개: 최소 이익, 최소마진율, 투자수익률
                 labels2 = ["최소 이익", "최소마진율", "투자수익률"]
