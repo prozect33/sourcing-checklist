@@ -173,5 +173,5 @@ with tab1:
                     st.markdown(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
                     st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
                     st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
-                    st.mkdown(f"**최소마진율:** {round((profit / supply_price) * 100,2):.2f}% ((최소 이익 ÷ 공급가액) × 100)")
+                    st.markdown(f"**최소마진율:** {round((profit / supply_price) * 100,2):.2f}% ((최소 이익 ÷ 공급가액) × 100)")
                     st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
