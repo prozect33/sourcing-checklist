@@ -85,11 +85,7 @@ with tab1:
             st.button("리셋", on_click=reset_inputs, key="reset_button")
 
     with right:
-        st.markdown("🛠 **디버깅 체크포인트 1: with right 진입 성공**")
-
         if 'result' in locals() and result:
-            st.markdown("🟢 **디버깅 체크포인트 2: 계산 버튼 눌림 감지**")
-
             try:
                 sell_price = int(float(sell_price_raw)) if sell_price_raw else None
                 qty = int(float(qty_raw)) if qty_raw else None
@@ -98,9 +94,7 @@ with tab1:
 
             if sell_price is None or qty is None:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
-                st.markdown("🔴 **디버깅: 판매가 또는 수량 None**")
             else:
-                st.markdown("🟢 **디버깅 체크포인트 3: 판매가/수량 파싱 성공**")
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
@@ -134,13 +128,11 @@ with tab1:
                 margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
-                st.markdown("🟢 **디버깅 체크포인트 4: 계산 로직 완료**")
-                st.markdown(f"🔍 margin_profit: {margin_profit}, roi_margin: {roi_margin}, roi: {roi}")
-
                 st.markdown("### 📊 계산 결과")
 
+                # ▶ 1줄차: 마진, 마진율, 투자수익률
                 cols1 = st.columns([1, 1, 1, 1, 1, 1, 1])
-                labels1 = ["마진", "마진율", "투자수익률(마진 기준)"]
+                labels1 = ["마진", "마진율", "투자수익률"]
                 values1 = [
                     f"{format_number(margin_profit)}원",
                     f"{margin_ratio:.2f}%",
@@ -151,8 +143,9 @@ with tab1:
                         st.markdown(f"**{labels1[i]}**")
                         st.markdown(f"<div style='font-size: 16px;'>{values1[i]}</div>", unsafe_allow_html=True)
 
+                # ▶ 2줄차: 최소 이익, 최소마진율, 투자수익률
                 cols2 = st.columns([1, 1, 1, 1, 1, 1, 1])
-                labels2 = ["최소 이익", "최소마진율", "투자수익률(전체 기준)"]
+                labels2 = ["최소 이익", "최소마진율", "투자수익률"]
                 values2 = [
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
@@ -164,3 +157,19 @@ with tab1:
                         st.markdown(f"<div style='font-size: 16px;'>{values2[i]}</div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='height: 95px;'></div>", unsafe_allow_html=True)
+
+                with st.expander("📦 상세 비용 항목 보기", expanded=False):
+                    st.markdown(f"**판매가:** {format_number(sell_price)}원")
+                    st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안)" if unit_yuan else f"**원가:** {format_number(unit_cost)}원")
+                    st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+                    st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+                    st.markdown(f"**입출고비용:** {format_number(inout)}원 ({format_number(config['INOUT_COST'])} × 1.1)")
+                    st.markdown(f"**회수비용:** {format_number(pickup)}원 ({format_number(config['PICKUP_COST'])} × 1.1)")
+                    st.markdown(f"**재입고비용:** {format_number(restock)}원 ({format_number(config['RESTOCK_COST'])} × 1.1)")
+                    st.markdown(f"**반품비용:** {format_number(return_cost)}원 ((({format_number(config['PICKUP_COST'])} × 1.1) + ({format_number(config['RESTOCK_COST'])} × 1.1)) × {return_rate * 100:.1f}%)")
+                    st.markdown(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
+                    st.markdown(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
+                    st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
+                    st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
+                    st.markdown(f"**최소마진율:** {margin:.2f}% ((최소 이익 ÷ 공급가액) × 100)")
+                    st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
