@@ -135,15 +135,15 @@ with tab1:
                     st.markdown(f"""
                     <div style='background-color:#e8f5e9; padding:6px 12px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
                         <div>
-                            <div style='font-weight:bold; font-size:15px;'><b>💰 <b>마진</b></b></div>
+                            <div style='font-weight:bold; font-size:15px;'>💰 < <b>b>마진</b></b></div>
                             <div style='font-size:15px;'>{format_number(margin_profit)}원</div>
                         </div>
                         <div>
-                            <div style='font-weight:bold; font-size:15px;'><b>📈 <b>마진율</b></b></div>
+                            <div style='font-weight:bold; font-size:15px;'>📈 < <b>b>마진율</b></b></div>
                             <div style='font-size:15px;'>{margin_ratio:.2f}%</div>
                         </div>
                         <div>
-                            <div style='font-weight:bold; font-size:15px;'><b>💹 <b>투자수익률</b></b></div>
+                            <div style='font-weight:bold; font-size:15px;'>💹 < <b>b>투자수익률</b></b></div>
                             <div style='font-size:15px;'>{roi_margin:.2f}%</div>
                         </div>
                     </div>
@@ -153,15 +153,15 @@ with tab1:
                     st.markdown(f"""
                     <div style='background-color:#e3f2fd; padding:6px 12px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
                         <div>
-                            <div style='font-weight:bold; font-size:15px;'><b>🧮 <b>최소 이익</b></b></div>
+                            <div style='font-weight:bold; font-size:15px;'>🧮 < <b>b>최소 이익</b></b></div>
                             <div style='font-size:15px;'>{format_number(profit)}원</div>
                         </div>
                         <div>
-                            <div style='font-weight:bold; font-size:15px;'><b>📉 <b>최소마진율</b></b></div>
+                            <div style='font-weight:bold; font-size:15px;'>📉 < <b>b>최소마진율</b></b></div>
                             <div style='font-size:15px;'>{margin:.2f}%</div>
                         </div>
                         <div>
-                            <div style='font-weight:bold; font-size:15px;'><b>🧾 <b>투자수익률</b></b></div>
+                            <div style='font-weight:bold; font-size:15px;'>🧾 < <b>b>투자수익률</b></b></div>
                             <div style='font-size:15px;'>{roi:.2f}%</div>
                         </div>
                     </div>
