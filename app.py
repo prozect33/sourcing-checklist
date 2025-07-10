@@ -148,7 +148,7 @@ with tab1:
     <div><div style='font-weight:bold; font-size:15px;'>{values[2][0]}</div><div style='font-size:15px;'>{values[2][1]}</div></div>
 </div>
 """, unsafe_allow_html=True)
-                    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
                     st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안)" if unit_yuan else f"**원가:** {format_number(unit_cost)}원")
