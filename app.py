@@ -137,7 +137,7 @@ with tab1:
                     f"{margin_ratio:.2f}%",
                     f"{roi_margin:.2f}%"
                 ]
-                cols1 = st.columns([0.2, 1, 1, 1, 0.2])
+                cols1 = st.columns([0.1, 1, 1, 1, 0.2])
                 for i in range(3):
                     with cols1[i + 1]:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
@@ -152,7 +152,7 @@ with tab1:
                     f"{margin:.2f}%",
                     f"{roi:.2f}%"
                 ]
-                cols2 = st.columns([0.2, 1, 1, 1, 0.2])
+                cols2 = st.columns([0.1, 1, 1, 1, 0.2])
                 for i in range(3):
                     with cols2[i + 1]:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels2[i]}</div>", unsafe_allow_html=True)
