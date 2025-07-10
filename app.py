@@ -71,7 +71,7 @@ with tab1:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
-        # 텍스트 형태로 목표 원가 출력
+        # 간결 텍스트 출력
         if sell_price_raw:
             try:
                 sell_price = int(float(sell_price_raw))
@@ -107,10 +107,8 @@ with tab1:
                 cost_50_yuan = math.ceil(cost_50_margin / float(config["EXCHANGE_RATE"]))
                 cost_5000_yuan = math.ceil(cost_5000_profit / float(config["EXCHANGE_RATE"]))
 
-                st.markdown(f"""
-📌 **마진율 50% 기준**: {format_number(cost_50_margin)}원 ({cost_50_yuan}위안), 마진: {format_number(profit_50)}원  
-📌 **마진 5,000원 기준**: {format_number(cost_5000_profit)}원 ({cost_5000_yuan}위안)
-""")
+                st.markdown(f"📌 마진율 50% 기준: {format_number(cost_50_margin)}원 ({cost_50_yuan}위안), 마진: {format_number(profit_50)}원")
+                st.markdown(f"📌 마진 5,000원 기준: {format_number(cost_5000_profit)}원 ({cost_5000_yuan}위안)")
 
             except:
                 st.warning("판매가를 정확히 입력해주세요.")
