@@ -130,14 +130,40 @@ with tab1:
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
                 st.markdown("### 📊 계산 결과")
-                with st.container():
+                for bg_color, values in [
+                    ("#e8f5e9", [
+                        ("💰 마진", f"{format_number(margin_profit)}원"),
+                        ("📈 마진율", f"{margin_ratio:.2f}%"),
+                        ("💹 투자수익률", f"{roi_margin:.2f}%")
+                    ]),
+                    ("#e3f2fd", [
+                        ("🧮 최소 이익", f"{format_number(profit)}원"),
+                        ("📉 최소마진율", f"{margin:.2f}%"),
+                        ("🧾 투자수익률", f"{roi:.2f}%")
+                    ])
+                ]:
                     st.markdown(f"""
-<div style='display: grid; grid-template-columns: 0.1fr 1fr 1fr 1fr 0.3fr 0.3fr; background: #e8f5e9; padding: 12px 18px; border-radius: 10px; text-align: center; align-items: center; gap: 8px;'>
+<div style='display: grid; grid-template-columns: 0.1fr 1fr 1fr 1fr 0.3fr 0.3fr; background: {bg_color}; padding: 12px 18px; border-radius: 10px; text-align: center; align-items: center; gap: 8px; margin-bottom: 12px;'>
     <div></div>
-    <div><div style='font-weight:bold; font-size:15px;'>💰 마진</div><div style='font-size:15px;'>{format_number(margin_profit)}원</div></div>
-    <div><div style='font-weight:bold; font-size:15px;'>📈 마진율</div><div style='font-size:15px;'>{margin_ratio:.2f}%</div></div>
-    <div><div style='font-weight:bold; font-size:15px;'>💹 투자수익률</div><div style='font-size:15px;'>{roi_margin:.2f}%</div></div>
-    <div></div>
-    <div></div>
+    <div><div style='font-weight:bold; font-size:15px;'>{values[0][0]}</div><div style='font-size:15px;'>{values[0][1]}</div></div>
+    <div><div style='font-weight:bold; font-size:15px;'>{values[1][0]}</div><div style='font-size:15px;'>{values[1][1]}</div></div>
+    <div><div style='font-weight:bold; font-size:15px;'>{values[2][0]}</div><div style='font-size:15px;'>{values[2][1]}</div></div>
+    <div></div><div></div>
 </div>
 """, unsafe_allow_html=True)
+
+                with st.expander("📦 상세 비용 항목 보기", expanded=False):
+                    st.markdown(f"**판매가:** {format_number(sell_price)}원")
+                    st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안)" if unit_yuan else f"**원가:** {format_number(unit_cost)}원")
+                    st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+                    st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+                    st.markdown(f"**입출고비용:** {format_number(inout)}원 ({format_number(config['INOUT_COST'])} × 1.1)")
+                    st.markdown(f"**회수비용:** {format_number(pickup)}원 ({format_number(config['PICKUP_COST'])} × 1.1)")
+                    st.markdown(f"**재입고비용:** {format_number(restock)}원 ({format_number(config['RESTOCK_COST'])} × 1.1)")
+                    st.markdown(f"**반품비용:** {format_number(return_cost)}원 ((({format_number(config['PICKUP_COST'])} × 1.1) + ({format_number(config['RESTOCK_COST'])} × 1.1)) × {return_rate * 100:.1f}%)")
+                    st.markdown(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
+                    st.markdown(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
+                    st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
+                    st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
+                    st.markdown(f"**최소마진율:** {margin:.2f}% ((최소 이익 ÷ 공급가액) × 100)")
+                    st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
