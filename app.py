@@ -129,7 +129,7 @@ with tab1:
                 margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
-                
+
 st.markdown("### 📊 계산 결과")
 
 with st.container():
