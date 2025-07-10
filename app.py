@@ -1,5 +1,5 @@
-
-import streamlit as st
+with open("/mnt/data/app.py", "w", encoding="utf-8") as f:
+    f.write("""import streamlit as st
 import json
 import os
 
@@ -142,15 +142,14 @@ with tab1:
                         ("🧾 투자수익률", f"{roi:.2f}%")
                     ])
                 ]:
-                    st.markdown(f"""
+                    st.markdown(f\"\"\"
 <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg_color}; padding: 12px 18px; border-radius: 10px; text-align: center; align-items: center; gap: 8px; margin-bottom: 12px;'>
     <div><div style='font-weight:bold; font-size:15px;'>{values[0][0]}</div><div style='font-size:15px;'>{values[0][1]}</div></div>
     <div><div style='font-weight:bold; font-size:15px;'>{values[1][0]}</div><div style='font-size:15px;'>{values[1][1]}</div></div>
     <div><div style='font-weight:bold; font-size:15px;'>{values[2][0]}</div><div style='font-size:15px;'>{values[2][1]}</div></div>
 </div>
-""", unsafe_allow_html=True)
-    
-st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # ← 요기가 들여쓰기 똑같아야 함
+\"\"\", unsafe_allow_html=True)
+                    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
@@ -166,4 +165,6 @@ st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # ← 
                     st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
                     st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
                     st.markdown(f"**최소마진율:** {margin:.2f}% ((최소 이익 ÷ 공급가액) × 100)")
-                    st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
+                    st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")""")
+
+"/mnt/data/app.py"
