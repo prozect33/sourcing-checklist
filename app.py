@@ -1,3 +1,5 @@
+import streamlit as st
+
 cols = st.columns(2)
 with cols[1]:
     if 'result' in locals() and result:
