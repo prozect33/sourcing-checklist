@@ -127,6 +127,20 @@ with tab1:
                 margin_profit = sell_price - (unit_cost + fee + inout)
                 margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
 
+                st.markdown("""
+                    <style>
+                    details > summary {
+                        padding-top: 4px !important;
+                        padding-bottom: 4px !important;
+                        font-size: 14px !important;
+                    }
+                    details {
+                        margin-top: 0.5rem !important;
+                        margin-bottom: 0.5rem !important;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+                
                 st.markdown("### 📊 계산 결과")
 
                 row = st.columns(7)
