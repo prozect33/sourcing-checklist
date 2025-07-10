@@ -149,6 +149,8 @@ with tab1:
     <div><div style='font-weight:bold; font-size:15px;'>{values[2][0]}</div><div style='font-size:15px;'>{values[2][1]}</div></div>
 </div>
 """, unsafe_allow_html=True)
+    
+st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # ← 요기가 들여쓰기 똑같아야 함
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
