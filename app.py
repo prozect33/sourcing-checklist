@@ -1,4 +1,5 @@
-with st.columns(2)[1]:
+cols = st.columns(2)
+with cols[1]:
     if 'result' in locals() and result:
         try:
             sell_price = int(float(sell_price_raw)) if sell_price_raw else None
