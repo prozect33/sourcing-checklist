@@ -126,25 +126,37 @@ with tab1:
 
                 margin_profit = sell_price - (unit_cost + fee + inout)
                 margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
+                roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
                 st.markdown("### 📊 계산 결과")
 
-                cols = st.columns([0.5, 1, 1, 1, 1, 1, 0.5])  # 양쪽 여백 포함한 7분할
-                row_labels = ["최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
-                row_values = [
+                # ▶ 1줄차: 마진, 마진율, 투자수익률(마진 기준)
+                cols1 = st.columns([1, 1, 1, 1, 1, 1, 1])
+                labels1 = ["마진", "마진율", "투자수익률(마진 기준)"]
+                values1 = [
+                    f"{format_number(margin_profit)}원",
+                    f"{margin_ratio:.2f}%",
+                    f"{roi_margin:.2f}%"
+                ]
+                for i in range(3):
+                    with cols1[i + 2]:
+                        st.markdown(f"**{labels1[i]}**")
+                        st.markdown(f"<div style='font-size: 16px;'>{values1[i]}</div>", unsafe_allow_html=True)
+
+                # ▶ 2줄차: 최소 이익, 최소마진율, 투자수익률(전체 기준)
+                cols2 = st.columns([1, 1, 1, 1, 1, 1, 1])
+                labels2 = ["최소 이익", "최소마진율", "투자수익률(전체 기준)"]
+                values2 = [
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
-                    f"{roi:.2f}%",
-                    f"{format_number(margin_profit)}원",
-                    f"{margin_ratio:.2f}%"
+                    f"{roi:.2f}%"
                 ]
+                for i in range(3):
+                    with cols2[i + 2]:
+                        st.markdown(f"**{labels2[i]}**")
+                        st.markdown(f"<div style='font-size: 16px;'>{values2[i]}</div>", unsafe_allow_html=True)
 
-                for i in range(5):
-                    with cols[i + 1]:  # cols[1]~cols[5]에 출력
-                        st.markdown(f"**{row_labels[i]}**")
-                        st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
-
-                st.markdown("<div style='height: 120px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 95px;'></div>", unsafe_allow_html=True)
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
