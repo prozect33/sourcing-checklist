@@ -143,7 +143,7 @@ with tab1:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values1[i]}</div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
 
                 # 복잡이지 2줄차
                 cols2 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
