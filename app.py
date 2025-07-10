@@ -98,7 +98,7 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
-                        cost_display = f"{format_number(unit_cost_val)}원<br>{unit_yuan}위안"
+                        cost_display = f"{format_number(unit_cost_val)}원<br>({unit_yuan}위안)"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
                         cost_display = f"{format_number(unit_cost_val)}원"
