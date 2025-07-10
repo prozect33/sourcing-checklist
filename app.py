@@ -1,5 +1,4 @@
-with right:
-    # 계산 실행 시 결과를 session_state에 저장
+with st.columns(2)[1]:
     if 'result' in locals() and result:
         try:
             sell_price = int(float(sell_price_raw)) if sell_price_raw else None
