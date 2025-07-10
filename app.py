@@ -144,7 +144,7 @@ with tab1:
                 st.markdown("### 📊 계산 결과")
 
                 row = st.columns(7)
-                row_labels = ["판매가", "원가", "최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
+                row_labels = ["마진", "마진율", "최소 이익", "최소마진율", "투자수익률"]
                 row_values = [
                     f"{format_number(sell_price)}원",
                     cost_display,
