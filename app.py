@@ -65,9 +65,24 @@ if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
+# 탭으로 구분
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
+    # 간단 원가 한도 계산 섹션
+    st.subheader("🥇 원가 한도 계산기")
+    target_sell = st.number_input("목표 판매가 입력", min_value=0, step=100, value=0)
+    if target_sell > 0:
+        # 마진율 50% 기준 원가
+        max_cost_margin = target_sell * (1 - 0.5)
+        yuan_margin = max_cost_margin / float(config['EXCHANGE_RATE'])
+        # 이익 5000원 기준 원가
+        max_cost_profit = target_sell - 5000
+        yuan_profit = max_cost_profit / float(config['EXCHANGE_RATE'])
+        st.markdown(f"**마진율 50% 기준 원가:** {format_number(max_cost_margin)}원 ({format_number(yuan_margin)}위안)")
+        st.markdown(f"**이익 5000원 기준 원가:** {format_number(max_cost_profit)}원 ({format_number(yuan_profit)}위안)")
+    st.markdown("---")
+
     left, right = st.columns(2)
 
     with left:
@@ -81,12 +96,12 @@ with tab1:
         qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
         calc_col, reset_col = st.columns(2)
         with calc_col:
-            result = st.button("계산하기")
+            calculate = st.button("계산하기")
         with reset_col:
             st.button("리셋", on_click=reset_inputs)
 
     with right:
-        if 'result' in locals() and result:
+        if 'calculate' in locals() and calculate:
             try:
                 sell_price = int(float(sell_price_raw))
                 qty = int(float(qty_raw))
@@ -128,6 +143,7 @@ with tab1:
             roi = round((profit / unit_cost) * 100, 2) if unit_cost else 0
             roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
+            # 결과 출력
             st.markdown("### 📊 계산 결과")
             for bg, stats in [
                 ("#e8f5e9", [("💰 마진", f"{format_number(margin_profit)}원"),
@@ -138,17 +154,16 @@ with tab1:
                               ("🧾 투자수익률", f"{roi:.2f}%")])
             ]:
                 st.markdown(f"""
-<div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'>
+<div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 8px; border-radius: 10px; gap: 6px; margin-bottom: 8px;'>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div>
 </div>
 """, unsafe_allow_html=True)
 
-            st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
             with st.expander("📦 상세 비용 항목 보기", expanded=False):
                 st.markdown(f"**판매가:** {format_number(sell_price)}원")
-                # VAT 한 번만 적용된 단가 사용
                 st.markdown(f"**원가:** {format_number(unit_cost)}원 ({cost_display})")
                 st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
                 st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
