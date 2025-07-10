@@ -22,11 +22,11 @@ def load_config():
         try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
-                return {k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
+                return {k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v
+                        for k, v in data.items()}
         except:
             return default_config
-    else:
-        return default_config
+    return default_config
 
 def save_config(config):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
@@ -39,9 +39,9 @@ def format_input_value(val):
     return str(int(val)) if float(val).is_integer() else str(val)
 
 def reset_inputs():
-    for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
-        if key in st.session_state:
-            st.session_state[key] = ""
+    for k in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
+        if k in st.session_state:
+            st.session_state[k] = ""
 
 config = load_config()
 
@@ -56,147 +56,125 @@ for key, label in [
     ("ETC_RATE", "기타비용률 (%)"),
     ("EXCHANGE_RATE", "위안화 환율")
 ]:
-    config[key] = st.sidebar.text_input(label, value=format_input_value(config[key]), key=key)
-
+    config[key] = st.sidebar.text_input(label, format_input_value(config[key]), key=key)
 if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
-    st.sidebar.success("기본값이 저장되었습니다.")
+    st.sidebar.success("저장되었습니다")
 
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
     left, right = st.columns(2)
-
     with left:
         st.subheader("판매정보 입력")
-        sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
+        sell_price_raw = st.text_input("판매가", st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
-        # 간결 텍스트 출력
+        # → 목표 원가 계산 (간결 텍스트)
         if sell_price_raw:
             try:
                 sell_price = int(float(sell_price_raw))
                 vat = 1.1
                 fee = round((sell_price * float(config["FEE_RATE"]) / 100) * vat)
-                ad = round((sell_price * float(config["AD_RATE"]) / 100) * vat)
-                inout = round(float(config["INOUT_COST"]) * vat)
-                pickup = round(float(config["PICKUP_COST"]) * vat)
-                restock = round(float(config["RESTOCK_COST"]) * vat)
-                return_cost = round((pickup + restock) * float(config["RETURN_RATE"]))
+                ad  = round((sell_price * float(config["AD_RATE"]) / 100) * vat)
+                inc = round(float(config["INOUT_COST"]) * vat)
+                pk  = round(float(config["PICKUP_COST"]) * vat)
+                rs  = round(float(config["RESTOCK_COST"]) * vat)
+                ret = round((pk + rs) * float(config["RETURN_RATE"]))
                 etc = round((sell_price * float(config["ETC_RATE"]) / 100))
 
-                def calculate_cost_for_margin_rate(target_rate):
-                    left, right = 0, sell_price
-                    result_cost = 0
-                    result_profit = 0
-                    while left <= right:
-                        mid = (left + right) // 2
-                        total_cost = mid + fee + ad + inout + return_cost + etc
-                        profit = sell_price - total_cost
-                        margin_rate = round((profit / (sell_price / vat)) * 100, 2)
-                        if margin_rate < target_rate:
-                            right = mid - 1
+                def cost_for_margin(rate):
+                    lo, hi = 0, sell_price
+                    best_cost, best_profit = 0, 0
+                    while lo <= hi:
+                        mid = (lo + hi) // 2
+                        total = mid + fee + ad + inc + ret + etc
+                        prof  = sell_price - total
+                        mrt   = round((prof / (sell_price / vat)) * 100, 2)
+                        if mrt < rate:
+                            hi = mid - 1
                         else:
-                            result_cost = mid
-                            result_profit = profit
-                            left = mid + 1
-                    return result_cost, result_profit
+                            best_cost, best_profit = mid, prof
+                            lo = mid + 1
+                    return best_cost, best_profit
 
-                cost_50_margin, profit_50 = calculate_cost_for_margin_rate(50.0)
-                cost_5000_profit = sell_price - (fee + ad + inout + return_cost + etc + 5000)
+                c50, p50 = cost_for_margin(50.0)
+                c5k      = sell_price - (fee + ad + inc + ret + etc + 5000)
 
-                cost_50_yuan = math.ceil(cost_50_margin / float(config["EXCHANGE_RATE"]))
-                cost_5000_yuan = math.ceil(cost_5000_profit / float(config["EXCHANGE_RATE"]))
+                y50 = math.ceil(c50 / float(config["EXCHANGE_RATE"]))
+                y5k = math.ceil(c5k / float(config["EXCHANGE_RATE"]))
 
-                st.markdown(f"📌 마진율 50% 기준: {format_number(cost_50_margin)}원 ({cost_50_yuan}위안), 마진: {format_number(profit_50)}원")
-                st.markdown(f"📌 마진 5,000원 기준: {format_number(cost_5000_profit)}원 ({cost_5000_yuan}위안)")
-
+                st.markdown(f"📌 마진율 50% 기준: {format_number(c50)}원 ({y50}위안), 마진: {format_number(p50)}원")
+                st.markdown(f"📌 마진 5,000원 기준: {format_number(c5k)}원 ({y5k}위안)")
             except:
-                st.warning("판매가를 정확히 입력해주세요.")
+                st.warning("판매가를 숫자로 정확히 입력해주세요.")
 
         col1, col2 = st.columns(2)
         with col1:
-            unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
+            unit_yuan = st.text_input("단가 (위안)", st.session_state.get("unit_yuan", ""), key="unit_yuan")
         with col2:
-            unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
-        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
+            unit_won  = st.text_input("단가 (원)", st.session_state.get("unit_won",  ""), key="unit_won")
+        qty_raw = st.text_input("수량", st.session_state.get("qty_raw", "1"), key="qty_raw")
+
         calc_col, reset_col = st.columns(2)
         with calc_col:
-            result = st.button("계산하기")
+            do_calc = st.button("계산하기")
         with reset_col:
             st.button("리셋", on_click=reset_inputs)
 
     with right:
-        if 'result' in locals() and result:
+        if 'do_calc' in locals() and do_calc:
             try:
                 sell_price = int(float(sell_price_raw))
-                qty = int(float(qty_raw))
+                qty        = int(float(qty_raw))
             except:
-                st.warning("판매가와 수량을 정확히 입력해주세요.")
+                st.warning("판매가/수량을 정확히 입력해주세요")
                 st.stop()
 
             if unit_yuan:
-                unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
-                cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
+                uc = round(float(unit_yuan) * float(config["EXCHANGE_RATE"]))
+                disp = f"{format_number(uc)}원 ({unit_yuan}위안)"
             elif unit_won:
-                unit_cost_val = round(float(unit_won))
-                cost_display = f"{format_number(unit_cost_val)}원"
+                uc = round(float(unit_won))
+                disp = f"{format_number(uc)}원"
             else:
-                unit_cost_val = 0
-                cost_display = "0원"
+                uc, disp = 0, "0원"
 
             vat = 1.1
-            unit_cost = round(unit_cost_val * vat)
+            uc_vat = round(uc * vat)
+            fee  = round((sell_price * float(config["FEE_RATE"]) / 100) * vat)
+            ad   = round((sell_price * float(config["AD_RATE"]) / 100) * vat)
+            inc  = round(float(config["INOUT_COST"]) * vat)
+            pk   = round(float(config["PICKUP_COST"]) * vat)
+            rs   = round(float(config["RESTOCK_COST"]) * vat)
+            ret  = round((pk + rs) * float(config["RETURN_RATE"]))
+            etc2 = round((sell_price * float(config["ETC_RATE"]) / 100) * vat)
 
-            fee = round((sell_price * float(config["FEE_RATE"]) / 100) * vat)
-            ad = round((sell_price * float(config["AD_RATE"]) / 100) * vat)
-            inout = round(float(config["INOUT_COST"]) * vat)
-            pickup = round(float(config["PICKUP_COST"]) * vat)
-            restock = round(float(config["RESTOCK_COST"]) * vat)
-            return_cost = round((pickup + restock) * float(config["RETURN_RATE"]))
-            etc = round((sell_price * float(config["ETC_RATE"]) / 100) * vat)
+            total = uc_vat + fee + ad + inc + ret + etc2
+            prof  = sell_price - total
+            supp  = sell_price / vat
 
-            total_cost = unit_cost + fee + ad + inout + return_cost + etc
-            profit = sell_price - total_cost
-            supply_price = sell_price / vat
-
-            margin_profit = sell_price - (unit_cost + fee + inout)
-            margin_ratio = round((margin_profit / supply_price) * 100, 2)
-            roi = round((profit / unit_cost) * 100, 2) if unit_cost else 0
-            roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
+            mprof = sell_price - (uc_vat + fee + inc)
+            mrate = round((mprof / supp) * 100, 2)
+            roi   = round((prof / uc_vat) * 100, 2) if uc_vat else 0
+            roi_m = round((mprof / uc_vat) * 100, 2) if uc_vat else 0
 
             st.markdown("### 📊 계산 결과")
             for bg, stats in [
-                ("#e8f5e9", [("💰 마진", f"{format_number(margin_profit)}원"),
-                              ("📈 마진율", f"{margin_ratio:.2f}%"),
-                              ("💹 투자수익률", f"{roi_margin:.2f}%")]),
-                ("#e3f2fd", [("🧮 최소 이익", f"{format_number(profit)}원"),
-                              ("📉 최소마진율", f"{(profit/supply_price*100):.2f}%"),
+                ("#e8f5e9", [("💰 마진", f"{format_number(mprof)}원"),
+                              ("📈 마진율", f"{mrate:.2f}%"),
+                              ("💹 ROI", f"{roi_m:.2f}%")]),
+                ("#e3f2fd", [("🧮 순이익", f"{format_number(prof)}원"),
+                              ("📉 순마진율", f"{(prof/supp*100):.2f}%"),
                               ("🧾 투자수익률", f"{roi:.2f}%")])
             ]:
                 st.markdown(f"""
-<div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'>
-  <div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div>
-  <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
-  <div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div>
+<div style='display:grid; grid-template-columns:1fr 1fr 1fr; background:{bg};
+             padding:12px; border-radius:10px; gap:8px; margin-bottom:12px;'>
+  <div><b>{stats[0][0]}</b><br>{stats[0][1]}</div>
+  <div><b>{stats[1][0]}</b><br>{stats[1][1]}</div>
+  <div><b>{stats[2][0]}</b><br>{stats[2][1]}</div>
 </div>
 """, unsafe_allow_html=True)
-
-            st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
-            with st.expander("📦 상세 비용 항목 보기", expanded=False):
-                st.markdown(f"**판매가:** {format_number(sell_price)}원")
-                st.markdown(f"**원가:** {format_number(unit_cost)}원 ({cost_display})")
-                st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
-                st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
-                st.markdown(f"**입출고비용:** {format_number(inout)}원 ({config['INOUT_COST']} × 1.1)")
-                st.markdown(f"**회수비용:** {format_number(pickup)}원 ({config['PICKUP_COST']} × 1.1)")
-                st.markdown(f"**재입고비용:** {format_number(restock)}원 ({config['RESTOCK_COST']} × 1.1)")
-                st.markdown(f"**반품비용:** {format_number(return_cost)}원 ((회수비용+재입고비용) × {float(config['RETURN_RATE'])*100:.1f}% )")
-                st.markdown(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
-                st.markdown(f"**총비용:** {format_number(total_cost)}원")
-                st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
-                st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
-                st.markdown(f"**최소마진율:** {(profit/supply_price*100):.2f}%")
-                st.markdown(f"**투자수익률:** {roi:.2f}%")
 
 with tab2:
     st.subheader("세부 마진 계산기")
