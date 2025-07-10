@@ -67,37 +67,36 @@ if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
-# 탭으로 구분
+# 탭 구성
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
-    # 1. 목표 마진율/고정 이익 기준 원가 계산 섹션
+    # 🥇 원가 한도 계산기
     st.subheader("🥇 원가 한도 계산기")
     target_sell = st.number_input("목표 판매가 입력 (원)", min_value=0, step=100, value=0)
-    st.slider_label = st.slider("목표 순마진율 (%)", 0.0, 100.0, 50.0, 0.5)
+    target_margin = st.slider("목표 순마진율 (%)", 0.0, 100.0, 50.0, 0.5)
     desired_profit = st.number_input("목표 이익 입력 (원)", min_value=0, step=1000, value=5000)
     if st.button("▶️ 원가 계산 실행"):
         # 순마진율 기준 원가
-        max_cost_margin = calculate_target_cost(target_sell, st.slider_label)
+        max_cost_margin = calculate_target_cost(target_sell, target_margin)
         yuan_margin = math.ceil(max_cost_margin / float(config['EXCHANGE_RATE']))
         # 고정 이익 기준 원가
-        fee    = round((target_sell * float(config["FEE_RATE"]) / 100) * 1.1)
-        ad     = round((target_sell * float(config["AD_RATE"]) / 100) * 1.1)
-        inout  = round(float(config["INOUT_COST"]) * 1.1)
+        fee = round((target_sell * float(config["FEE_RATE"]) / 100) * 1.1)
+        ad = round((target_sell * float(config["AD_RATE"]) / 100) * 1.1)
+        inout = round(float(config["INOUT_COST"]) * 1.1)
         pickup = round(float(config["PICKUP_COST"]) * 1.1)
-        restock= round(float(config["RESTOCK_COST"]) * 1.1)
+        restock = round(float(config["RESTOCK_COST"]) * 1.1)
         return_cost = round((pickup + restock) * float(config["RETURN_RATE"]))
-        etc    = round((target_sell * float(config["ETC_RATE"]) / 100) * 1.1)
+        etc = round((target_sell * float(config["ETC_RATE"]) / 100) * 1.1)
         max_cost_profit = target_sell - (fee + ad + inout + return_cost + etc) - desired_profit
-        yuan_profit     = math.ceil(max_cost_profit / float(config['EXCHANGE_RATE']))
+        yuan_profit = math.ceil(max_cost_profit / float(config['EXCHANGE_RATE']))
 
-        st.markdown(f"**순마진율 {st.slider_label:.1f}% 기준 원가:** {format_number(max_cost_margin)}원 ({yuan_margin}위안)")
-        st.markdown(f"**고정 이익 {desired_profit}원 기준 원가:** {format_number(max_cost_profit)}원 ({yuan_profit}위안)")
+        st.markdown(f"**순마진율 {target_margin:.1f}% 기준 원가:** {format_number(max_cost_margin)}원 ({format_number(yuan_margin)}위안)")
+        st.markdown(f"**고정 이익 {desired_profit}원 기준 원가:** {format_number(max_cost_profit)}원 ({format_number(yuan_profit)}위안)")
     st.markdown("---")
 
-    # 2. 기존 판매정보 입력 및 결과 출력
+    # 기존 판매정보 입력 및 결과 출력
     left, right = st.columns(2)
-
     with left:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
@@ -182,4 +181,15 @@ with tab1:
                 st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
                 st.markdown(f"**입출고비용:** {format_number(inout)}원 ({config['INOUT_COST']} × 1.1)")
                 st.markdown(f"**회수비용:** {format_number(pickup)}원 ({config['PICKUP_COST']} × 1.1)")
-                st.markdown(f"
+                st.markdown(f"**재입고비용:** {format_number(restock)}원 ({config['RESTOCK_COST']} × 1.1)")
+                st.markdown(f"**반품비용:** {format_number(return_cost)}원 ((회수비용+재입고비용) × {float(config['RETURN_RATE'])*100:.1f}% )")
+                st.markdown(f"**기타비용:** {format_NUMBER(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
+                st.markdown(f"**총비용:** {format_number(total_cost)}원")
+                st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
+                st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
+                st.markdown(f"**최소마진율:** {profit/supply_price*100:.2f}%")
+                st.markdown(f"**투자수익률:** {roi:.2f}%")
+
+with tab2:
+    st.subheader("세부 마진 계산기")
+    st.info("준비 중입니다...")
