@@ -3,7 +3,7 @@ import streamlit as st
 import json
 import os
 
-st.set_page_config(page_title="간단 매진 계산기", layout="wide")
+st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 DEFAULT_CONFIG_FILE = "default_config.json"
 default_config = {
@@ -131,27 +131,35 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                st.markdown("<div style='background-color:#e8f5e9; padding: 16px 0px 10px 0px; border-radius:10px;'>", unsafe_allow_html=True)
-                cols1 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
-                labels1 = ["💰 마진", "📈 마진율", "💹 투자수익률"]
-                values1 = [f"{format_number(margin_profit)}원", f"{margin_ratio:.2f}%", f"{roi_margin:.2f}%"]
-                for i in range(3):
-                    with cols1[i + 1]:
-                        st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values1[i]}</div>", unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+                # 마진 박스
+                with st.container():
+                    st.markdown(
+                        "<div style='background-color:#e8f5e9; padding:20px; border-radius:10px;'>",
+                        unsafe_allow_html=True
+                    )
+                    cols1 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
+                    labels1 = ["💰 마진", "📈 마진율", "💹 투자수익률"]
+                    values1 = [f"{format_number(margin_profit)}원", f"{margin_ratio:.2f}%", f"{roi_margin:.2f}%"]
+                    for i in range(3):
+                        with cols1[i + 1]:
+                            st.markdown(f"<div style='text-align: left; font-weight: bold'>{labels1[i]}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='text-align: left; font-size: 16px'>{values1[i]}</div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='background-color:#e3f2fd; padding: 16px 0px 10px 0px; border-radius:10px;'>", unsafe_allow_html=True)
-                cols2 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
-                labels2 = ["🧮 최소 이익", "📉 최소마진율", "🧾 투자수익률"]
-                values2 = [f"{format_number(profit)}원", f"{margin:.2f}%", f"{roi:.2f}%"]
-                for i in range(3):
-                    with cols2[i + 1]:
-                        st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels2[i]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values2[i]}</div>", unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                st.markdown("<div style='height: 45px;'></div>", unsafe_allow_html=True)
+                # 최소이익 박스
+                with st.container():
+                    st.markdown(
+                        "<div style='background-color:#e3f2fd; padding:20px; border-radius:10px;'>",
+                        unsafe_allow_html=True
+                    )
+                    cols2 = st.columns([0.1, 1, 1, 1, 0.3, 0.3])
+                    labels2 = ["🧮 최소 이익", "📉 최소마진율", "🧾 투자수익률"]
+                    values2 = [f"{format_number(profit)}원", f"{margin:.2f}%", f"{roi:.2f}%"]
+                    for i in range(3):
+                        with cols2[i + 1]:
+                            st.markdown(f"<div style='text-align: left; font-weight: bold'>{labels2[i]}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='text-align: left; font-size: 16px'>{values2[i]}</div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
