@@ -133,6 +133,9 @@ with tab1:
                         padding-top: 4px !important;
                         padding-bottom: 4px !important;
                         font-size: 14px !important;
+                        width: fit-content !important;
+                        display: inline-block !important;
+                        white-space: nowrap;
                     }
                     details {
                         margin-top: 0.5rem !important;
@@ -140,21 +143,19 @@ with tab1:
                     }
                     </style>
                 """, unsafe_allow_html=True)
-                
+
                 st.markdown("### 📊 계산 결과")
 
                 row = st.columns(5)
                 row_labels = ["마진", "마진율", "최소 이익", "최소마진율", "투자수익률"]
                 row_values = [
-                    f"{format_number(sell_price)}원",
-                    cost_display,
+                    f"{format_number(margin_profit)}원",
+                    f"{margin_ratio:.2f}%",
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
-                    f"{roi:.2f}%",
-                    f"{format_number(margin_profit)}원",
-                    f"{margin_ratio:.2f}%"
+                    f"{roi:.2f}%"
                 ]
-                for i in range(7):
+                for i in range(len(row_values)):
                     with row[i]:
                         st.markdown(f"**{row_labels[i]}**")
                         st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
