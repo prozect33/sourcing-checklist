@@ -143,7 +143,7 @@ with tab1:
                     ])
                 ]:
                     st.markdown(f"""
-<div style='display: grid; grid-template-columns: 0.1fr 1fr 1fr 0.3fr 0.3fr; background: {bg_color}; padding: 12px 18px; border-radius: 10px; text-align: center; align-items: center; gap: 8px; margin-bottom: 12px;'>
+<div style='display: grid; grid-template-columns: 1fr 1fr 1fr 0.3fr 0.3fr; background: {bg_color}; padding: 12px 18px; border-radius: 10px; text-align: center; align-items: center; gap: 8px; margin-bottom: 12px;'>
     <div><div style='font-weight:bold; font-size:15px;'>{values[0][0]}</div><div style='font-size:15px;'>{values[0][1]}</div></div>
     <div><div style='font-weight:bold; font-size:15px;'>{values[1][0]}</div><div style='font-size:15px;'>{values[1][1]}</div></div>
     <div><div style='font-weight:bold; font-size:15px;'>{values[2][0]}</div><div style='font-size:15px;'>{values[2][1]}</div></div>
