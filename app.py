@@ -135,18 +135,18 @@ with tab1:
                 with st.container():
                     st.markdown(
                         f"""
-                        <div style='background-color:#e8f5e9; padding:20px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
+                        <div style='background-color:#e8f5e9; padding:12px 16px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
                             <div>
                                 <div style='font-weight:bold;'>💰 마진</div>
-                                <div style='font-size:16px;'>{format_number(margin_profit)}원</div>
+                                <div style='font-size:15px; font-weight:bold;'>{format_number(margin_profit)}원</div>
                             </div>
                             <div>
                                 <div style='font-weight:bold;'>📈 마진율</div>
-                                <div style='font-size:16px;'>{margin_ratio:.2f}%</div>
+                                <div style='font-size:15px; font-weight:bold;'>{margin_ratio:.2f}%</div>
                             </div>
                             <div>
                                 <div style='font-weight:bold;'>💹 투자수익률</div>
-                                <div style='font-size:16px;'>{roi_margin:.2f}%</div>
+                                <div style='font-size:15px; font-weight:bold;'>{roi_margin:.2f}%</div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True
@@ -156,18 +156,18 @@ with tab1:
                 with st.container():
                     st.markdown(
                         f"""
-                        <div style='background-color:#e3f2fd; padding:20px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
+                        <div style='background-color:#e3f2fd; padding:12px 16px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
                             <div>
                                 <div style='font-weight:bold;'>🧮 최소 이익</div>
-                                <div style='font-size:16px;'>{format_number(profit)}원</div>
+                                <div style='font-size:15px; font-weight:bold;'>{format_number(profit)}원</div>
                             </div>
                             <div>
                                 <div style='font-weight:bold;'>📉 최소마진율</div>
-                                <div style='font-size:16px;'>{margin:.2f}%</div>
+                                <div style='font-size:15px; font-weight:bold;'>{margin:.2f}%</div>
                             </div>
                             <div>
                                 <div style='font-weight:bold;'>🧾 투자수익률</div>
-                                <div style='font-size:16px;'>{roi:.2f}%</div>
+                                <div style='font-size:15px; font-weight:bold;'>{roi:.2f}%</div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True
