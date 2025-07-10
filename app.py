@@ -131,38 +131,60 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
+                # 마진 박스
                 with st.container():
-                    st.markdown(f"""
-                    <div style='background-color:#e8f5e9; padding:6px 12px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
-                        <div>
-                            <div style='font-weight:bold; font-size:15px;'>💰 <b>마진</b></div>
-                            <div style='font-size:15px;'>{format_number(margin_profit)}원</div>
+                    st.markdown(
+                        f"""
+                        <div style='background-color:#e8f5e9; padding:12px 16px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
+                            <div>
+                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>💰 마진</div>
+                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{format_number(margin_profit)}원</div>
+                            </div>
+                            <div>
+                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>📈 마진율</div>
+                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{margin_ratio:.2f}%</div>
+                            </div>
+                            <div>
+                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>💹 투자수익률</div>
+                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{roi_margin:.2f}%</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style='font-weight:bold; font-size:15px;'>📈 <b>마진율</b></div>
-                            <div style='font-size:15px;'>{margin_ratio:.2f}%</div>
-                        </div>
-                        <div>
-                            <div style='font-weight:bold; font-size:15px;'>💹 <b>투자수익률</b></div>
-                            <div style='font-size:15px;'>{roi_margin:.2f}%</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True
+                    )
 
+                # 최소이익 박스
                 with st.container():
-                    st.markdown(f"""
-                    <div style='background-color:#e3f2fd; padding:6px 12px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
-                        <div>
-                            <div style='font-weight:bold; font-size:15px;'>🧮 <b>최소 이익</b></div>
-                            <div style='font-size:15px;'>{format_number(profit)}원</div>
+                    st.markdown(
+                        f"""
+                        <div style='background-color:#e3f2fd; padding:12px 16px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
+                            <div>
+                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>🧮 최소 이익</div>
+                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{format_number(profit)}원</div>
+                            </div>
+                            <div>
+                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>📉 최소마진율</div>
+                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{margin:.2f}%</div>
+                            </div>
+                            <div>
+                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>🧾 투자수익률</div>
+                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{roi:.2f}%</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style='font-weight:bold; font-size:15px;'>📉 <b>최소마진율</b></div>
-                            <div style='font-size:15px;'>{margin:.2f}%</div>
-                        </div>
-                        <div>
-                            <div style='font-weight:bold; font-size:15px;'>🧾 <b>투자수익률</b></div>
-                            <div style='font-size:15px;'>{roi:.2f}%</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True
+                    )
+
+                with st.expander("📦 상세 비용 항목 보기", expanded=False):
+                    st.markdown(f"**판매가:** {format_number(sell_price)}원")
+                    st.markdown(f"**원가:** {format_number(unit_cost)}원 ({unit_yuan}위안)" if unit_yuan else f"**원가:** {format_number(unit_cost)}원")
+                    st.markdown(f"**수수료:** {format_number(fee)}원 (판매가 × {config['FEE_RATE']}% × 1.1)")
+                    st.markdown(f"**광고비:** {format_number(ad)}원 (판매가 × {config['AD_RATE']}% × 1.1)")
+                    st.markdown(f"**입출고비용:** {format_number(inout)}원 ({format_number(config['INOUT_COST'])} × 1.1)")
+                    st.markdown(f"**회수비용:** {format_number(pickup)}원 ({format_number(config['PICKUP_COST'])} × 1.1)")
+                    st.markdown(f"**재입고비용:** {format_number(restock)}원 ({format_number(config['RESTOCK_COST'])} × 1.1)")
+                    st.markdown(f"**반품비용:** {format_number(return_cost)}원 ((({format_number(config['PICKUP_COST'])} × 1.1) + ({format_number(config['RESTOCK_COST'])} × 1.1)) × {return_rate * 100:.1f}%)")
+                    st.markdown(f"**기타비용:** {format_number(etc)}원 (판매가 × {config['ETC_RATE']}% × 1.1)")
+                    st.markdown(f"**총비용:** {format_number(total_cost)}원 (원가 + 위 항목 합산)")
+                    st.markdown(f"**공급가액:** {format_number(round(supply_price))}원 (판매가 ÷ 1.1)")
+                    st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
+                    st.markdown(f"**최소마진율:** {margin:.2f}% ((최소 이익 ÷ 공급가액) × 100)")
+                    st.markdown(f"**투자수익률:** {roi:.2f}% ((최소 이익 ÷ 원가) × 100)")
