@@ -131,21 +131,29 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                st.markdown(f"""
-                <div style='background-color:#e8f5e9; padding:20px; border-radius:10px; margin-bottom:15px'>
-                    <b>💰 마진:</b> {format_number(margin_profit)}원 &nbsp;&nbsp;&nbsp;
-                    <b>📈 마진율:</b> {margin_ratio:.2f}% &nbsp;&nbsp;&nbsp;
-                    <b>💹 투자수익률:</b> {roi_margin:.2f}%
-                </div>
-                """, unsafe_allow_html=True)
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style='background-color:#e8f5e9; padding:20px; border-radius:10px; margin-bottom:10px'>
+                            <b>💰 마진:</b> {format_number(margin_profit)}원 &nbsp;&nbsp;&nbsp;
+                            <b>📈 마진율:</b> {margin_ratio:.2f}% &nbsp;&nbsp;&nbsp;
+                            <b>💹 투자수익률:</b> {roi_margin:.2f}%
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-                st.markdown(f"""
-                <div style='background-color:#e3f2fd; padding:20px; border-radius:10px;'>
-                    <b>🧮 최소 이익:</b> {format_number(profit)}원 &nbsp;&nbsp;&nbsp;
-                    <b>📉 최소마진율:</b> {margin:.2f}% &nbsp;&nbsp;&nbsp;
-                    <b>🧾 투자수익률:</b> {roi:.2f}%
-                </div>
-                """, unsafe_allow_html=True)
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style='background-color:#e3f2fd; padding:20px; border-radius:10px'>
+                            <b>🧮 최소 이익:</b> {format_number(profit)}원 &nbsp;&nbsp;&nbsp;
+                            <b>📉 최소마진율:</b> {margin:.2f}% &nbsp;&nbsp;&nbsp;
+                            <b>🧾 투자수익률:</b> {roi:.2f}%
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
                 st.markdown("<div style='height: 45px;'></div>", unsafe_allow_html=True)
 
