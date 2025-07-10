@@ -129,62 +129,62 @@ with tab1:
                 margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
-
+                
 st.markdown("### 📊 계산 결과")
 
 with st.container():
-    st.markdown(f"""
-    <div style='
-        background-color:#e8f5e9;
-        padding:12px 18px;
-        border-radius:10px;
-        display: flex;
-        justify-content: space-around;
-        text-align: center;
-        gap: 20px;
-        margin-bottom: 12px;
-    '>
-        <div>
-            <div style='font-weight:bold; font-size:15px;'>💰 <b>마진</b></div>
-            <div style='font-size:15px;'>{format_number(margin_profit)}원</div>
-        </div>
-        <div>
-            <div style='font-weight:bold; font-size:15px;'>📈 <b>마진율</b></div>
-            <div style='font-size:15px;'>{margin_ratio:.2f}%</div>
-        </div>
-        <div>
-            <div style='font-weight:bold; font-size:15px;'>💹 <b>투자수익률</b></div>
-            <div style='font-size:15px;'>{roi_margin:.2f}%</div>
-        </div>
+    st.markdown(f'''
+<div style='
+    background-color:#e8f5e9;
+    padding:12px 18px;
+    border-radius:10px;
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    gap: 20px;
+    margin-bottom: 12px;
+'>
+    <div>
+        <div style='font-weight:bold; font-size:15px;'>💰 <b>마진</b></div>
+        <div style='font-size:15px;'>{format_number(margin_profit)}원</div>
     </div>
-""", unsafe_allow_html=True)
+    <div>
+        <div style='font-weight:bold; font-size:15px;'>📈 <b>마진율</b></div>
+        <div style='font-size:15px;'>{margin_ratio:.2f}%</div>
+    </div>
+    <div>
+        <div style='font-weight:bold; font-size:15px;'>💹 <b>투자수익률</b></div>
+        <div style='font-size:15px;'>{roi_margin:.2f}%</div>
+    </div>
+</div>
+''', unsafe_allow_html=True)
 
 with st.container():
-    st.markdown(f"""
-    <div style='
-        background-color:#e3f2fd;
-        padding:12px 18px;
-        border-radius:10px;
-        display: flex;
-        justify-content: space-around;
-        text-align: center;
-        gap: 20px;
-        margin-top: 12px;
-    '>
-        <div>
-            <div style='font-weight:bold; font-size:15px;'>🧮 <b>최소 이익</b></div>
-            <div style='font-size:15px;'>{format_number(profit)}원</div>
-        </div>
-        <div>
-            <div style='font-weight:bold; font-size:15px;'>📉 <b>최소마진율</b></div>
-            <div style='font-size:15px;'>{margin:.2f}%</div>
-        </div>
-        <div>
-            <div style='font-weight:bold; font-size:15px;'>🧾 <b>투자수익률</b></div>
-            <div style='font-size:15px;'>{roi:.2f}%</div>
-        </div>
+    st.markdown(f'''
+<div style='
+    background-color:#e3f2fd;
+    padding:12px 18px;
+    border-radius:10px;
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    gap: 20px;
+    margin-top: 12px;
+'>
+    <div>
+        <div style='font-weight:bold; font-size:15px;'>🧮 <b>최소 이익</b></div>
+        <div style='font-size:15px;'>{format_number(profit)}원</div>
     </div>
-""", unsafe_allow_html=True)
+    <div>
+        <div style='font-weight:bold; font-size:15px;'>📉 <b>최소마진율</b></div>
+        <div style='font-size:15px;'>{margin:.2f}%</div>
+    </div>
+    <div>
+        <div style='font-weight:bold; font-size:15px;'>🧾 <b>투자수익률</b></div>
+        <div style='font-size:15px;'>{roi:.2f}%</div>
+    </div>
+</div>
+''', unsafe_allow_html=True)
 
 
 
