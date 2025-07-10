@@ -131,47 +131,41 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                # 마진 박스
                 with st.container():
-                    st.markdown(
-                        f"""
-                        <div style='background-color:#e8f5e9; padding:12px 16px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
-                            <div>
-                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>💰 마진</div>
-                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{format_number(margin_profit)}원</div>
-                            </div>
-                            <div>
-                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>📈 마진율</div>
-                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{margin_ratio:.2f}%</div>
-                            </div>
-                            <div>
-                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>💹 투자수익률</div>
-                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{roi_margin:.2f}%</div>
-                            </div>
+                    st.markdown(f"""
+                    <div style='background-color:#e8f5e9; padding:6px 12px; border-radius:10px; display: flex; justify-content: space-around; text-align: center;'>
+                        <div>
+                            <div style='font-weight:bold; font-size:15px;'>💰 <b>마진</b></div>
+                            <div style='font-size:15px;'>{format_number(margin_profit)}원</div>
                         </div>
-                        """, unsafe_allow_html=True
-                    )
+                        <div>
+                            <div style='font-weight:bold; font-size:15px;'>📈 <b>마진율</b></div>
+                            <div style='font-size:15px;'>{margin_ratio:.2f}%</div>
+                        </div>
+                        <div>
+                            <div style='font-weight:bold; font-size:15px;'>💹 <b>투자수익률</b></div>
+                            <div style='font-size:15px;'>{roi_margin:.2f}%</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                # 최소이익 박스
                 with st.container():
-                    st.markdown(
-                        f"""
-                        <div style='background-color:#e3f2fd; padding:12px 16px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
-                            <div>
-                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>🧮 최소 이익</div>
-                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{format_number(profit)}원</div>
-                            </div>
-                            <div>
-                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>📉 최소마진율</div>
-                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{margin:.2f}%</div>
-                            </div>
-                            <div>
-                                <div style='font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>🧾 투자수익률</div>
-                                <div style='font-size:15px; font-weight:bold; font-size:16px; font-weight:normal; text-align:center; width:120px; text-align:center; width:120px;'>{roi:.2f}%</div>
-                            </div>
+                    st.markdown(f"""
+                    <div style='background-color:#e3f2fd; padding:6px 12px; border-radius:10px; display: flex; justify-content: space-around; text-align: center; margin-top: 10px;'>
+                        <div>
+                            <div style='font-weight:bold; font-size:15px;'>🧮 <b>최소 이익</b></div>
+                            <div style='font-size:15px;'>{format_number(profit)}원</div>
                         </div>
-                        """, unsafe_allow_html=True
-                    )
+                        <div>
+                            <div style='font-weight:bold; font-size:15px;'>📉 <b>최소마진율</b></div>
+                            <div style='font-size:15px;'>{margin:.2f}%</div>
+                        </div>
+                        <div>
+                            <div style='font-weight:bold; font-size:15px;'>🧾 <b>투자수익률</b></div>
+                            <div style='font-size:15px;'>{roi:.2f}%</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
