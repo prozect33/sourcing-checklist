@@ -1,8 +1,30 @@
 import streamlit as st
 
+# 필수 함수 정의
+def format_number(num):
+    return f"{int(num):,}"
+
+# 임시 테스트용 입력값
+sell_price_raw = "10000"
+qty_raw = "1"
+unit_yuan = "20"
+unit_won = ""
+
+# config 설정값
+config = {
+    "EXCHANGE_RATE": 350,
+    "FEE_RATE": 10,
+    "AD_RATE": 5,
+    "INOUT_COST": 300,
+    "PICKUP_COST": 500,
+    "RESTOCK_COST": 200,
+    "RETURN_RATE": 0.1,
+    "ETC_RATE": 1
+}
+
 cols = st.columns(2)
 with cols[1]:
-    if 'result' in locals() and result:
+    if 'result' in locals() or True:  # 테스트용으로 항상 True 처리
         try:
             sell_price = int(float(sell_price_raw)) if sell_price_raw else None
             qty = int(float(qty_raw)) if qty_raw else None
@@ -44,7 +66,7 @@ with cols[1]:
             margin_profit = sell_price - (unit_cost + fee + inout)
             margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
 
-            # 계산 결과 session_state에 저장
+            # 세션 상태 저장
             st.session_state['calc_done'] = True
             st.session_state['sell_price'] = sell_price
             st.session_state['unit_cost'] = unit_cost
@@ -66,7 +88,6 @@ with cols[1]:
             st.session_state['return_rate'] = return_rate
             st.session_state['unit_yuan'] = unit_yuan
 
-    # 계산 후 상태가 유지되면 결과 출력
     if st.session_state.get('calc_done'):
         sell_price = st.session_state['sell_price']
         unit_cost = st.session_state['unit_cost']
