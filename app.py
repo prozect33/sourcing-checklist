@@ -158,7 +158,7 @@ with tab1:
                         st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels2[i]}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values2[i]}</div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='height: 70px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
