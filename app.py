@@ -139,9 +139,9 @@ with tab1:
                     f"{roi_margin:.2f}%"
                 ]
                 for i in range(3):
-                    with cols1[i + 1]:
-                        st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values1[i]}</div>", unsafe_allow_html=True)
+                    with cols1[i + 1]:  # 여기는 유지 (앞 공칸 0.1 포함된 구조이므로)
+                        st.markdown(f"<div style='text-align: center; font-weight: bold'>{labels1[i]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: center; font-size: 16px'>{values1[i]}</div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
@@ -154,9 +154,9 @@ with tab1:
                     f"{roi:.2f}%"
                 ]
                 for i in range(3):
-                    with cols2[i + 1]:
-                        st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels2[i]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values2[i]}</div>", unsafe_allow_html=True)
+                    with cols2[i + 1]:  # 여기도 유지 (앞 공칸 0.1 포함된 구조이므로)
+                        st.markdown(f"<div style='text-align: center; font-weight: bold'>{labels2[i]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: center; font-size: 16px'>{values2[i]}</div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='height: 95px;'></div>", unsafe_allow_html=True)
 
