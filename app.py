@@ -129,7 +129,7 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                cols = st.columns([1, 1, 1, 1, 1, 1, 1])  # 총 7칸으로 나눔
+                cols = st.columns([0.5, 1, 1, 1, 1, 1, 0.5])  # 양쪽 여백 포함한 7분할
                 row_labels = ["최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
                 row_values = [
                     f"{format_number(profit)}원",
@@ -140,7 +140,7 @@ with tab1:
                 ]
 
                 for i in range(5):
-                    with cols[i + 1]:  # 가운데 5칸만 사용 (1~5)
+                    with cols[i + 1]:  # cols[1]~cols[5]에 출력
                         st.markdown(f"**{row_labels[i]}**")
                         st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
 
