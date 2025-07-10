@@ -130,31 +130,33 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                # ▶ 1줄차: 마진, 마진율, 투자수익률
-                cols1 = st.columns([1, 1, 1, 1, 1, 1, 1])
+                # ▶ 위쪽 3개: 마진, 마진율, 투자수익률
                 labels1 = ["마진", "마진율", "투자수익률"]
                 values1 = [
                     f"{format_number(margin_profit)}원",
                     f"{margin_ratio:.2f}%",
                     f"{roi_margin:.2f}%"
                 ]
+                cols1 = st.columns([0.2, 1, 1, 1, 0.2])
                 for i in range(3):
-                    with cols1[i + 2]:
-                        st.markdown(f"**{labels1[i]}**")
-                        st.markdown(f"<div style='font-size: 16px;'>{values1[i]}</div>", unsafe_allow_html=True)
+                    with cols1[i + 1]:
+                        st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels1[i]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values1[i]}</div>", unsafe_allow_html=True)
 
-                # ▶ 2줄차: 최소 이익, 최소마진율, 투자수익률
-                cols2 = st.columns([1, 1, 1, 1, 1, 1, 1])
+                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+
+                # ▶ 아래쪽 3개: 최소 이익, 최소마진율, 투자수익률
                 labels2 = ["최소 이익", "최소마진율", "투자수익률"]
                 values2 = [
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
                     f"{roi:.2f}%"
                 ]
+                cols2 = st.columns([0.2, 1, 1, 1, 0.2])
                 for i in range(3):
-                    with cols2[i + 2]:
-                        st.markdown(f"**{labels2[i]}**")
-                        st.markdown(f"<div style='font-size: 16px;'>{values2[i]}</div>", unsafe_allow_html=True)
+                    with cols2[i + 1]:
+                        st.markdown(f"<div style='text-align: left; font-weight: bold; padding-left: 10px'>{labels2[i]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: left; font-size: 16px; padding-left: 10px'>{values2[i]}</div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='height: 95px;'></div>", unsafe_allow_html=True)
 
