@@ -98,7 +98,7 @@ with tab1:
                 try:
                     if unit_yuan:
                         unit_cost_val = round(float(unit_yuan) * float(config['EXCHANGE_RATE']))
-                        cost_display = f"{format_number(unit_cost_val)}원<br>({unit_yuan}위안)"
+                        cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
                     elif unit_won:
                         unit_cost_val = round(float(unit_won))
                         cost_display = f"{format_number(unit_cost_val)}원"
@@ -127,40 +127,23 @@ with tab1:
                 margin_profit = sell_price - (unit_cost + fee + inout)
                 margin_ratio = round((margin_profit / supply_price) * 100, 2) if supply_price else 0
 
-                st.markdown("""
-                    <style>
-                    details > summary {
-                        padding-top: 4px !important;
-                        padding-bottom: 4px !important;
-                        font-size: 14px !important;
-                        width: fit-content !important;
-                        display: inline-block !important;
-                        white-space: nowrap;
-                    }
-                    details {
-                        margin-top: 0.5rem !important;
-                        margin-bottom: 0.5rem !important;
-                    }
-                    </style>
-                """, unsafe_allow_html=True)
-
                 st.markdown("### 📊 계산 결과")
 
-                row = st.columns(5)
-                row_labels = ["마진", "마진율", "최소 이익", "최소마진율", "투자수익률"]
+                row = st.columns(7)
+                row_labels = ["판매가", "원가", "최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
                 row_values = [
-                    f"{format_number(margin_profit)}원",
-                    f"{margin_ratio:.2f}%",
+                    f"{format_number(sell_price)}원",
+                    cost_display,
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
-                    f"{roi:.2f}%"
+                    f"{roi:.2f}%",
+                    f"{format_number(margin_profit)}원",
+                    f"{margin_ratio:.2f}%"
                 ]
-                for i in range(len(row_values)):
+                for i in range(7):
                     with row[i]:
                         st.markdown(f"**{row_labels[i]}**")
                         st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
-
-                st.markdown("<div style='height: 85px;'></div>", unsafe_allow_html=True)
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     st.markdown(f"**판매가:** {format_number(sell_price)}원")
