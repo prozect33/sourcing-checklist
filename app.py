@@ -129,18 +129,16 @@ with tab1:
 
                 st.markdown("### 📊 계산 결과")
 
-                row = st.columns(7)
-                row_labels = ["판매가", "원가", "최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
+                row = st.columns(5)
+                row_labels = ["최소 이익", "최소마진율", "투자수익률", "마진", "마진율"]
                 row_values = [
-                    f"{format_number(sell_price)}원",
-                    cost_display,
                     f"{format_number(profit)}원",
                     f"{margin:.2f}%",
                     f"{roi:.2f}%",
                     f"{format_number(margin_profit)}원",
                     f"{margin_ratio:.2f}%"
                 ]
-                for i in range(7):
+                for i in range(5):
                     with row[i]:
                         st.markdown(f"**{row_labels[i]}**")
                         st.markdown(f"<div style='font-size: 16px;'>{row_values[i]}</div>", unsafe_allow_html=True)
