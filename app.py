@@ -15,11 +15,11 @@ st.markdown(
     }
     /* 2) 사이드바 위젯 시작 위치를 10px 아래로 내리기 */
     [data-testid="stSidebarContent"] {
-      padding-top: 10px !important;
+      padding-top: 15px !important;
     }
     /* 3) “🛠️ 설정값” 헤더와 첫 번째 입력 칸 사이 간격 조정 */
     [data-testid="stHeading"] {
-      margin-bottom: 20px !important;
+      margin-bottom: 15px !important;
     }
   </style>
   """,
