@@ -89,7 +89,7 @@ with tab1:
 
                 while left_b <= right_b:
                     mid = (left_b + right_b) // 2
-                    partial_cost = round(mid + fee + inout_cost)
+                    partial_cost = round(mid * 1.1 + fee + inout_cost)  # VAT 반영
                     margin_profit = sell_price_val - partial_cost
                     margin_mid = margin_profit / supply_price * 100
                     if margin_mid < target_margin:
@@ -99,11 +99,11 @@ with tab1:
                         left_b = mid + 1
 
                 yuan_cost = math.ceil(target_cost / float(config["EXCHANGE_RATE"]))
-                profit = sell_price_val - (target_cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
+                profit = sell_price_val - (round(target_cost * 1.1) + fee + ad_fee + inout_cost + return_cost + etc_cost)
 
                 margin_display.markdown(f"""
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
-  마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
+  마진율 {int(target_margin)}% 기준: {format_number(round(target_cost * 1.1))}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
             except:
