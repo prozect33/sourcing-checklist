@@ -8,31 +8,28 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 st.markdown(
     """
   """
-    <style>
+ <style>
     /* 본문 영역 상단 여백 */
-    .block-container,
-    .css-18e3th9 {                /* Streamlit 메인 컨테이너 클래스명 예시 */
+    .block-container {
         padding-top: 0.5rem !important;
     }
 
-    /* 사이드바 아우터 (최상위 섹션) */
+    /* 사이드바 최상위 컨테이너(Remove all padding/margin) */
     section[data-testid="stSidebar"],
     div[data-testid="stSidebar"] {
         padding: 0 !important;
         margin: 0 !important;
     }
 
-    /* 사이드바 내부 첫 번째 블록 (헤더 바로 위 공간) */
+    /* 사이드바 첫 번째 블록(헤더 위) 공백 제거 */
     section[data-testid="stSidebar"] > div:first-child,
-    div[data-testid="stSidebar"] > div:first-child,
-    .css-1lcbmhc > div:first-child {  /* 예시 클래스명—브라우저 devtools로 확인 후 교체하세요 */
+    div[data-testid="stSidebar"] > div:first-child {
         padding: 0 !important;
         margin: 0 !important;
     }
 
-    /* 사이드바 네비게이션 컨테이너 */
-    div[data-testid="stSidebarNav"],
-    .css-1v3fvcr {                   /* 예시 클래스명—브라우저 devtools로 확인 후 교체하세요 */
+    /* 사이드바 내 네비게이션 컨테이너 공백 제거 */
+    div[data-testid="stSidebarNav"] {
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
