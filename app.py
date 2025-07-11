@@ -22,7 +22,10 @@ def load_config():
         try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
-                return {k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
+                return {
+                    k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v
+                    for k, v in data.items()
+                }
         except:
             return default_config
     else:
@@ -70,7 +73,6 @@ with tab1:
     with left:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
-
         margin_display = st.empty()
 
         if sell_price_raw.strip():
@@ -85,7 +87,7 @@ with tab1:
                 supply_price = sell_price_val / 1.1
 
                 left_b, right_b = 0, sell_price_val
-                target_cost, yuan_cost, profit = 0, 0, 0
+                target_cost = 0
 
                 # ▶ 이분탐색 수식 수정 (광고비·반품비·기타비용 제외)
                 while left_b <= right_b:
@@ -119,6 +121,7 @@ with tab1:
         with col2:
             unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
         qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
+
         calc_col, reset_col = st.columns(2)
         with calc_col:
             result = st.button("계산하기")
@@ -146,7 +149,6 @@ with tab1:
 
             vat = 1.1
             unit_cost = round(unit_cost_val * vat)
-
             fee = round((sell_price * float(config["FEE_RATE"]) / 100) * vat)
             ad = round((sell_price * float(config["AD_RATE"]) / 100) * vat)
             inout = round(float(config["INOUT_COST"]) * vat)
