@@ -31,7 +31,7 @@ def load_config():
                 margin_50_placeholder.markdown(f"<span style='color:red;'>에러 발생: {e}</span>", unsafe_allow_html=True)
             return default_config
     else:
-        return default_config
+    return default_config
 
 def save_config(config):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
