@@ -177,7 +177,7 @@ with tab1:
   <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div>
 </div>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
             st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
             with st.expander("📦 상세 비용 항목 보기", expanded=False):
