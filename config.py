@@ -23,8 +23,7 @@ def save_config(cfg: dict) -> None:
 @st.cache_data
 def load_config(file_mtime: float) -> dict:
     """
-    file_mtime를 키로 설정 파일을 캐시합니다.
-    기본값(json) 읽기 실패 시 default_config 복사본을 반환.
+    file_mtime을 캐시 키로 사용해, 설정 파일을 자동 갱신합니다.
     """
     if os.path.exists(DEFAULT_CONFIG_FILE):
         try:
