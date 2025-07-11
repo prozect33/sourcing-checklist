@@ -71,7 +71,7 @@ with tab1:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
-        # 고정 공간 + 1번/2번 동일한 margin 설정
+        # 고정 공간 + 한 줄 텍스트 표시
         margin_display = st.empty()
 
         if sell_price_raw.strip():
@@ -103,12 +103,10 @@ with tab1:
                 profit = sell_price_val - (target_cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
 
                 margin_display.markdown(f"""
-<div style='margin:14px 0; color:#f63366; font-size:15px; line-height:1.6;'>
-  마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안)<br>
-  마진: {format_number(profit)}원
+<div style='margin:14px 0; color:#f63366; font-size:15px;'>
+  마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
-
             except:
                 margin_display.markdown("<div style='margin:14px 0;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
@@ -198,8 +196,6 @@ with tab1:
                 st.markdown(f"**최소 이익:** {format_number(profit2)}원 (판매가 - 총비용)")
                 st.markdown(f"**최소마진율:** {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"**투자수익률:** {roi:.2f}%")
-        else:
-            st.info("👉 왼쪽에서 판매정보 입력 후 '계산하기'를 눌러주세요.")
 
 with tab2:
     st.subheader("세부 마진 계산기")
