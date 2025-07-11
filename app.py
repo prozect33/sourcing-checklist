@@ -1,16 +1,17 @@
+import streamlit as st
 import os
 import math
-import streamlit as st
 
 from config import DEFAULT_CONFIG_FILE, default_config, load_config, save_config
-from utils import compute_cost_for_target_margin_simple, format_number
+from utils  import compute_50pct_cost, format_number
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
-# — 사이드바: 설정값 로드 & 입력
+# ─── 설정 로드 (mtime 기반 캐시) ───
 file_mtime = os.path.getmtime(DEFAULT_CONFIG_FILE) if os.path.exists(DEFAULT_CONFIG_FILE) else 0
-config = load_config(file_mtime)
+config     = load_config(file_mtime)
 
+# ─── 사이드바 ───
 st.sidebar.header("🛠️ 설정값")
 for key, label in [
     ("FEE_RATE", "수수료율 (%)"),
@@ -28,8 +29,7 @@ for key, label in [
         label,
         min_value=0.0,
         value=float(config.get(key, default_config[key])),
-        step=1.0 if "RATE" not in key else 0.1,
-        format="%f"
+        step=1.0 if "RATE" not in key else 0.1
     )
     config[key] = val
 
@@ -37,6 +37,7 @@ if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
+# ─── 탭 정의 ───
 tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
 with tab1:
@@ -48,21 +49,16 @@ with tab1:
         qty        = st.number_input("수량",     min_value=1, step=1,   value=1, format="%d")
 
         unit_yuan = st.number_input("위안화 단가 (¥)", min_value=0.0, step=0.1, value=0.0)
-        unit_won  = st.number_input("원화 단가 (₩)",   min_value=0,   step=100, value=0, format="%d")
+        unit_won  = st.number_input("원화 단가 (₩)",   min_value=0,   step=100, value=0,   format="%d")
 
-        # 50% 목표 마진 계산
+        # ─ 50% 목표 마진 계산 (수식 버전) ─
         if sell_price > 0:
-            cost_yuan, margin_profit = compute_cost_for_target_margin_simple(
-                sell_price, 50.0, config, qty
-            )
-            yuan_cost = math.ceil(cost_yuan / config["EXCHANGE_RATE"])
-            st.markdown(f"""
-<div style='color:#f63366; font-size:15px; margin-top:10px;'>
-  마진율 50% 기준: {format_number(cost_yuan)}원 ({yuan_cost}위안) / 마진: {format_number(margin_profit)}원
-</div>""", unsafe_allow_html=True)
+            c50, p50 = compute_50pct_cost(sell_price, config, qty)
+            y50 = math.ceil(c50 / config["EXCHANGE_RATE"])
+            st.markdown(f"**마진율 50% 기준:** {format_number(c50)}원 ({y50}위안) / 마진: {format_number(p50)}원")
 
         if st.button("계산하기"):
-            # 단위 원가 결정
+            # ─ 단가×수량 계산 ─
             if unit_yuan > 0:
                 unit_cost_val = unit_yuan * config["EXCHANGE_RATE"]
                 cost_disp = f"{format_number(unit_cost_val)}원 ({unit_yuan}¥) × {qty}"
@@ -70,11 +66,10 @@ with tab1:
                 unit_cost_val = unit_won
                 cost_disp = f"{format_number(unit_cost_val)}원 × {qty}"
 
-            # 총 원가(VAT 포함)
             vat = 1.1
             unit_cost = round(unit_cost_val * qty * vat)
 
-            # 나머지 비용
+            # ─ 기타 비용 계산 ─
             fee         = round((sell_price * config["FEE_RATE"] / 100) * vat)
             ad          = round((sell_price * config["AD_RATE"] / 100) * vat)
             inout       = round(config["INOUT_COST"] * vat) * qty
@@ -92,9 +87,9 @@ with tab1:
             roi        = profit / unit_cost * 100 if unit_cost else 0
 
             st.markdown("### 📊 계산 결과")
-            st.markdown(f"- 💰 마진: {format_number(profit)}원")  
-            st.markdown(f"- 📈 마진율: {margin_rt:.2f}%")  
-            st.markdown(f"- 💹 투자수익률: {roi:.2f}%")  
+            st.markdown(f"- 💰 마진: {format_number(profit)}원")
+            st.markdown(f"- 📈 마진율: {margin_rt:.2f}%")
+            st.markdown(f"- 💹 투자수익률: {roi:.2f}%")
 
             with st.expander("📦 상세 비용 보기"):
                 st.markdown(f"**판매가:** {format_number(sell_price)}원")
@@ -114,4 +109,4 @@ with tab1:
 
 with tab2:
     st.subheader("세부 마진 계산기")
-    st.info("준비 중입니다…")
+    st.info("준비 중입니다...")
