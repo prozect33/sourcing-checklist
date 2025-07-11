@@ -171,7 +171,7 @@ with tab1:
                               ("📉 최소마진율", f"{(profit/supply_price*100):.2f}%"),
                               ("🧾 투자수익률", f"{roi:.2f}%")])
             ]:
-                st.markdown(f\"\"\"
+                st.markdown(f"""
 <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
