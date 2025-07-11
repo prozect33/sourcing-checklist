@@ -80,17 +80,16 @@ config = load_config()
 
 # 사이드바 설정 항목 (number_input 으로 변경)
 st.sidebar.header("🛠️ 설정값")
-config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
-config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
-config["INOUT_COST"] = st.sidebar.number_input("입출고비용 (원)", value=int(config["INOUT_COST"]), step=100)
-config["PICKUP_COST"] = st.sidebar.number_input("회수비용 (원)", value=int(config["PICKUP_COST"]), step=100)
-config["RESTOCK_COST"] = st.sidebar.number_input("재입고비용 (원)", value=int(config["RESTOCK_COST"]), step=100)
-config["RETURN_RATE"] = st.sidebar.number_input("반품률 (%)", value=config["RETURN_RATE"], step=0.1, format="%.2f")
-config["ETC_RATE"] = st.sidebar.number_input("기타비용률 (%)", value=config["ETC_RATE"], step=0.1, format="%.2f")
-# ↓ EXCHANGE_RATE 부분 수정: value를 int로 캐스팅
-config["EXCHANGE_RATE"] = st.sidebar.number_input("위안화 환율", value=int(config["EXCHANGE_RATE"]), step=1)
-config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)", value=int(config["PACKAGING_COST"]), step=100)
-config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=int(config["GIFT_COST"]), step=100)
+config["FEE_RATE"]     = st.sidebar.number_input("수수료율 (%)",    value=config["FEE_RATE"],     step=0.1,  format="%.2f")
+config["AD_RATE"]      = st.sidebar.number_input("광고비율 (%)",    value=config["AD_RATE"],      step=0.1,  format="%.2f")
+config["INOUT_COST"]   = st.sidebar.number_input("입출고비용 (원)", value=int(config["INOUT_COST"]), step=100)
+config["PICKUP_COST"]  = st.sidebar.number_input("회수비용 (원)",   value=int(config["PICKUP_COST"]), step=100)
+config["RESTOCK_COST"] = st.sidebar.number_input("재입고비용 (원)", value=int(config["RESTOCK_COST"]),step=100)
+config["RETURN_RATE"]  = st.sidebar.number_input("반품률 (%)",      value=config["RETURN_RATE"],  step=0.1,  format="%.2f")
+config["ETC_RATE"]     = st.sidebar.number_input("기타비용률 (%)",  value=config["ETC_RATE"],     step=0.1,  format="%.2f")
+config["EXCHANGE_RATE"]= st.sidebar.number_input("위안화 환율",    value=int(config["EXCHANGE_RATE"]), step=1)
+config["PACKAGING_COST"]= st.sidebar.number_input("포장비 (원)",     value=int(config["PACKAGING_COST"]), step=100)
+config["GIFT_COST"]    = st.sidebar.number_input("사은품 비용 (원)",value=int(config["GIFT_COST"]),    step=100)
 
 if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
@@ -116,7 +115,8 @@ with tab1:
                 fee            = round((sell_price_val * config['FEE_RATE'] / 100) * vat)
                 ad_fee         = round((sell_price_val * config['AD_RATE'] / 100) * vat)
                 inout_cost     = round(config['INOUT_COST'] * vat)
-                return_cost    = round((config['PICKUP_COST'] + config['RESTOCK_COST']) * (config['RETURN_RATE'] / 100) * vat)
+                return_cost    = round((config['PICKUP_COST'] + config['RESTOCK_COST'])
+                                      * (config['RETURN_RATE'] / 100) * vat)
                 etc_cost       = round((sell_price_val * config['ETC_RATE'] / 100) * vat)
                 packaging_cost = round(config['PACKAGING_COST'] * vat)
                 gift_cost      = round(config['GIFT_COST'] * vat)
@@ -142,7 +142,9 @@ with tab1:
                         target_cost = mid
                         left_b = mid + 1
 
-                yuan_cost = math.ceil(target_cost / config['EXCHANGE_RATE'])
+                # 소수점 두 자리 원가(위안) 계산
+                yuan_cost = round(target_cost / config['EXCHANGE_RATE'], 2)
+
                 profit = sell_price_val - (
                     round(target_cost * vat)
                     + fee
@@ -154,7 +156,7 @@ with tab1:
                 margin_display.markdown(
                     f"""
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
-  마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
+  마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost:.2f}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
             except:
@@ -167,8 +169,8 @@ with tab1:
             unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""))
         with col2:
             unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""))
-        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"))
 
+        qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"))
         calc_col, reset_col = st.columns(2)
         result = calc_col.button("계산하기")
         reset_col.button("리셋", on_click=reset_inputs)
@@ -177,38 +179,39 @@ with tab1:
         if 'result' in locals() and result:
             try:
                 sell_price = int(float(sell_price_raw))
-                qty = int(float(qty_raw))
+                qty        = int(float(qty_raw))
             except:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
                 st.stop()
 
+            # 단위 원가 산출
             if unit_yuan:
                 unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
-                cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
+                cost_display  = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
             elif unit_won:
                 unit_cost_val = round(float(unit_won))
-                cost_display = f"{format_number(unit_cost_val)}원"
+                cost_display  = f"{format_number(unit_cost_val)}원"
             else:
                 unit_cost_val = 0
-                cost_display = "0원"
+                cost_display  = "0원"
 
-            vat = 1.1
+            vat       = 1.1
             unit_cost = round(unit_cost_val * vat)
-            fee        = round((sell_price * config["FEE_RATE"] / 100) * vat)
-            ad         = round((sell_price * config["AD_RATE"] / 100) * vat)
-            inout      = round(config["INOUT_COST"] * vat)
-            pickup     = round(config["PICKUP_COST"] * vat)
-            restock    = round(config["RESTOCK_COST"] * vat)
-            return_cost= round((pickup + restock) * (config["RETURN_RATE"] / 100))
-            etc        = round((sell_price * config["ETC_RATE"] / 100) * vat)
-            packaging  = round(config["PACKAGING_COST"] * vat)
-            gift       = round(config["GIFT_COST"] * vat)
+            fee       = round((sell_price * config["FEE_RATE"] / 100) * vat)
+            ad        = round((sell_price * config["AD_RATE"] / 100) * vat)
+            inout     = round(config["INOUT_COST"] * vat)
+            pickup    = round(config["PICKUP_COST"] * vat)
+            restock   = round(config["RESTOCK_COST"] * vat)
+            return_cost = round((pickup + restock) * (config["RETURN_RATE"] / 100))
+            etc       = round((sell_price * config["ETC_RATE"] / 100) * vat)
+            packaging = round(config["PACKAGING_COST"] * vat)
+            gift      = round(config["GIFT_COST"] * vat)
 
             total_cost = (
                 unit_cost + fee + ad + inout + return_cost
                 + etc + packaging + gift
             )
-            profit2 = sell_price - total_cost
+            profit2       = sell_price - total_cost
             supply_price2 = sell_price / vat
 
             margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
@@ -239,8 +242,7 @@ with tab1:
   </div>
   <div>
     <div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div>
-    <div style='font-size:15px;'>{stats[1][1]}</div>
-  </div>
+    <div style='font-size:15px;'>{stats[1][1]}</div></div>
   <div>
     <div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div>
     <div style='font-size:15px;'>{stats[2][1]}</div>
