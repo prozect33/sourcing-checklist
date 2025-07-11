@@ -87,6 +87,7 @@ with tab1:
                 left_b, right_b = 0, sell_price_val
                 target_cost, yuan_cost, profit = 0, 0, 0
 
+                # ▶ 이분탐색 수식 수정 (광고비·반품비·기타비용 제외)
                 while left_b <= right_b:
                     mid = (left_b + right_b) // 2
                     partial_cost = round(mid * 1.1 + fee + inout_cost)
@@ -99,13 +100,14 @@ with tab1:
                         left_b = mid + 1
 
                 yuan_cost = math.ceil(target_cost / float(config["EXCHANGE_RATE"]))
-                profit = sell_price_val - (round(target_cost * 1.1) + fee + ad_fee + inout_cost + return_cost + etc_cost)
+                # ▶ 이익 계산 수식 수정 (광고비·반품비·기타비용 제외)
+                profit = sell_price_val - (round(target_cost * 1.1) + fee + inout_cost)
 
-                margin_display.markdown(f'''
+                margin_display.markdown(f"""
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
   마진율 {int(target_margin)}% 기준: {format_number(round(target_cost * 1.1))}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
-''', unsafe_allow_html=True)
+""", unsafe_allow_html=True)
             except:
                 margin_display.markdown("<div style='height:10px; line-height:10px; margin-bottom:15px;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
@@ -171,13 +173,13 @@ with tab1:
                               ("📉 최소마진율", f"{(profit2/supply_price2*100):.2f}%"),
                               ("🧾 투자수익률", f"{roi:.2f}%")])
             ]:
-                st.markdown(f'''
+                st.markdown(f"""
 <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div>
 </div>
-''', unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
             st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
             with st.expander("📦 상세 비용 항목 보기", expanded=False):
