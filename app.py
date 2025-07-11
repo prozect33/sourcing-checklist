@@ -20,6 +20,18 @@ st.markdown(
       [data-testid="stHeading"] {
         margin-bottom: 15px !important;
       }
+
+      /* ——— 스피너(+-) 숨기기 ——— */
+      /* WebKit 계열 브라우저 */
+      input[type="number"]::-webkit-outer-spin-button,
+      input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      /* Firefox */
+      input[type="number"] {
+        -moz-appearance: textfield;
+      }
     </style>
     """,
     unsafe_allow_html=True,
