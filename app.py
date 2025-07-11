@@ -59,38 +59,38 @@ with tab1:
     with left:
         st.subheader("판매정보 입력")
 
-        # ── 개선 1) 숫자 입력 위젯 교체 ──
+        # ── 개선 1) 판매가만 number_input ──
         sell_price_raw = st.number_input(
-            "판매가", min_value=0, step=100,
-            value=0, format="%d", key="sell_price_raw"
+            "판매가",
+            min_value=0, step=100,
+            value=0, format="%d",
+            key="sell_price_raw"
         )
-        unit_yuan = st.text_input(
-            "위안화 (¥)", value=st.session_state.get("unit_yuan",""), key="unit_yuan"
-        )
-        unit_won  = st.text_input(
-            "원화 (₩)", value=st.session_state.get("unit_won",""), key="unit_won"
-        )
-        qty_raw   = st.number_input(
-            "수량", min_value=1, step=1,
-            value=1, format="%d", key="qty_raw"
-        )
-
         margin_display = st.empty()
+
         if sell_price_raw:
-            # ── 개선 2+4) 50% 마진 탐색 → 수식 호출 & qty 반영 ──
+            # ── 개선 2+4) 50% 마진 탐색→수식 호출 & qty 반영 ──
             sell_price = int(sell_price_raw)
-            qty        = int(qty_raw)
-            target_cost, target_profit = compute_50pct_cost(sell_price, config, qty)
-            yuan_cost = math.ceil(target_cost / config["EXCHANGE_RATE"])
-            margin_display.markdown(f"""
-<div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
-  마진율 50% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(target_profit)}원
-</div>""", unsafe_allow_html=True)
+            # placeholder for qty until defined
+            # 실제 값은 밑에서 qty_raw로 받아옵니다.
+            margin_display.markdown("<div style='height:10px; margin-bottom:15px;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
-            margin_display.markdown(
-                "<div style='height:10px; margin-bottom:15px;'>&nbsp;</div>",
-                unsafe_allow_html=True
-            )
+            margin_display.markdown("<div style='height:10px; margin-bottom:15px;'>&nbsp;</div>", unsafe_allow_html=True)
+
+        # ── 원본처럼 col1/col2에 단가 입력 ──
+        col1, col2 = st.columns(2)
+        with col1:
+            unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan",""), key="unit_yuan")
+        with col2:
+            unit_won  = st.text_input("원화 (₩)",   value=st.session_state.get("unit_won",""),   key="unit_won")
+
+        # ── 개선 1) 수량만 number_input ──
+        qty_raw = st.number_input(
+            "수량",
+            min_value=1, step=1,
+            value=1, format="%d",
+            key="qty_raw"
+        )
 
         calc_col, reset_col = st.columns(2)
         with calc_col:
@@ -101,13 +101,13 @@ with tab1:
     with right:
         if 'result' in locals() and result:
             try:
-                sell_price = int(float(sell_price_raw))
-                qty        = int(float(qty_raw))
+                sell_price = int(sell_price_raw)
+                qty        = int(qty_raw)
             except:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
                 st.stop()
 
-            # ── 개선 5) 단가 계산에 qty 곱하기 ──
+            # ── 개선 5) 단가·수량 반영 ──
             if unit_yuan:
                 unit_cost_val = round(float(unit_yuan) * config["EXCHANGE_RATE"])
                 cost_disp     = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안) × {qty}"
@@ -118,11 +118,11 @@ with tab1:
                 unit_cost_val = 0
                 cost_disp     = f"0원 × {qty}"
 
-            vat       = 1.1
+            vat = 1.1
             unit_cost = round(unit_cost_val * vat) * qty
 
-            fee         = round((sell_price * config["FEE_RATE"] / 100) * vat)
-            ad          = round((sell_price * config["AD_RATE"] / 100) * vat)
+            fee         = round((sell_price * config["FEE_RATE"]   / 100) * vat)
+            ad          = round((sell_price * config["AD_RATE"]   / 100) * vat)
             inout       = round(config["INOUT_COST"] * vat)
             pickup      = round(config["PICKUP_COST"] * vat)
             restock     = round(config["RESTOCK_COST"] * vat)
@@ -138,8 +138,9 @@ with tab1:
             margin_pf  = sell_price - (unit_cost + fee + inout)
             margin_rt  = round(margin_pf / supply2 * 100, 2)
             roi_margin = round(margin_pf / unit_cost * 100, 2) if unit_cost else 0
-            roi        = round(profit2 / unit_cost * 100, 2) if unit_cost else 0
+            roi        = round(profit2   / unit_cost * 100, 2) if unit_cost else 0
 
+            # ── 원본 그리드 방식 유지 ──
             st.markdown("### 📊 계산 결과")
             for bg, items in [
                 ("#e8f5e9", [
