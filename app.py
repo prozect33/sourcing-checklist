@@ -114,7 +114,7 @@ with tab1:
                     unsafe_allow_html=True
                 )
             except:
-                margin_50_placeholder.markdown("<div style='height:1em;'></div>", unsafe_allow_html=True)
+                margin_50_placeholder.markdown(f"<span style='color:red;'>에러 발생: {e}</span>", unsafe_allow_html=True)
         else:
             margin_50_placeholder.markdown("<div style='height:1em;'></div>", unsafe_allow_html=True)
 
