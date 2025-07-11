@@ -103,7 +103,7 @@ with tab1:
                 profit = sell_price_val - (target_cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
 
                 margin_display.markdown(f"""
-<div style='margin:14px 0; color:#f63366; font-size:15px;'>
+<div style='margin:5px 0; color:#f63366; font-size:15px;'>
   마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
