@@ -5,13 +5,20 @@ import math
 
 # 페이지 설정 및 여백 조정
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
-# 메인 컨테이너 상단 여백 줄이기
 st.markdown(
     """
     <style>
-    .block-container { padding-top: 0.5rem; }
+    /* 본문 영역 상단 여백 */
+    .block-container {
+        padding-top: 0.5rem;
+    }
+    /* 사이드바 내부 컨테이너 상단 여백 */
+    div[data-testid="stSidebar"] > div {
+        padding-top: 0.5rem !important;
+    }
     </style>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True
 )
 
 DEFAULT_CONFIG_FILE = "default_config.json"
