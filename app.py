@@ -9,9 +9,19 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 st.markdown(
     """
     <style>
-    .block-container { padding-top: 0.5rem; }
+    /* 헤더 컨테이너 여백 제거 */
+    [data-testid="stSidebarHeader"] {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    /* 로고 스페이서만 높이 0 처리 */
+    [data-testid="stLogoSpacer"] {
+        height: 0 !important;
+        min-height: 0 !important;
+    }
     </style>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True,
 )
 
 DEFAULT_CONFIG_FILE = "default_config.json"
