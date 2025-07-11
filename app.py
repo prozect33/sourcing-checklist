@@ -43,7 +43,6 @@ def reset_inputs():
         if key in st.session_state:
             st.session_state[key] = ""
 
-# 목표 마진율 기준 원가 계산 함수
 def calculate_target_cost(selling_price, target_margin_rate, config):
     left, right = 0, selling_price
     result_cost = 0
@@ -99,13 +98,16 @@ with tab1:
 
         margin_50_placeholder = st.empty()
 
-        try:
-            sell_price = int(float(sell_price_raw))
-            cost_won_50, cost_yuan_50, margin_50 = calculate_target_cost(sell_price, 50.0, config)
-            margin_50_placeholder.markdown(
-                f"**마진율 50% 기준:** {format_number(cost_won_50)}원 ({cost_yuan_50}위안), 마진: {format_number(margin_50)}원"
-            )
-        except:
+        if sell_price_raw.strip():
+            try:
+                sell_price = int(float(sell_price_raw))
+                cost_won_50, cost_yuan_50, margin_50 = calculate_target_cost(sell_price, 50.0, config)
+                margin_50_placeholder.markdown(
+                    f"**마진율 50% 기준:** {format_number(cost_won_50)}원 ({cost_yuan_50}위안), 마진: {format_number(margin_50)}원"
+                )
+            except:
+                margin_50_placeholder.text("판매가를 숫자로 정확히 입력해주세요.")
+        else:
             margin_50_placeholder.text(" ")
 
         col1, col2 = st.columns(2)
