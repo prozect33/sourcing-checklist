@@ -5,18 +5,40 @@ import math
 
 # 페이지 설정 및 여백 조정
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
-# 메인 컨테이너 상단 여백 줄이기
+# 메인 컨테이너 상단 여백 줄이기 + 입력 필드 높이 축소
 st.markdown(
   """
   <style>
-    [data-testid="stSidebarHeader"]{display:none !important;}
+    /* 헤더 통째로 제거 */
+    [data-testid="stSidebarHeader"] {
+      display: none !important;
+    }
     /* 사이드바 위젯 시작 위치를 10px 아래로 내리기 */
     [data-testid="stSidebarContent"] {
       padding-top: 10px !important;
     }
+    /* — 입력 필드 높이·여백 축소 — */
+    /* 1) 텍스트 입력 컨테이너 padding/margin 최소화 */
+    [data-testid="stTextInputRootElement"] {
+      padding-top: 2px !important;
+      padding-bottom: 2px !important;
+      margin-bottom: 4px !important;
+    }
+    /* 2) 실제 <input> 요소 padding·라인높이·폰트사이즈 줄이기 */
+    [data-baseweb="base-input"] input {
+      padding: 4px 6px !important;
+      line-height: 1.2 !important;
+      font-size: 12px !important;
+      height: auto !important;
+    }
+    /* 3) 레이블 텍스트 마진·폰트 크기 축소 */
+    .stWidgetLabel > div > p {
+      margin: 0 0 2px 0 !important;
+      font-size: 12px !important;
+    }
   </style>
   """,
-    unsafe_allow_html=True,
+  unsafe_allow_html=True,
 )
 
 DEFAULT_CONFIG_FILE = "default_config.json"
@@ -31,8 +53,8 @@ def default_config():
         "RETURN_RATE": 0.1,
         "ETC_RATE": 2.0,
         "EXCHANGE_RATE": 350,
-        "PACKAGING_COST": 500,    # 포장비 (원)
-        "GIFT_COST": 1000         # 사은품 비용 (원)
+        "PACKAGING_COST": 500,
+        "GIFT_COST": 1000
     }
 
 def load_config():
@@ -134,11 +156,11 @@ with tab1:
                 profit = sell_price_val - (round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost)
 
                 margin_display.markdown(
-                    f"""
+                    f\"\"\"
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
   마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
-""", unsafe_allow_html=True)
+\"\"\", unsafe_allow_html=True)
             except:
                 margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
         else:
@@ -206,13 +228,7 @@ with tab1:
                               ("📉 최소마진율", f"{(profit2/supply_price2*100):.2f}%"),
                               ("🧾 투자수익률", f"{roi:.2f}%")])
             ]:
-                st.markdown(f"""
-<div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'>
-  <div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div>
-  <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
-  <div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div>
-</div>
-""", unsafe_allow_html=True)
+                st.markdown(f\"\"\"<div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'><div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div><div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div><div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div></div>\"\"\", unsafe_allow_html=True)
 
             st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
             with st.expander("📦 상세 비용 항목 보기", expanded=False):
@@ -235,4 +251,4 @@ with tab1:
 
 with tab2:
     st.subheader("세부 마진 계산기")
-    st.info("준비 중입니다...")
+    st.info("준비 중입니다...")```
