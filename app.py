@@ -12,10 +12,15 @@ st.markdown(
     .block-container {
         padding-top: 0.5rem;
     }
-    /* 사이드바 내부 컨테이너 상단 여백 */
-    div[data-testid="stSidebar"] > div {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
+    /* 사이드바 최상단 여백(헤더 위 공백) 없애기 */
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    /* 혹시 내부 메뉴 컨테이너에도 남아있다면 */
+    section[data-testid="stSidebar"] div[data-testid="stSidebarNav"] {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
     }
     </style>
     """,
