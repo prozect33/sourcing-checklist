@@ -108,9 +108,9 @@ with tab1:
 </div>
 """, unsafe_allow_html=True)
             except:
-                margin_display.markdown("<div style='margin:14px 0;'>&nbsp;</div>", unsafe_allow_html=True)
+                margin_display.markdown("<div style='margin:0px 0;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
-            margin_display.markdown("<div style='margin:14px 0;'>&nbsp;</div>", unsafe_allow_html=True)
+            margin_display.markdown("<div style='margin:0px 0;'>&nbsp;</div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
