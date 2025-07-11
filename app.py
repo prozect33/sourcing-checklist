@@ -7,20 +7,7 @@ import math
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 # 메인 컨테이너 상단 여백 줄이기
 st.markdown(
-    """
-    <style>
-    /* 헤더 컨테이너 여백 제거 */
-    [data-testid="stSidebarHeader"] {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    /* 로고 스페이서만 높이 0 처리 */
-    [data-testid="stLogoSpacer"] {
-        height: 0 !important;
-        min-height: 0 !important;
-    }
-    </style>
-    """,
+    '<style>[data-testid="stSidebarHeader"]{display:none !important;}</style>',
     unsafe_allow_html=True,
 )
 
