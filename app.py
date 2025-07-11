@@ -35,7 +35,6 @@ def load_config():
         try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
-                # 기존 값과 기본값 병합
                 base = default_config()
                 base.update({
                     k: float(v) if isinstance(v, (str, int, float)) and str(v).replace('.', '', 1).isdigit() else v
@@ -140,9 +139,12 @@ with tab1:
         else:
             margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
+        # 비용 입력 필드 (위안화/원화) 레이아웃 유지
         col1, col2 = st.columns(2)
-        unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
-        unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
+        with col1:
+            unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""), key="unit_yuan")
+        with col2:
+            unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""), key="unit_won")
         qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"), key="qty_raw")
 
         calc_col, reset_col = st.columns(2)
@@ -171,15 +173,15 @@ with tab1:
 
             vat = 1.1
             unit_cost = round(unit_cost_val * vat)
-            fee = round((sell_price * float(config['FEE_RATE']) / 100) * vat)
-            ad = round((sell_price * float(config['AD_RATE']) / 100) * vat)
-            inout = round(float(config['INOUT_COST']) * vat)
-            pickup = round(float(config['PICKUP_COST']) * vat)
-            restock = round(float(config['RESTOCK_COST']) * vat)
-            return_cost = round((pickup + restock) * float(config['RETURN_RATE']))
-            etc = round((sell_price * float(config['ETC_RATE']) / 100) * vat)
-            packaging = round(float(config['PACKAGING_COST']) * vat)
-            gift = round(float(config['GIFT_COST']) * vat)
+            fee = round((sell_price * float(config["FEE_RATE"]) / 100) * vat)
+            ad = round((sell_price * float(config["AD_RATE"]) / 100) * vat)
+            inout = round(float(config["INOUT_COST"]) * vat)
+            pickup = round(float(config["PICKUP_COST"]) * vat)
+            restock = round(float(config["RESTOCK_COST"]) * vat)
+            return_cost = round((pickup + restock) * float(config["RETURN_RATE"]))
+            etc = round((sell_price * float(config["ETC_RATE"]) / 100) * vat)
+            packaging = round(float(config["PACKAGING_COST"]) * vat)
+            gift = round(float(config["GIFT_COST"]) * vat)
 
             total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
             profit2 = sell_price - total_cost
