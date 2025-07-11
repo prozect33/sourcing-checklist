@@ -47,7 +47,6 @@ def load_config():
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
                 base = default_config()
-                # JSON에 숫자가 아닌 값이 들어와도 기본값 덮어쓰기
                 for k, v in data.items():
                     if k in base:
                         try:
@@ -83,7 +82,8 @@ config["PICKUP_COST"] = st.sidebar.number_input("회수비용 (원)", value=int(
 config["RESTOCK_COST"] = st.sidebar.number_input("재입고비용 (원)", value=int(config["RESTOCK_COST"]), step=100)
 config["RETURN_RATE"] = st.sidebar.number_input("반품률 (%)", value=config["RETURN_RATE"], step=0.1, format="%.2f")
 config["ETC_RATE"] = st.sidebar.number_input("기타비용률 (%)", value=config["ETC_RATE"], step=0.1, format="%.2f")
-config["EXCHANGE_RATE"] = st.sidebar.number_input("위안화 환율", value=config["EXCHANGE_RATE"], step=1)
+# ↓ EXCHANGE_RATE 부분 수정: value를 int로 캐스팅
+config["EXCHANGE_RATE"] = st.sidebar.number_input("위안화 환율", value=int(config["EXCHANGE_RATE"]), step=1)
 config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)", value=int(config["PACKAGING_COST"]), step=100)
 config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=int(config["GIFT_COST"]), step=100)
 
@@ -108,7 +108,6 @@ with tab1:
                 sell_price_val = int(float(sell_price_raw))
                 vat = 1.1
 
-                # 각 비용 계산 (VAT 포함)
                 fee            = round((sell_price_val * config['FEE_RATE'] / 100) * vat)
                 ad_fee         = round((sell_price_val * config['AD_RATE'] / 100) * vat)
                 inout_cost     = round(config['INOUT_COST'] * vat)
@@ -119,7 +118,6 @@ with tab1:
 
                 supply_price = sell_price_val / vat
 
-                # 이분탐색으로 최대 허용 원가 산출 (50% 마진 기준)
                 left_b, right_b = 0, sell_price_val
                 target_cost = 0
                 while left_b <= right_b:
@@ -159,7 +157,6 @@ with tab1:
         else:
             margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-        # 비용 입력 필드 (위안화/원화)
         col1, col2 = st.columns(2)
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""))
@@ -180,7 +177,6 @@ with tab1:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
                 st.stop()
 
-            # 단위 원가 산출
             if unit_yuan:
                 unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
                 cost_display = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
@@ -193,15 +189,15 @@ with tab1:
 
             vat = 1.1
             unit_cost = round(unit_cost_val * vat)
-            fee   = round((sell_price * config["FEE_RATE"] / 100) * vat)
-            ad    = round((sell_price * config["AD_RATE"] / 100) * vat)
-            inout = round(config["INOUT_COST"] * vat)
-            pickup   = round(config["PICKUP_COST"] * vat)
-            restock  = round(config["RESTOCK_COST"] * vat)
-            return_cost = round((pickup + restock) * (config["RETURN_RATE"] / 100))
-            etc    = round((sell_price * config["ETC_RATE"] / 100) * vat)
-            packaging = round(config["PACKAGING_COST"] * vat)
-            gift      = round(config["GIFT_COST"] * vat)
+            fee        = round((sell_price * config["FEE_RATE"] / 100) * vat)
+            ad         = round((sell_price * config["AD_RATE"] / 100) * vat)
+            inout      = round(config["INOUT_COST"] * vat)
+            pickup     = round(config["PICKUP_COST"] * vat)
+            restock    = round(config["RESTOCK_COST"] * vat)
+            return_cost= round((pickup + restock) * (config["RETURN_RATE"] / 100))
+            etc        = round((sell_price * config["ETC_RATE"] / 100) * vat)
+            packaging  = round(config["PACKAGING_COST"] * vat)
+            gift       = round(config["GIFT_COST"] * vat)
 
             total_cost = (
                 unit_cost + fee + ad + inout + return_cost
