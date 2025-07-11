@@ -211,7 +211,7 @@ with tab1:
                 st.markdown(f"**기타비용:** {format_number(etc)}원")
                 st.markdown(f"**포장비용:** {format_number(packaging)}원")
                 st.markdown(f"**사은품 비용:** {format_number(gift)}원")
-                st.markmarkdown(f"**총비용:** {format_number(total_cost)}원")
+                st.markdown(f"**총비용:** {format_number(total_cost)}원")
                 st.markdown(f"**공급가액:** {format_number(round(supply2))}원")
                 st.markdown(f"**최소 이익:** {format_number(profit2)}원")
                 st.markdown(f"**최소마진율:** {(profit2/supply2*100):.2f}%")
