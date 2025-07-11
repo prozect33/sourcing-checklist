@@ -71,7 +71,7 @@ with tab1:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
-        # 고정 공간 + 한 줄 텍스트 표시
+        # 마진 텍스트 공간 고정 (22px) / 텍스트 없을 때도 동일하게
         margin_display = st.empty()
 
         if sell_price_raw.strip():
@@ -103,14 +103,14 @@ with tab1:
                 profit = sell_price_val - (target_cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
 
                 margin_display.markdown(f"""
-<div style='margin:0px 0; color:#f63366; font-size:15px;'>
+<div style='height:22px; line-height:22px; color:#f63366; font-size:15px;'>
   마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
             except:
-                margin_display.markdown("<div style='margin:0px 0;'>&nbsp;</div>", unsafe_allow_html=True)
+                margin_display.markdown("<div style='height:22px; line-height:22px;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
-            margin_display.markdown("<div style='margin:0px 0;'>&nbsp;</div>", unsafe_allow_html=True)
+            margin_display.markdown("<div style='height:22px; line-height:22px;'>&nbsp;</div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
