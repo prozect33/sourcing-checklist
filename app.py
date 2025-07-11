@@ -6,7 +6,10 @@ import streamlit as st
 import json
 import os
 import math
-
+    "RETURN_RATE": 0.1,
+    "ETC_RATE": 2.0,
+    "EXCHANGE_RATE": 350
+}
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 DEFAULT_CONFIG_FILE = "default_config.json"
@@ -16,15 +19,23 @@ default_config = {
     "INOUT_COST": 3000,
     "PICKUP_COST": 1500,
     "RESTOCK_COST": 500,
+    "RETURN_RATE": 0.1,
+    "ETC_RATE": 2.0,
+    "EXCHANGE_RATE": 350
+}
+
 def load_config():
-    try:
-        if os.path.exists(DEFAULT_CONFIG_FILE):
+    if os.path.exists(DEFAULT_CONFIG_FILE):
+        try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
                 return {k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
-    except Exception as e:
-        pass
+        except:
+            return default_config
+    else:
+    # fallback to default config
     return default_config
+
 def save_config(config):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
         json.dump(config, f)
