@@ -27,7 +27,8 @@ def load_config():
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
                 return {k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
-        except:
+        except Exception as e:
+                margin_50_placeholder.markdown(f"<span style='color:red;'>에러 발생: {e}</span>", unsafe_allow_html=True)
             return default_config
     else:
         return default_config
@@ -105,7 +106,9 @@ with tab1:
         if cleaned:
             try:
                 sell_price = int(float(cleaned))
+                st.write('💡 디버그: 계산 시작', sell_price)
                 cost_won_50, cost_yuan_50, margin_50 = calculate_target_cost(sell_price, 50.0, config)
+                st.write('결과 디버그:', cost_won_50, cost_yuan_50, margin_50)
                 margin_50_placeholder.markdown(
                     f"<div style='margin-top: 12px; font-weight: 500;'>"
                     f"마진율 50% 기준: {format_number(cost_won_50)}원 "
@@ -113,8 +116,9 @@ with tab1:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-            except:
+            except Exception as e:
                 margin_50_placeholder.markdown(f"<span style='color:red;'>에러 발생: {e}</span>", unsafe_allow_html=True)
+                margin_50_placeholder.markdown("<div style='height:1em;'></div>", unsafe_allow_html=True)
         else:
             margin_50_placeholder.markdown("<div style='height:1em;'></div>", unsafe_allow_html=True)
 
@@ -142,7 +146,8 @@ with tab1:
             try:
                 sell_price = int(float(sell_price_raw.strip().replace(",", "")))
                 qty = int(float(qty_raw))
-            except:
+            except Exception as e:
+                margin_50_placeholder.markdown(f"<span style='color:red;'>에러 발생: {e}</span>", unsafe_allow_html=True)
                 pass
             else:
                 if unit_yuan:
