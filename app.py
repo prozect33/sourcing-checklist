@@ -105,11 +105,13 @@ with tab1:
                 # ▶ 이익 계산 수식 수정 (광고비·반품비·기타비용 제외)
                 profit = sell_price_val - (round(target_cost * 1.1) + fee + inout_cost)
 
+                # ▶ 왼쪽에 VAT 이전 단가(target_cost) 그대로 출력
                 margin_display.markdown(f"""
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
-  마진율 {int(target_margin)}% 기준: {format_number(round(target_cost * 1.1))}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
+  마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
+
             except:
                 margin_display.markdown("<div style='height:10px; line-height:10px; margin-bottom:15px;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
