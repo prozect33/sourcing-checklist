@@ -21,8 +21,8 @@ st.markdown(
         margin-bottom: 15px !important;
       }
 
-      /* ——— BaseWeb number_input 옆 스피너 버튼(+-) 숨기기 ——— */
-      [data-baseweb="numberinput"] button {
+      /* ——— number_input 옆 +/– 버튼 숨기기 ——— */
+      [data-testid="stNumberInput"] button {
         display: none !important;
       }
     </style>
