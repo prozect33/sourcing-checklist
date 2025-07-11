@@ -24,22 +24,17 @@ def load_config():
         try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
-                return {
-                    k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v
-                    for k, v in data.items()
-                }
+                return {k: v for k, v in data.items()}
         except:
             return default_config.copy()
     else:
         return default_config.copy()
 
 config = load_config()
-
-# ── default_config에 정의된 키가 config에 없으면 기본값으로 채워 넣기 ──
+# 기본값에 없는 키 채워넣기
 for k, v in default_config.items():
     if k not in config:
         config[k] = v
-# ──────────────────────────────────────────────────────────────
 
 def save_config(cfg):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
@@ -56,6 +51,7 @@ def reset_inputs():
         if key in st.session_state:
             st.session_state[key] = ""
 
+# ─── 사이드바: 문자열 입력 → float 변환 ───
 st.sidebar.header("🛠️ 설정값")
 for key, label in [
     ("FEE_RATE", "수수료율 (%)"),
@@ -69,7 +65,11 @@ for key, label in [
     ("PACKAGING_COST", "포장비용 (원)"),
     ("GIFT_COST", "사은품 비용 (원)")
 ]:
-    config[key] = st.sidebar.text_input(label, value=format_input_value(config[key]), key=key)
+    val_str = st.sidebar.text_input(label, value=format_input_value(config[key]), key=key)
+    try:
+        config[key] = float(val_str)
+    except ValueError:
+        pass
 
 if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
@@ -80,7 +80,7 @@ tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 with tab1:
     left, right = st.columns(2)
 
-    # ── 좌측: 입력 및 50% 기준 표시 ──
+    # ── 좌측: 판매가 입력 및 50% 기준 단가 표시 ──
     with left:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw",""), key="sell_price_raw")
@@ -88,11 +88,9 @@ with tab1:
 
         if sell_price_raw.strip():
             try:
-                # 기본 변수 세팅
                 target_margin = 50.0
                 sell_price = int(float(sell_price_raw))
                 fee = round((sell_price * config["FEE_RATE"] * 1.1) / 100)
-                ad_fee = round((sell_price * config["AD_RATE"] * 1.1) / 100)
                 inout_cost = round(config["INOUT_COST"] * 1.1)
                 return_cost = round((config["PICKUP_COST"] + config["RESTOCK_COST"]) * config["RETURN_RATE"] * 1.1)
                 etc_cost = round(sell_price * config["ETC_RATE"] / 100)
@@ -100,7 +98,6 @@ with tab1:
                 gift_cost = round(config["GIFT_COST"] * 1.1)
                 supply_price = sell_price / 1.1
 
-                # 이분탐색으로 VAT 이전 단가 찾기
                 left_b, right_b = 0, sell_price
                 target_cost = 0
                 while left_b <= right_b:
@@ -113,7 +110,6 @@ with tab1:
                         target_cost = mid
                         left_b = mid + 1
 
-                # 결과 계산
                 yuan_cost = math.ceil(target_cost / config["EXCHANGE_RATE"])
                 margin_profit = sell_price - (round(target_cost * 1.1) + fee + inout_cost + packaging_cost + gift_cost)
 
@@ -127,7 +123,7 @@ with tab1:
         else:
             margin_display.markdown("<div style='height:10px; margin-bottom:15px;'>&nbsp;</div>", unsafe_allow_html=True)
 
-        # 원가 직접 입력란
+        # 원가 직접 입력
         col1, col2 = st.columns(2)
         with col1:
             unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan",""), key="unit_yuan")
@@ -135,7 +131,6 @@ with tab1:
             unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won",""), key="unit_won")
         qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw","1"), key="qty_raw")
 
-        # 버튼
         calc_col, reset_col = st.columns(2)
         with calc_col:
             result = st.button("계산하기")
@@ -216,7 +211,7 @@ with tab1:
                 st.markdown(f"**기타비용:** {format_number(etc)}원")
                 st.markdown(f"**포장비용:** {format_number(packaging)}원")
                 st.markdown(f"**사은품 비용:** {format_number(gift)}원")
-                st.markdown(f"**총비용:** {format_number(total_cost)}원")
+                st.markmarkdown(f"**총비용:** {format_number(total_cost)}원")
                 st.markdown(f"**공급가액:** {format_number(round(supply2))}원")
                 st.markdown(f"**최소 이익:** {format_number(profit2)}원")
                 st.markdown(f"**최소마진율:** {(profit2/supply2*100):.2f}%")
