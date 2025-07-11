@@ -16,23 +16,15 @@ default_config = {
     "INOUT_COST": 3000,
     "PICKUP_COST": 1500,
     "RESTOCK_COST": 500,
-    "RETURN_RATE": 0.1,
-    "ETC_RATE": 2.0,
-    "EXCHANGE_RATE": 350
-}
-
 def load_config():
-    if os.path.exists(DEFAULT_CONFIG_FILE):
-        try:
+    try:
+        if os.path.exists(DEFAULT_CONFIG_FILE):
             with open(DEFAULT_CONFIG_FILE, "r") as f:
                 data = json.load(f)
                 return {k: float(v) if isinstance(v, str) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
-        except:
-            return default_config
-    else:
-    # fallback to default config
+    except Exception as e:
+        pass
     return default_config
-
 def save_config(config):
     with open(DEFAULT_CONFIG_FILE, "w") as f:
         json.dump(config, f)
