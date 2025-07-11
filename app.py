@@ -103,14 +103,14 @@ with tab1:
                 profit = sell_price_val - (target_cost + fee + ad_fee + inout_cost + return_cost + etc_cost)
 
                 margin_display.markdown(f"""
-<div style='height:22px; line-height:22px; color:#f63366; font-size:15px;'>
+<div style='height:15px; line-height:15px; color:#f63366; font-size:15px;'>
   마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
             except:
-                margin_display.markdown("<div style='height:22px; line-height:22px;'>&nbsp;</div>", unsafe_allow_html=True)
+                margin_display.markdown("<div style='height:15px; line-height:15px;'>&nbsp;</div>", unsafe_allow_html=True)
         else:
-            margin_display.markdown("<div style='height:22px; line-height:22px;'>&nbsp;</div>", unsafe_allow_html=True)
+            margin_display.markdown("<div style='height:15px; line-height:15px;'>&nbsp;</div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
