@@ -7,7 +7,15 @@ import math
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 # 메인 컨테이너 상단 여백 줄이기
 st.markdown(
-    '<style>[data-testid="stSidebarHeader"]{display:none !important;}</style>',
+  """
+  <style>
+    [data-testid="stSidebarHeader"]{display:none !important;}
+    /* 사이드바 위젯 시작 위치를 10px 아래로 내리기 */
+    [data-testid="stSidebarContent"] {
+      padding-top: 10px !important;
+    }
+  </style>
+  """,
     unsafe_allow_html=True,
 )
 
