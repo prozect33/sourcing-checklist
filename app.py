@@ -6,9 +6,6 @@ import streamlit as st
 import json
 import os
 import math
-    "RETURN_RATE": 0.1,
-    "ETC_RATE": 2.0,
-    "EXCHANGE_RATE": 350
 }
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
@@ -19,9 +16,6 @@ default_config = {
     "INOUT_COST": 3000,
     "PICKUP_COST": 1500,
     "RESTOCK_COST": 500,
-    "RETURN_RATE": 0.1,
-    "ETC_RATE": 2.0,
-    "EXCHANGE_RATE": 350
 }
 
 def load_config():
