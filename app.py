@@ -125,7 +125,7 @@ with tab1:
             st.button("리셋", on_click=reset_inputs)
 
     with right:
-        st.markdown("👉 오른쪽 계산식은 생략했습니다 (불변 로직)")
+        
 with tab2:
     st.subheader("세부 마진 계산기")
     st.info("준비 중입니다...")
