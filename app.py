@@ -7,29 +7,14 @@ import math
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 st.markdown(
     """
-  """
- <style>
+    <style>
     /* 본문 영역 상단 여백 */
     .block-container {
         padding-top: 0.5rem !important;
     }
 
-    /* 사이드바 최상위 컨테이너(Remove all padding/margin) */
-    section[data-testid="stSidebar"],
-    div[data-testid="stSidebar"] {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-
-    /* 사이드바 첫 번째 블록(헤더 위) 공백 제거 */
-    section[data-testid="stSidebar"] > div:first-child,
-    div[data-testid="stSidebar"] > div:first-child {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-
-    /* 사이드바 내 네비게이션 컨테이너 공백 제거 */
-    div[data-testid="stSidebarNav"] {
+    /* 사이드바 최상단 공백 제거 */
+    section[data-testid="stSidebar"] > div:first-child {
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
