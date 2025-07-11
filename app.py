@@ -5,7 +5,7 @@ import math
 
 # 페이지 설정 및 여백 조정
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
-# 메인 컨테이너 상단 여백 줄이기
+# 메인 컨테이너 상단 여백 줄이기 + 간격 조정
 st.markdown(
   """
   <style>
@@ -13,7 +13,7 @@ st.markdown(
     [data-testid="stSidebarHeader"] {
       display: none !important;
     }
-    /* 2) 사이드바 위젯 시작 위치를 10px 아래로 내리기 */
+    /* 2) 사이드바 위젯 시작 위치를 15px 아래로 내리기 */
     [data-testid="stSidebarContent"] {
       padding-top: 15px !important;
     }
@@ -23,7 +23,7 @@ st.markdown(
     }
   </style>
   """,
-    unsafe_allow_html=True,
+  unsafe_allow_html=True,
 )
 
 DEFAULT_CONFIG_FILE = "default_config.json"
@@ -38,8 +38,8 @@ def default_config():
         "RETURN_RATE": 0.1,
         "ETC_RATE": 2.0,
         "EXCHANGE_RATE": 350,
-        "PACKAGING_COST": 500,    # 포장비 (원)
-        "GIFT_COST": 1000         # 사은품 비용 (원)
+        "PACKAGING_COST": 500,
+        "GIFT_COST": 1000
     }
 
 def load_config():
@@ -116,7 +116,8 @@ with tab1:
                 fee = round((sell_price_val * float(config['FEE_RATE']) / 100) * vat)
                 ad_fee = round((sell_price_val * float(config['AD_RATE']) / 100) * vat)
                 inout_cost = round(float(config['INOUT_COST']) * vat)
-                return_cost = round((float(config['PICKUP_COST']) + float(config['RESTOCK_COST'])) * float(config['RETURN_RATE']) * vat)
+                # 반품률도 % 단위로 처리하도록 /100 추가
+                return_cost = round((float(config['PICKUP_COST']) + float(config['RESTOCK_COST'])) * (float(config['RETURN_RATE']) / 100) * vat)
                 etc_cost = round((sell_price_val * float(config['ETC_RATE']) / 100) * vat)
                 packaging_cost = round(float(config['PACKAGING_COST']) * vat)
                 gift_cost = round(float(config['GIFT_COST']) * vat)
@@ -190,7 +191,8 @@ with tab1:
             inout = round(float(config["INOUT_COST"]) * vat)
             pickup = round(float(config["PICKUP_COST"]) * vat)
             restock = round(float(config["RESTOCK_COST"]) * vat)
-            return_cost = round((pickup + restock) * float(config["RETURN_RATE"]))
+            # 세부 계산기도 동일하게 /100 적용
+            return_cost = round((pickup + restock) * (float(config["RETURN_RATE"]) / 100))
             etc = round((sell_price * float(config["ETC_RATE"]) / 100) * vat)
             packaging = round(float(config["PACKAGING_COST"]) * vat)
             gift = round(float(config["GIFT_COST"]) * vat)
