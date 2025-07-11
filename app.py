@@ -30,6 +30,7 @@ def load_config():
         except:
             return default_config
     else:
+    # fallback to default config
     return default_config
 
 def save_config(config):
