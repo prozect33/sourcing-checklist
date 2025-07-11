@@ -14,7 +14,7 @@ st.markdown(
     }
     /* 사이드바 내부 컨테이너 상단 여백 */
     div[data-testid="stSidebar"] > div {
-        padding-top: 0.5rem !important;
+        padding-top: 0rem !important;
     }
     </style>
     """,
