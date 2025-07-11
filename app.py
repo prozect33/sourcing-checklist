@@ -97,18 +97,19 @@ with tab1:
         sell_price_raw = st.text_input("판매가", value=st.session_state.get("sell_price_raw", ""), key="sell_price_raw")
 
         margin_50_placeholder = st.empty()
-
-        if sell_price_raw.strip():
+        cleaned = sell_price_raw.strip().replace(",", "")
+        if cleaned:
             try:
-                sell_price = int(float(sell_price_raw))
+                sell_price = int(float(cleaned))
                 cost_won_50, cost_yuan_50, margin_50 = calculate_target_cost(sell_price, 50.0, config)
                 margin_50_placeholder.markdown(
-                    f"**마진율 50% 기준:** {format_number(cost_won_50)}원 ({cost_yuan_50}위안), 마진: {format_number(margin_50)}원"
+                    f"<div style='height:1em;'></div><strong>마진율 50% 기준:</strong> {format_number(cost_won_50)}원 ({cost_yuan_50}위안), 마진: {format_number(margin_50)}원",
+                    unsafe_allow_html=True
                 )
             except:
-                margin_50_placeholder.text("판매가를 숫자로 정확히 입력해주세요.")
+                margin_50_placeholder.markdown("<div style='height:1em;'>판매가를 숫자로 정확히 입력해주세요.</div>", unsafe_allow_html=True)
         else:
-            margin_50_placeholder.text(" ")
+            margin_50_placeholder.markdown("<div style='height:1em;'></div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -125,7 +126,7 @@ with tab1:
     with right:
         if 'result' in locals() and result:
             try:
-                sell_price = int(float(sell_price_raw))
+                sell_price = int(float(sell_price_raw.strip().replace(",", "")))
                 qty = int(float(qty_raw))
             except:
                 st.warning("판매가와 수량을 정확히 입력해주세요.")
@@ -170,13 +171,13 @@ with tab1:
                               ("📉 최소마진율", f"{(profit/supply_price*100):.2f}%"),
                               ("🧾 투자수익률", f"{roi:.2f}%")])
             ]:
-                st.markdown(f"""
+                st.markdown(f\"\"\"
 <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; background: {bg}; padding: 12px; border-radius: 10px; gap: 8px; margin-bottom: 12px;'>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[0][0]}</div><div style='font-size:15px;'>{stats[0][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[1][0]}</div><div style='font-size:15px;'>{stats[1][1]}</div></div>
   <div><div style='font-weight:bold; font-size:15px;'>{stats[2][0]}</div><div style='font-size:15px;'>{stats[2][1]}</div></div>
 </div>
-""", unsafe_allow_html=True)
+\"\"\", unsafe_allow_html=True)
 
             st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
             with st.expander("📦 상세 비용 항목 보기", expanded=False):
@@ -194,6 +195,8 @@ with tab1:
                 st.markdown(f"**최소 이익:** {format_number(profit)}원 (판매가 - 총비용)")
                 st.markdown(f"**최소마진율:** {(profit/supply_price*100):.2f}%")
                 st.markdown(f"**투자수익률:** {roi:.2f}%")
+        else:
+            st.info("계산하기 버튼을 눌러 결과를 확인하세요.")
 
 with tab2:
     st.subheader("세부 마진 계산기")
