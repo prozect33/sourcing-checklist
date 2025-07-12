@@ -201,6 +201,7 @@ def main():
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
+
                     st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})"), unsafe_allow_html=True)
                     st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
@@ -217,6 +218,7 @@ def main():
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
+
 
 
     with tab2:
