@@ -126,7 +126,7 @@ def main():
 
                     margin_display.markdown(
                         f"""
-<div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
+<div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:20px;'>
   마진율 {int(target_margin)}% 기준: {format_number(target_cost)}원 ({yuan_cost:.2f}위안) / 마진: {format_number(profit)}원
 </div>
 """, unsafe_allow_html=True)
