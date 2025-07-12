@@ -1,3 +1,5 @@
+tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
+
 with tab1:
     left, right = st.columns(2)
 
