@@ -200,9 +200,11 @@ def main():
                 st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
+                        # 들여쓰기 수정
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
 
                     st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
+
                     st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})"), unsafe_allow_html=True)
                     st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
