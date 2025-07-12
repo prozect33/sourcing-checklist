@@ -54,9 +54,6 @@ def main():
                         + gift_cost
                     )
 
-                    st.write("[디버그] 환율:", config['EXCHANGE_RATE'])
-                    st.write("[디버그] target_cost:", target_cost)
-
                     margin_display.markdown(
                         f"""
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
@@ -67,6 +64,17 @@ def main():
                     margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             else:
                 margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                unit_yuan = st.text_input("위안화 (¥)", value=st.session_state.get("unit_yuan", ""))
+            with col2:
+                unit_won = st.text_input("원화 (₩)", value=st.session_state.get("unit_won", ""))
+
+            qty_raw = st.text_input("수량", value=st.session_state.get("qty_raw", "1"))
+            calc_col, reset_col = st.columns(2)
+            result = calc_col.button("계산하기")
+            reset_col.button("리셋", on_click=reset_inputs)
 
 if __name__ == "__main__":
     main()
