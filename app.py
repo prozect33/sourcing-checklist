@@ -1,4 +1,8 @@
 ...
+        st.subheader("판매정보 입력")
+        sell_price_raw = st.text_input("판매가 (원)", value=st.session_state.get("sell_price_raw", ""))
+        margin_display = st.empty()
+
         if sell_price_raw.strip():
             try:
                 target_margin = 50.0
