@@ -29,8 +29,8 @@ def default_config():
         "RETURN_RATE": 0.1,
         "ETC_RATE": 2.0,
         "EXCHANGE_RATE": 350,
-        "PACKAGING_COST": 500,
-        "GIFT_COST": 1000
+        "PACKAGING_COST": 0,
+        "GIFT_COST": 0
     }
 
 def load_config():
