@@ -142,7 +142,7 @@ def main():
             with col2:
                 unit_won = st.text_input("원화 (₩)", key="unit_won")
 
-            qty_raw = st.text_input("수량", key="qty_raw")
+            qty_raw = st.text_input("수량", value="1", key="qty_raw")
             calc_col, reset_col = st.columns(2)
             result = calc_col.button("계산하기")
             reset_col.button("리셋", on_click=reset_inputs)
