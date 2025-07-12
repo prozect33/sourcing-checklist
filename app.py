@@ -274,5 +274,3 @@ with tab1:
 with tab2:
     st.subheader("세부 마진 계산기")
     st.info("준비 중입니다...")
-
-가운데 원가랑 수량 입력하는 칸 보이지?
