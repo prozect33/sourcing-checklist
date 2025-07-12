@@ -11,9 +11,11 @@ TABLE_NAME = "product_margins"
 st.set_page_config(page_title="세부 마진 계산기", layout="wide")
 st.title("🧾 세부 마진 계산기")
 
+# 검색
 search_name = st.text_input("🔍 상품명으로 검색해서 불러오기")
 load_btn = st.button("불러오기")
 
+# 항목 정의
 columns = [
     "product_name", "sell_price", "yuan_price", "won_price", "quantity",
     "fee_rate", "ad_rate", "inout_cost", "pickup_cost", "restock_cost",
@@ -49,11 +51,17 @@ if load_btn and search_name.strip():
     else:
         st.warning(f"'{search_name}'에 해당하는 데이터가 없습니다.")
 
+# 표 입력
 edited = st.data_editor(data, num_rows="dynamic", use_container_width=True)
 
+# 저장: 기존 상품 삭제 후 insert
 if st.button("📥 저장하기"):
     for _, row in edited.iterrows():
-        if not row["product_name"]:
+        name = row["product_name"]
+        if not name:
             continue
-        supabase.table(TABLE_NAME).upsert(row.to_dict(), on_conflict="product_name").execute()
+        # 기존 항목 삭제
+        supabase.table(TABLE_NAME).delete().eq("product_name", name).execute()
+        # 새로 삽입
+        supabase.table(TABLE_NAME).insert(row.to_dict()).execute()
     st.success("✅ Supabase에 저장 완료되었습니다.")
