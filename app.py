@@ -166,7 +166,7 @@ def main():
                     cost_display  = "0원"
 
                 vat = 1.1
-                unit_cost = round(unit_cost_val * vat)  # 수량 반영하지 않은 단위 원가 계산
+                unit_cost = round(unit_cost_val * qty * vat)
 
                 fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
                 ad = round((sell_price * config["AD_RATE"] / 100) * vat)
@@ -178,7 +178,7 @@ def main():
                 packaging = round(config["PACKAGING_COST"] * vat)
                 gift = round(config["GIFT_COST"] * vat)
 
-                total_cost = (unit_cost * qty) + fee + ad + inout + return_cost + etc + packaging + gift  # 수량 반영
+                total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                 profit2 = sell_price - total_cost
                 supply_price2 = sell_price / vat
 
@@ -222,3 +222,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+지금 이 코드가 마지막 수정한 코드인데
+
+원래 다 잘 맞춰논걸 지피티가 좃같이 만들었어 간단한거 수정하려는데
+존나 꼬아놨어 그래서 바로잡아야해
