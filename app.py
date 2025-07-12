@@ -1,7 +1,3 @@
-# 파일 저장
-file_path = "/mnt/data/margin_calculator_app.py"
-
-code = '''
 import streamlit as st
 import json
 import os
@@ -63,8 +59,10 @@ def format_number(val):
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
-    for key in ["sell_price_raw", "unit_yuan", "unit_won", "qty_raw"]:
-        st.session_state[key] = ""
+    st.session_state["sell_price_raw"] = ""
+    st.session_state["unit_yuan"] = ""
+    st.session_state["unit_won"] = ""
+    st.session_state["qty_raw"] = "1"
 
 config = load_config()
 
@@ -92,7 +90,7 @@ def main():
 
         with left:
             st.subheader("판매정보 입력")
-            sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
+            sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw", value=st.session_state.get("sell_price_raw", ""))
             margin_display = st.empty()
 
             if sell_price_raw.strip():
@@ -143,11 +141,11 @@ def main():
 
             col1, col2 = st.columns(2)
             with col1:
-                unit_yuan = st.text_input("위안화 (¥)", key="unit_yuan")
+                unit_yuan = st.text_input("위안화 (¥)", key="unit_yuan", value=st.session_state.get("unit_yuan", ""))
             with col2:
-                unit_won = st.text_input("원화 (₩)", key="unit_won")
+                unit_won = st.text_input("원화 (₩)", key="unit_won", value=st.session_state.get("unit_won", ""))
 
-            qty_raw = st.text_input("수량", key="qty_raw")
+            qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", "1"))
             calc_col, reset_col = st.columns(2)
             result = calc_col.button("계산하기")
             reset_col.button("리셋", on_click=reset_inputs)
@@ -252,9 +250,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
-
-with open(file_path, 'w') as f:
-    f.write(code)
-
-file_path
