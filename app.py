@@ -6,7 +6,6 @@ from supabase import create_client
 url = "https://eqwogoktpuvlilnlveva.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxd29nb2t0cHV2bGlsbmx2ZXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMDk3NjEsImV4cCI6MjA2Nzg4NTc2MX0.2MmOaxur_gDaVsGK6UloWls8GMG4aH_q7EBuzHAXpLw"
 supabase = create_client(url, key)
-
 TABLE_NAME = "product_margins"
 
 st.set_page_config(page_title="세부 마진 계산기", layout="wide")
@@ -44,4 +43,4 @@ if st.button("📥 저장하기"):
         if not row["product_name"]:
             continue
         supabase.table(TABLE_NAME).insert(row.to_dict()).execute()
-    st.success("Supabase에 저장 완료되었습니다.")
+    st.success("✅ Supabase에 저장 완료되었습니다.")
