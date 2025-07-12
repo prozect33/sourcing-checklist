@@ -193,8 +193,16 @@ def main():
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
                 st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
-                st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
-                st.markdown("<div style='margin-top: -20px;'>&nbsp;</div>", unsafe_allow_html=True)
+
+                st.markdown("""
+                    <style>
+                        .specific-expander > div:first-child {
+                            margin-top: -15px !important;
+                        }
+                    </style>
+                    <div class="specific-expander">
+                """, unsafe_allow_html=True)
+
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
@@ -215,6 +223,8 @@ def main():
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
+
+                st.markdown("</div>", unsafe_allow_html=True)
 
     with tab2:
         st.subheader("세부 마진 계산기")
