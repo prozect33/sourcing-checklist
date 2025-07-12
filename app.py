@@ -1,8 +1,7 @@
 import streamlit as st
-import pandas as pd
 from supabase import create_client
 
-# Supabase 연결 정보
+# Supabase 연결 설정
 url = "https://eqwogoktpuvlilnlveva.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxd29nb2t0cHV2bGlsbmx2ZXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMDk3NjEsImV4cCI6MjA2Nzg4NTc2MX0.2MmOaxur_gDaVsGK6UloWls8GMG4aH_q7EBuzHAXpLw"
 supabase = create_client(url, key)
@@ -11,63 +10,64 @@ TABLE_NAME = "product_margins"
 st.set_page_config(page_title="세부 마진 계산기", layout="wide")
 st.title("🧾 세부 마진 계산기")
 
-search_name = st.text_input("🔍 상품명으로 검색해서 불러오기")
-load_btn = st.button("불러오기")
+with st.form("margin_form"):
+    st.markdown("### 📦 상품 1 입력")
 
-columns = [
-    "product_name", "sell_price", "yuan_price", "won_price", "quantity",
-    "fee_rate", "ad_rate", "inout_cost", "pickup_cost", "restock_cost",
-    "return_rate", "etc_rate", "exchange_rate", "packaging_cost", "gift_cost"
-]
+    product_name = st.text_input("상품명")
+    sell_price = st.number_input("판매가 (원)", step=1000)
 
-default_row = {
-    "product_name": "",
-    "sell_price": "",
-    "yuan_price": "",
-    "won_price": "",
-    "quantity": "1",
-    "fee_rate": 10.8,
-    "ad_rate": 20.0,
-    "inout_cost": 3000,
-    "pickup_cost": 1500,
-    "restock_cost": 500,
-    "return_rate": 0.1,
-    "etc_rate": 2.0,
-    "exchange_rate": 350,
-    "packaging_cost": 0,
-    "gift_cost": 0
-}
+    col1, col2 = st.columns(2)
+    with col1:
+        yuan_price = st.text_input("위안화 (¥)")
+    with col2:
+        won_price = st.text_input("원화 (₩)")
 
-data = pd.DataFrame([default_row.copy() for _ in range(5)])
+    quantity = st.number_input("수량", value=1, step=1)
 
-if load_btn and search_name.strip():
-    result = supabase.table(TABLE_NAME).select("*").eq("product_name", search_name.strip()).execute()
-    records = result.data
-    if records:
-        data = pd.DataFrame(records)[columns]
-        st.success(f"✅ '{search_name}'에 해당하는 데이터 불러왔습니다.")
-    else:
-        st.warning(f"'{search_name}'에 해당하는 데이터가 없습니다.")
+    st.markdown("### 📋 세부 비용 설정")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        fee_rate = st.number_input("수수료율 (%)", value=10.8, step=0.1)
+        ad_rate = st.number_input("광고비율 (%)", value=20.0, step=0.1)
+        inout_cost = st.number_input("입출고비용 (원)", value=3000, step=100)
+    with col2:
+        pickup_cost = st.number_input("회수비용 (원)", value=1500, step=100)
+        restock_cost = st.number_input("재입고비용 (원)", value=500, step=100)
+        return_rate = st.number_input("반품률 (%)", value=0.1, step=0.1)
+    with col3:
+        etc_rate = st.number_input("기타비용률 (%)", value=2.0, step=0.1)
+        exchange_rate = st.number_input("위안화 환율", value=350, step=1)
+        packaging_cost = st.number_input("포장비 (원)", value=0, step=100)
+        gift_cost = st.number_input("사은품 비용 (원)", value=0, step=100)
 
-edited = st.data_editor(data, num_rows="dynamic", use_container_width=True)
+    submitted = st.form_submit_button("📥 Supabase에 저장하기")
 
-def clean_row(row_dict):
-    """빈 문자열, NaN, 잘못된 숫자 제거"""
-    clean = {}
-    for k, v in row_dict.items():
-        if isinstance(v, str) and v.strip() == "":
-            continue
-        if pd.isna(v):
-            continue
-        clean[k] = v
-    return clean
+    if submitted:
+        if not product_name:
+            st.warning("상품명을 입력해주세요.")
+        else:
+            row = {
+                "product_name": product_name,
+                "sell_price": sell_price,
+                "yuan_price": yuan_price,
+                "won_price": won_price,
+                "quantity": quantity,
+                "fee_rate": fee_rate,
+                "ad_rate": ad_rate,
+                "inout_cost": inout_cost,
+                "pickup_cost": pickup_cost,
+                "restock_cost": restock_cost,
+                "return_rate": return_rate,
+                "etc_rate": etc_rate,
+                "exchange_rate": exchange_rate,
+                "packaging_cost": packaging_cost,
+                "gift_cost": gift_cost,
+            }
 
-if st.button("📥 저장하기"):
-    for _, row in edited.iterrows():
-        name = row["product_name"]
-        if not name:
-            continue
-        clean = clean_row(row.to_dict())
-        supabase.table(TABLE_NAME).delete().eq("product_name", name).execute()
-        supabase.table(TABLE_NAME).insert(clean).execute()
-    st.success("✅ Supabase에 저장 완료되었습니다.")
+            # 문제 방지용 클린업 (빈값/NaN 제거)
+            clean = {k: v for k, v in row.items() if v != "" and v is not None}
+
+            # 기존 상품명 있으면 삭제 후 저장
+            supabase.table(TABLE_NAME).delete().eq("product_name", product_name).execute()
+            supabase.table(TABLE_NAME).insert(clean).execute()
+            st.success(f"✅ '{product_name}' 저장 완료되었습니다.")
