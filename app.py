@@ -169,7 +169,7 @@ def main():
                     cost_display  = "0원"
 
                 vat = 1.1
-                unit_cost = round(unit_cost_val * qty * vat)
+                unit_cost = round(unit_cost_val * vat)  # 수량 반영하지 않은 단위 원가 계산
 
                 fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
                 ad = round((sell_price * config["AD_RATE"] / 100) * vat)
@@ -181,7 +181,7 @@ def main():
                 packaging = round(config["PACKAGING_COST"] * vat)
                 gift = round(config["GIFT_COST"] * vat)
 
-                total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
+                total_cost = (unit_cost * qty) + fee + ad + inout + return_cost + etc + packaging + gift  # 수량 반영
                 profit2 = sell_price - total_cost
                 supply_price2 = sell_price / vat
 
