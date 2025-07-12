@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# 페이지 설정
-st.set_page_config(page_title="세부 마진 계산기", layout="wide")
+st.set_page_config(page_title="실무형 세부 마진 계산기", layout="wide")
 
-# 설정값 (간단 마진 계산기 기준)
 DEFAULTS = {
     "FEE_RATE": 10.8,
     "AD_RATE": 20.0,
@@ -18,74 +16,71 @@ DEFAULTS = {
     "GIFT_COST": 0
 }
 
-# 타이틀 및 판매가 입력
-st.title("📊 세부 마진 계산기")
-sell_price = st.number_input("판매가 (₩)", value=12000, step=100)
+if "ledger" not in st.session_state:
+    st.session_state.ledger = []
 
-# 기본 옵션 3행 입력 템플릿
-initial_data = pd.DataFrame([
-    {
-        "공급가(¥)": 12.0,
-        "수량": 1,
-        "수수료율(%)": DEFAULTS["FEE_RATE"],
-        "광고비율(%)": DEFAULTS["AD_RATE"],
-        "입출고비(₩)": DEFAULTS["INOUT_COST"],
-        "회수비(₩)": DEFAULTS["PICKUP_COST"],
-        "재입고비(₩)": DEFAULTS["RESTOCK_COST"],
-        "반품률(%)": DEFAULTS["RETURN_RATE"],
-        "기타비용률(%)": DEFAULTS["ETC_RATE"],
-        "포장비(₩)": DEFAULTS["PACKAGING_COST"],
-        "사은품비(₩)": DEFAULTS["GIFT_COST"]
-    } for _ in range(3)
-])
+st.title("📦 실무형 세부 마진 계산기")
 
-st.markdown("#### 옵션별 입력 (가로 비교형)")
-edited_df = st.data_editor(
-    initial_data,
-    num_rows="dynamic",
-    use_container_width=True
-)
+with st.form("input_form"):
+    st.subheader("1️⃣ 상품 정보 입력")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    product_name = col1.text_input("상품명")
+    sell_price = col2.number_input("판매가 (₩)", value=12000, step=100)
+    qty = col3.number_input("수량", value=1, step=1)
 
-# 계산 실행
-if st.button("💡 계산하기"):
-    results = []
-    for _, row in edited_df.iterrows():
-        try:
-            vat = 1.1
-            unit_cost = round(float(row["공급가(¥)"]) * DEFAULTS["EXCHANGE_RATE"])
-            qty = int(row["수량"])
-            total_unit_cost = round(unit_cost * qty * vat)
+    st.divider()
+    st.subheader("2️⃣ 원가 및 비용 입력")
+    cost_col1, cost_col2, cost_col3 = st.columns(3)
+    unit_yuan = cost_col1.number_input("공급가 (위안)", value=12.0, step=0.1)
+    packaging_cost = cost_col2.number_input("포장비 (₩)", value=DEFAULTS["PACKAGING_COST"], step=100)
+    gift_cost = cost_col3.number_input("사은품비 (₩)", value=DEFAULTS["GIFT_COST"], step=100)
 
-            fee = round((sell_price * row["수수료율(%)"] / 100) * vat)
-            ad = round((sell_price * row["광고비율(%)"] / 100) * vat)
-            inout = round(row["입출고비(₩)"] * vat)
-            pickup = round(row["회수비(₩)"] * vat)
-            restock = round(row["재입고비(₩)"] * vat)
-            return_cost = round((pickup + restock) * (row["반품률(%)"] / 100))
-            etc = round((sell_price * row["기타비용률(%)"] / 100) * vat)
-            packaging = round(row["포장비(₩)"] * vat)
-            gift = round(row["사은품비(₩)"] * vat)
+    submitted = st.form_submit_button("💡 계산하기")
 
-            total_cost = total_unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
-            profit = sell_price - total_cost
-            supply_price = sell_price / vat
-            margin = round((sell_price - (total_unit_cost + fee + inout + packaging + gift)) / supply_price * 100, 2)
-            roi = round((profit / total_unit_cost) * 100, 2) if total_unit_cost else 0
+if submitted:
+    try:
+        vat = 1.1
+        unit_cost = round(unit_yuan * DEFAULTS["EXCHANGE_RATE"])
+        total_unit_cost = round(unit_cost * qty * vat)
+        fee = round((sell_price * DEFAULTS["FEE_RATE"] / 100) * vat)
+        ad = round((sell_price * DEFAULTS["AD_RATE"] / 100) * vat)
+        inout = round(DEFAULTS["INOUT_COST"] * vat)
+        pickup = round(DEFAULTS["PICKUP_COST"] * vat)
+        restock = round(DEFAULTS["RESTOCK_COST"] * vat)
+        return_cost = round((pickup + restock) * (DEFAULTS["RETURN_RATE"] / 100))
+        etc = round((sell_price * DEFAULTS["ETC_RATE"] / 100) * vat)
+        packaging = round(packaging_cost * vat)
+        gift = round(gift_cost * vat)
 
-            results.append({
-                "총비용(₩)": total_cost,
-                "이익(₩)": profit,
-                "마진율(%)": margin,
-                "ROI(%)": roi
-            })
-        except:
-            results.append({
-                "총비용(₩)": "에러",
-                "이익(₩)": "에러",
-                "마진율(%)": "에러",
-                "ROI(%)": "에러"
-            })
+        total_cost = total_unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
+        profit = sell_price - total_cost
+        supply_price = sell_price / vat
+        margin = round((sell_price - (total_unit_cost + fee + inout + packaging + gift)) / supply_price * 100, 2)
+        roi = round((profit / total_unit_cost) * 100, 2) if total_unit_cost else 0
 
-    result_df = pd.concat([edited_df, pd.DataFrame(results)], axis=1)
-    st.markdown("#### 💎 계산 결과")
-    st.dataframe(result_df, use_container_width=True)
+        st.success("✅ 계산 완료")
+        st.metric("마진율", f"{margin:.2f}%")
+        st.metric("ROI", f"{roi:.2f}%")
+        st.metric("예상 이익", f"{profit:,}원")
+
+        st.session_state.ledger.append({
+            "상품명": product_name,
+            "판매가(₩)": sell_price,
+            "공급가(¥)": unit_yuan,
+            "수량": qty,
+            "총비용(₩)": total_cost,
+            "이익(₩)": profit,
+            "마진율(%)": margin,
+            "ROI(%)": roi
+        })
+
+    except Exception as e:
+        st.error("❌ 계산 중 오류가 발생했습니다.")
+
+if st.session_state.ledger:
+    st.markdown("### 📋 계산 결과 장부")
+    ledger_df = pd.DataFrame(st.session_state.ledger)
+    st.dataframe(ledger_df, use_container_width=True)
+
+    csv = ledger_df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button("📥 CSV 다운로드", data=csv, file_name="margin_ledger.csv", mime="text/csv")
