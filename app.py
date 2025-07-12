@@ -148,7 +148,7 @@ def main():
             reset_col.button("리셋", on_click=reset_inputs)
 
         with right:
-            if 'result' in locals() and result:
+            if result:
                 try:
                     sell_price = int(float(sell_price_raw))
                     qty = int(float(qty_raw)) if qty_raw else 1
@@ -188,23 +188,18 @@ def main():
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
-                        return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
-
-
-
                 st.markdown("### 📊 계산 결과")
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
                 st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
+
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
-                        # 들여쓰기 수정
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
 
                     st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
-
                     st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})"), unsafe_allow_html=True)
                     st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
@@ -220,8 +215,6 @@ def main():
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
-
-
 
     with tab2:
         st.subheader("세부 마진 계산기")
