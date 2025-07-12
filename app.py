@@ -30,7 +30,9 @@
             + gift_cost
         )
 
-        st.write("[디버그] 환율:", config['EXCHANGE_RATE'], "target_cost:", target_cost)  # 디버깅용 출력
+        # 디버깅용 출력
+        st.write("[디버그] 환율:", config['EXCHANGE_RATE'])
+        st.write("[디버그] target_cost:", target_cost)
 
         margin_display.markdown(
             f"""
