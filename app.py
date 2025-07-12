@@ -1,31 +1,25 @@
 import streamlit as st
+import pandas as pd
 
 st.set_page_config(page_title="세부 마진 계산기", layout="wide")
 st.title("🧾 세부 마진 계산기")
 
-st.markdown("상품별로 판매가, 원가, 수량을 입력하세요. (계산 기능은 아직 없습니다)")
+st.markdown("상품별로 정보를 가로 표 형식으로 입력하세요.")
 
-# 초기 표 행 수
-row_count = 5
+# 기본 입력 표 데이터 생성
+default_data = pd.DataFrame([
+    {"상품명": "", "판매가(₩)": "", "위안화(¥)": "", "원화(₩)": "", "수량": "1"}
+    for _ in range(5)
+])
 
-# 테이블 구조 (입력용)
-columns = ["상품명", "판매가(₩)", "위안화(¥)", "원화(₩)", "수량"]
-table_data = []
+# 표 형식 입력 UI
+edited_df = st.data_editor(
+    default_data,
+    num_rows="dynamic",  # 행 수 추가 가능
+    use_container_width=True
+)
 
-with st.form("margin_input_form"):
-    for i in range(row_count):
-        cols = st.columns(len(columns))
-        row = []
-        for j, col_name in enumerate(columns):
-            key = f"{col_name}_{i}"
-            placeholder = "" if col_name != "수량" else "1"
-            value = st.text_input(label=col_name if i == 0 else "", value=placeholder, key=key)
-            row.append(value)
-        table_data.append(row)
-    
-    submitted = st.form_submit_button("계산 시작")
-
-if submitted:
-    st.success("입력 완료 (계산 기능은 아직 미구현)")
-    st.write("입력된 데이터:")
-    st.write(table_data)
+# 제출 버튼
+if st.button("📊 계산 시작"):
+    st.success("입력값 확인:")
+    st.dataframe(edited_df)
