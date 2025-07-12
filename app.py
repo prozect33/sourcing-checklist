@@ -23,7 +23,7 @@ def default_config():
         "INOUT_COST": 3000,
         "PICKUP_COST": 1500,
         "RESTOCK_COST": 500,
-        "RETURN_RATE": 0.1,
+        "RETURN_RATE": 10.0,
         "ETC_RATE": 2.0,
         "EXCHANGE_RATE": 350,
         "PACKAGING_COST": 0,
