@@ -1,5 +1,3 @@
-[media pointer="file-service://file-8nqPEXjHHsf1cQ7xXEbchN"]
-
 import streamlit as st
 import json
 import os
