@@ -186,14 +186,16 @@ with tab1:
 
             # 단위 원가 산출
             if unit_yuan:
-                unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
-                cost_display  = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
+                unit_price_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])  # 단가
+                cost_display  = f"{format_number(unit_price_val)}원 ({unit_yuan}위안)"
             elif unit_won:
-                unit_cost_val = round(float(unit_won))
-                cost_display  = f"{format_number(unit_cost_val)}원"
+                unit_price_val = round(float(unit_won))  # 단가
+                cost_display  = f"{format_number(unit_price_val)}원"
             else:
-                unit_cost_val = 0
+                unit_price_val = 0
                 cost_display  = "0원"
+
+            unit_cost_val = unit_price_val * qty  # 총 원가 = 단가 × 수량
 
             vat       = 1.1
             unit_cost = round(unit_cost_val * vat)
