@@ -1,4 +1,4 @@
-...
+    with left:
         st.subheader("판매정보 입력")
         sell_price_raw = st.text_input("판매가 (원)", value=st.session_state.get("sell_price_raw", ""))
         margin_display = st.empty()
@@ -61,4 +61,3 @@
                 margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
         else:
             margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-...
