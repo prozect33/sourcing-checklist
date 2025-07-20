@@ -188,6 +188,7 @@ def main():
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
 
                 st.markdown("### 📊 계산 결과")
+                st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
