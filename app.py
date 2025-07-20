@@ -166,15 +166,15 @@ def main():
                     cost_display  = "0원"
 
                 vat = 1.1
-                unit_cost = round(unit_cost_val * qty * vat)
+                unit_cost = round(unit_cost_val * qty)
 
                 fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
                 ad = round((sell_price * config["AD_RATE"] / 100) * vat)
                 inout = round(config["INOUT_COST"] * vat)
-                pickup = round(config["PICKUP_COST"] * vat)
-                restock = round(config["RESTOCK_COST"] * vat)
-                return_cost = round((pickup + restock) * (config["RETURN_RATE"] / 100))
-                etc = round((sell_price * config["ETC_RATE"] / 100) * vat)
+                pickup = round(config["PICKUP_COST"])
+                restock = round(config["RESTOCK_COST"])
+                return_cost = round((pickup + restock) * (config["RETURN_RATE"] / 100) * vat)
+                etc = round((sell_price * config["ETC_RATE"] / 100))
                 packaging = round(config["PACKAGING_COST"] * vat)
                 gift = round(config["GIFT_COST"] * vat)
 
