@@ -186,7 +186,7 @@ def main():
                 margin_ratio = round((margin_profit / supply_price2) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
-                roas = round((sell_price / profit2) * 100, 2) if profit2 else 0
+                roas = round((sell_price / profit2t + ad) * 100, 2) if profit2 else 0
 
                 st.markdown("### 📊 계산 결과")
                 st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
