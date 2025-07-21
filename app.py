@@ -189,6 +189,8 @@ def main():
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
 
                 st.markdown("### 📊 계산 결과")
+                with col_button:
+                    st.button("저장하기")
                 st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
