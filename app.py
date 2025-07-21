@@ -103,7 +103,8 @@ def main():
                     packaging_cost = round(config['PACKAGING_COST'] * vat)
                     gift_cost = round(config['GIFT_COST'] * vat)
 
-                    left_b, right_b = 0, sell_price_val
+                    # 이분 탐색 범위 VAT 제외 공급가 기준으로 수정
+                    left_b, right_b = 0, int(sell_price_val / vat)
                     target_cost = 0
                     while left_b <= right_b:
                         mid = (left_b + right_b) // 2
