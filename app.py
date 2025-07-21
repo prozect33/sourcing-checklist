@@ -109,13 +109,31 @@ def main():
                     # C: 고정비용 합계 (수수료, 입출고, 포장, 사은품)
                     C = fee + inout_cost + packaging_cost + gift_cost
 
-                    # 이진 탐색 없이 직접 계산: 마진율 target_margin% 달성 원가 (VAT 제외 전)
+                    # ——————————————
+                    # 1) 고정비용 합계
+                    C = fee + inout_cost + packaging_cost + gift_cost
+
+                    # 2) raw_cost 계산 (VAT 제외 전)
                     raw_cost = (
                         sell_price_val
                         - supply_price * (target_margin / 100)
                         - C
                     ) / vat
-                    target_cost = max(0, int(raw_cost))
+
+                    # 3) 후보 두 개(내림/올림) 중 실제 마진율 50% 이상인 최소 원가 선택
+                    c_floor = max(0, math.floor(raw_cost))
+                    c_ceil  = max(0, math.ceil(raw_cost))
+                    for candidate in (c_floor, c_ceil):
+                        partial       = (round(candidate * vat)
+                                         + fee
+                                         + inout_cost
+                                         + packaging_cost
+                                         + gift_cost)
+                        margin_ratio_ = (sell_price_val - partial) / supply_price * 100
+                        if margin_ratio_ >= target_margin:
+                            target_cost = candidate
+                            break
+                    # ——————————————
 
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
