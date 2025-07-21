@@ -195,8 +195,8 @@ def main():
                 profit2 = sell_price - total_cost
                 supply_price2 = sell_price / vat
 
-                margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
-                margin_ratio = round((margin_profit / supply_price2) * 100, 2)
+                margin_profit = sell_price - (round(unit_cost * vat) + fee + inout + packaging + gift)
+                margin_ratio  = round((margin_profit / supply_price2) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
