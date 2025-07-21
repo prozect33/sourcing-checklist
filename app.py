@@ -188,9 +188,10 @@ def main():
 
                 total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                 profit2 = sell_price - total_cost
+                supply_price2 = sell_price / vat
 
                 margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
-                margin_ratio = round((margin_profit / sell_price) * 100, 2)
+                margin_ratio = round((margin_profit / supply_price2) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
@@ -210,7 +211,7 @@ def main():
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
-                st.markdown(f"- 📉 최소마진율: {(profit2/sell_price*100):.2f}%")
+                st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
                 st.markdown(f"- 📊 ROAS: {roas:.2f}%")
 
@@ -231,9 +232,9 @@ def main():
                     st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("사은품 비용:", f"{format_number(gift)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("총비용:", f"{format_number(total_cost)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("공급가액:", f"{format_number(round(sell_price))}원"), unsafe_allow_html=True)
+                    st.markdown(styled_line("공급가액:", f"{format_number(round(supply_price2))}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("최소마진율:", f"{(profit2/sell_price*100):.2f}%"), unsafe_allow_html=True)
+                    st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
 
     with tab2:
