@@ -119,8 +119,7 @@ def main():
                             target_cost = mid
                             left_b = mid + 1
 
-                    yuan_cost = round(target_cost / config['EXCHANGE_RATE'], 2)
-
+                    yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
                         round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
                     )
