@@ -187,8 +187,10 @@ def main():
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
-
-                st.markdown("### 📊 계산 결과")
+                
+                col_title, col_button = st.columns([4,1])
+                with col_title:
+                    st.markdown("### 📊 계산 결과")
                 with col_button:
                     st.button("저장하기")
                 st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
