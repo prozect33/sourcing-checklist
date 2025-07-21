@@ -162,15 +162,16 @@ def main():
                     st.warning("판매가와 수량을 정확히 입력해주세요.")
                     st.stop()
 
+                # 원가 표시용 처리
                 if unit_yuan:
                     unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
-                    cost_display  = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
+                    cost_display  = f"{unit_yuan}위안"  # 원화 표기는 제거하고 위안만 남김
                 elif unit_won:
                     unit_cost_val = round(float(unit_won))
-                    cost_display  = f"{format_number(unit_cost_val)}원"
+                    cost_display  = ""
                 else:
                     unit_cost_val = 0
-                    cost_display  = "0원"
+                    cost_display  = ""
 
                 vat = 1.1
                 unit_cost = round(unit_cost_val * qty)
@@ -194,32 +195,38 @@ def main():
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
-                
+
                 col_title, col_button = st.columns([4,1])
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
-                    st.button("저장하기")  # 이 버튼을 눌러도 결과 안 사라짐
+                    st.button("저장하기")
 
-                st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
+                # 원가 중복 없이 출력
+                if cost_display:
+                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
+                else:
+                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원")
+
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
                 st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
-                st.markdown(f"- 📊 ROAS: {roas:.2f}%")  
+                st.markdown(f"- 📊 ROAS: {roas:.2f}%")
 
+                # 상세 항목
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
 
                     st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})"), unsafe_allow_html=True)
+                    st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})" if cost_display else f"{format_number(unit_cost)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("입출고비용:", f"{format_number(inout)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("회수비용 (참고):", f"{format_number(pickup)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("재입고비용 (참고):", f"{format_number(restock)}원"), unsafe_allow_html=True)
+                    st.markdown(styled_line("회수비용:", f"{format_number(pickup)}원"), unsafe_allow_html=True)
+                    st.markdown(styled_line("재입고비용:", f"{format_number(restock)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("반품비용:", f"{format_number(return_cost)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("기타비용:", f"{format_number(etc)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
