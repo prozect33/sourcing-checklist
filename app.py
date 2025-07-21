@@ -106,18 +106,16 @@ def main():
 
                     supply_price = sell_price_val / vat
 
-                    left_b, right_b = 0, sell_price_val
-                    target_cost = 0
-                    while left_b <= right_b:
-                        mid = (left_b + right_b) // 2
-                        partial = round(mid * vat) + fee + inout_cost + packaging_cost + gift_cost
-                        margin_profit = sell_price_val - partial
-                        margin_mid = margin_profit / supply_price * 100
-                        if margin_mid < target_margin:
-                            right_b = mid - 1
-                        else:
-                            target_cost = mid
-                            left_b = mid + 1
+                    # C: 고정비용 합계 (수수료, 입출고, 포장, 사은품)
+                    C = fee + inout_cost + packaging_cost + gift_cost
+
+                    # 이진 탐색 없이 직접 계산: 마진율 target_margin% 달성 원가 (VAT 제외 전)
+                    raw_cost = (
+                        sell_price_val
+                        - supply_price * (target_margin / 100)
+                        - C
+                    ) / vat
+                    target_cost = max(0, int(raw_cost))
 
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
