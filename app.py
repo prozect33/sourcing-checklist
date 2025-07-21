@@ -103,7 +103,6 @@ def main():
                     packaging_cost = round(config['PACKAGING_COST'] * vat)
                     gift_cost = round(config['GIFT_COST'] * vat)
 
-                    # 50% 마진 기준 원가 계산
                     left_b, right_b = 0, sell_price_val
                     target_cost = 0
                     while left_b <= right_b:
@@ -181,8 +180,8 @@ def main():
                 profit2 = sell_price - total_cost
 
                 margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
-                margin_ratio = round((margin_profit / sell_price) * 100, 2)  # 판매가 기준으로 수정
-                min_margin_ratio = round((profit2 / sell_price) * 100, 2)    # 최소마진율도 판매가 기준
+                margin_ratio = round((margin_profit / sell_price) * 100, 2)
+                min_margin_ratio = round((profit2 / sell_price) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / ad) * 100, 2) if ad else 0
