@@ -59,6 +59,7 @@ def reset_inputs():
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = "1"
+    st.session_state["show_result"] = False  # 결과도 초기화
 
 config = load_config()
 
@@ -143,11 +144,17 @@ def main():
 
             qty_raw = st.text_input("수량", value="1", key="qty_raw")
             calc_col, reset_col = st.columns(2)
-            result = calc_col.button("계산하기")
+
+            # 계산하기 버튼 클릭 시 결과 표시 플래그 저장
+            if calc_col.button("계산하기"):
+                st.session_state["show_result"] = True
+            if "show_result" not in st.session_state:
+                st.session_state["show_result"] = False
+
             reset_col.button("리셋", on_click=reset_inputs)
 
         with right:
-            if result:
+            if st.session_state["show_result"]:
                 try:
                     sell_price = int(float(sell_price_raw))
                     qty = int(float(qty_raw)) if qty_raw else 1
@@ -192,16 +199,16 @@ def main():
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
-                    st.button("저장하기")
+                    st.button("저장하기")  # 이 버튼을 눌러도 결과 안 사라짐
+
                 st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
                 st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
-                st.markdown(f"- 📊 ROAS: {roas:.2f}%")  # ← 새로 추가
+                st.markdown(f"- 📊 ROAS: {roas:.2f}%")  
 
-                
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
