@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import math
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 st.markdown("""
@@ -58,7 +59,7 @@ def reset_inputs():
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = "1"
-    st.session_state["show_result"] = False
+    st.session_state["show_result"] = False  # 결과도 초기화
 
 config = load_config()
 
@@ -103,14 +104,15 @@ def main():
                     packaging_cost = round(config['PACKAGING_COST'] * vat)
                     gift_cost = round(config['GIFT_COST'] * vat)
 
-                    # 이분 탐색 범위 VAT 제외 공급가 기준으로 수정
-                    left_b, right_b = 0, int(sell_price_val / vat)
+                    supply_price = sell_price_val / vat
+
+                    left_b, right_b = 0, sell_price_val
                     target_cost = 0
                     while left_b <= right_b:
                         mid = (left_b + right_b) // 2
-                        partial = round(mid * vat) + fee + ad_fee + inout_cost + return_cost + etc_cost + packaging_cost + gift_cost
+                        partial = round(mid * vat) + fee + inout_cost + packaging_cost + gift_cost
                         margin_profit = sell_price_val - partial
-                        margin_mid = margin_profit / sell_price_val * 100  # 판매가 기준
+                        margin_mid = margin_profit / supply_price * 100
                         if margin_mid < target_margin:
                             right_b = mid - 1
                         else:
@@ -118,7 +120,10 @@ def main():
                             left_b = mid + 1
 
                     yuan_cost = round(target_cost / config['EXCHANGE_RATE'], 2)
-                    profit = sell_price_val - (round(target_cost * vat) + fee + ad_fee + inout_cost + return_cost + etc_cost + packaging_cost + gift_cost)
+
+                    profit = sell_price_val - (
+                        round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
+                    )
 
                     margin_display.markdown(
                         f"""
@@ -139,10 +144,13 @@ def main():
 
             qty_raw = st.text_input("수량", value="1", key="qty_raw")
             calc_col, reset_col = st.columns(2)
+
+            # 계산하기 버튼 클릭 시 결과 표시 플래그 저장
             if calc_col.button("계산하기"):
                 st.session_state["show_result"] = True
             if "show_result" not in st.session_state:
                 st.session_state["show_result"] = False
+
             reset_col.button("리셋", on_click=reset_inputs)
 
         with right:
@@ -154,9 +162,10 @@ def main():
                     st.warning("판매가와 수량을 정확히 입력해주세요.")
                     st.stop()
 
+                # 원가 표시용 처리
                 if unit_yuan:
                     unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
-                    cost_display  = f"{unit_yuan}위안"
+                    cost_display  = f"{unit_yuan}위안"  # 원화 표기는 제거하고 위안만 남김
                 elif unit_won:
                     unit_cost_val = round(float(unit_won))
                     cost_display  = ""
@@ -179,13 +188,13 @@ def main():
 
                 total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                 profit2 = sell_price - total_cost
+                supply_price2 = sell_price / vat
 
                 margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
-                margin_ratio = round((margin_profit / sell_price) * 100, 2)
-                min_margin_ratio = round((profit2 / sell_price) * 100, 2)
+                margin_ratio = round((margin_profit / supply_price2) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
-                roas = round((sell_price / ad) * 100, 2) if ad else 0
+                roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
 
                 col_title, col_button = st.columns([4,1])
                 with col_title:
@@ -193,6 +202,7 @@ def main():
                 with col_button:
                     st.button("저장하기")
 
+                # 원가 중복 없이 출력
                 if cost_display:
                     st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
                 else:
@@ -201,10 +211,11 @@ def main():
                 st.markdown(f"- 💰 마진: {format_number(margin_profit)}원")
                 st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원")
-                st.markdown(f"- 📉 최소마진율: {min_margin_ratio:.2f}%")
+                st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 💹 ROI: {roi:.2f}% / 마진 기준 ROI: {roi_margin:.2f}%")
                 st.markdown(f"- 📊 ROAS: {roas:.2f}%")
 
+                # 상세 항목
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
@@ -221,8 +232,9 @@ def main():
                     st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("사은품 비용:", f"{format_number(gift)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("총비용:", f"{format_number(total_cost)}원"), unsafe_allow_html=True)
+                    st.markdown(styled_line("공급가액:", f"{format_number(round(supply_price2))}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("최소마진율:", f"{min_margin_ratio:.2f}%"), unsafe_allow_html=True)
+                    st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
 
     with tab2:
