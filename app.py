@@ -164,11 +164,11 @@ def main():
 
                 # 원가 표시용 처리
                 if unit_yuan:
-                    unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
-                    cost_display  = f"{unit_yuan}위안"  # 원화 표기는 제거하고 위안만 남김
-                elif unit_won:
-                    unit_cost_val = round(float(unit_won))
-                    cost_display  = ""
+                    # 위안화 입력은 VAT 제외 가격 → 환산 후 VAT 포함
+                    unit_cost_val = round(float(unit_yuan) 
+                                          * config['EXCHANGE_RATE'] 
+                                          * vat)
+                    cost_display  = f"{unit_yuan}위안"
                 else:
                     unit_cost_val = 0
                     cost_display  = ""
