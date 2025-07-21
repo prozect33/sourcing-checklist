@@ -161,15 +161,19 @@ def main():
                     st.warning("판매가와 수량을 정확히 입력해주세요.")
                     st.stop()
 
-                # 원가 표시용 처리
-                if unit_yuan:
-                    # 위안화 입력: 환율 곱한 뒤 VAT 포함
+                # 1) 원화 입력이 있으면 우선 처리
+                if unit_won.strip() != "":
+                    unit_cost_val = round(float(unit_won))
+                    cost_display  = ""
+                # 2) 그다음 위안화 입력 처리
+                elif unit_yuan.strip() != "":
                     unit_cost_val = round(
                         float(unit_yuan)
                         * config['EXCHANGE_RATE']
                         * vat
                     )
                     cost_display  = f"{unit_yuan}위안"
+                # 3) 둘 다 없으면 0원 처리
                 else:
                     unit_cost_val = 0
                     cost_display  = ""
