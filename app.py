@@ -164,13 +164,14 @@ def main():
 
                 if unit_yuan:
                     unit_cost_val = round(float(unit_yuan) * config['EXCHANGE_RATE'])
-                    cost_display  = f"{format_number(unit_cost_val)}원 ({unit_yuan}위안)"
+                    cost_display  = f"{unit_yuan}위안"  # 원 제거, 위안만 표시
                 elif unit_won:
                     unit_cost_val = round(float(unit_won))
-                    cost_display  = f"{format_number(unit_cost_val)}원"
+                    cost_display  = ""  # 원화 입력 시 추가 표기 없음
                 else:
                     unit_cost_val = 0
-                    cost_display  = "0원"
+                    cost_display  = ""
+
 
                 vat = 1.1
                 unit_cost = round(unit_cost_val * qty)
@@ -214,7 +215,11 @@ def main():
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
 
                     st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})"), unsafe_allow_html=True)
+                if cost_display:
+                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
+                else:
+                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원")
+
                     st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("입출고비용:", f"{format_number(inout)}원"), unsafe_allow_html=True)
