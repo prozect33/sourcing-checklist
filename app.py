@@ -216,11 +216,11 @@ def main():
                 else:
                     st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원")
 
-                    st.markdown(f"- 💰 마진: {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
-                    st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
-                    st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원 / ROI: {roi:.2f}%")
-                    st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
-                    st.markdown(f"- 📊 ROAS: {roas:.2f}%")
+                st.markdown(f"- 💰 마진: {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
+                st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
+                st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원 / ROI: {roi:.2f}%")
+                st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
+                st.markdown(f"- 📊 ROAS: {roas:.2f}%")
 
                 # 상세 항목
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
