@@ -244,6 +244,9 @@ def main():
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
 
+# ------------------------
+# tab2: 세부 마진 계산기
+# ------------------------
 with tab2:
     st.subheader("📊 세부 마진 계산기 (상품 집단 단위)")
 
