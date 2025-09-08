@@ -19,7 +19,7 @@ def default_config():
     return {
         "FEE_RATE": 10.8,
         "AD_RATE": 20.0,
-        "INOUT_COST": 3,000.0,
+        "INOUT_COST": 3000.0,
         "PICKUP_COST": 0.0,
         "RESTOCK_COST": 0.0,
         "RETURN_RATE": 0.0,
