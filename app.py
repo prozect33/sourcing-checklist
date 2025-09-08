@@ -244,38 +244,25 @@ def main():
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
 
-# ------------------------
-# 2️⃣ 세부 마진 계산기
-# ------------------------
 with tab2:
     st.subheader("📊 세부 마진 계산기 (상품 집단 단위)")
 
     DATA_FILE = "product_groups.json"
 
-    # JSON 읽기
     def load_groups():
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         return []
 
-    # JSON 저장
     def save_groups(groups):
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(groups, f, ensure_ascii=False, indent=2)
 
-    # 숫자 포맷
-    def format_number(val):
-        return f"{int(val):,}"
-
-    # 로드
     groups = load_groups()
 
-    # ------------------------
-    # 1️⃣ 집단 입력 폼
-    # ------------------------
+    # 1️⃣ 집단 추가
     with st.expander("➕ 집단 추가", expanded=True):
-        st.subheader("집단 정보 입력")
         group_name = st.text_input("집단명", value="")
         total_cost = st.number_input("총 수입비 (원)", min_value=0, value=0, step=1000)
         total_units = st.number_input("상품 개수", min_value=1, value=1, step=1)
@@ -291,7 +278,7 @@ with tab2:
             if not group_name:
                 st.warning("집단명을 입력해주세요.")
             else:
-                new_group = {
+                groups.append({
                     "group_name": group_name,
                     "total_cost": total_cost,
                     "total_units": total_units,
@@ -300,14 +287,11 @@ with tab2:
                     "inout_cost": inout_cost,
                     "sold_qty": sold_qty,
                     "ad_cost": ad_cost
-                }
-                groups.append(new_group)
+                })
                 save_groups(groups)
                 st.success(f"집단 '{group_name}'이 저장되었습니다.")
 
-    # ------------------------
-    # 2️⃣ 집단 리스트 표시
-    # ------------------------
+    # 2️⃣ 등록된 집단 목록 + 삭제 기능
     st.subheader("📋 등록된 집단 목록")
     if groups:
         for i, g in enumerate(groups):
@@ -324,15 +308,10 @@ with tab2:
     else:
         st.info("등록된 집단이 없습니다.")
 
-    # ------------------------
-    # 3️⃣ 집단별 실제 마진 계산
-    # ------------------------
+    # 3️⃣ 집단별 마진 계산
     st.subheader("💰 집단별 실제 마진 계산")
     if groups:
-        total_revenue_all = 0
-        total_cost_all = 0
-        total_profit_all = 0
-
+        total_revenue_all = total_cost_all = total_profit_all = 0
         for g in groups:
             revenue = g["sell_price"] * g["sold_qty"]
             expense = g["unit_cost"] * g["sold_qty"] + g["inout_cost"] + g["ad_cost"]
