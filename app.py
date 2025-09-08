@@ -19,12 +19,12 @@ def default_config():
     return {
         "FEE_RATE": 10.8,
         "AD_RATE": 20.0,
-        "INOUT_COST": 3000,
-        "PICKUP_COST": 1500,
-        "RESTOCK_COST": 500,
-        "RETURN_RATE": 10.0,
+        "INOUT_COST": 0,
+        "PICKUP_COST": 0,
+        "RESTOCK_COST": 0,
+        "RETURN_RATE": 0,
         "ETC_RATE": 2.0,
-        "EXCHANGE_RATE": 350,
+        "EXCHANGE_RATE": 300,
         "PACKAGING_COST": 0,
         "GIFT_COST": 0
     }
