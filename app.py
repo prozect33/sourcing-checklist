@@ -238,9 +238,8 @@ def main():
 
         groups = load_groups()
 
-        with st.expander("➕ 집단 추가", expanded=True):
-            st.subheader("집단 정보 입력")
-            group_name = st.text_input("집단명", value="")
+        with st.expander("➕ 상품 추가", expanded=True):
+            group_name = st.text_input("상품명", value="")
             total_cost = st.number_input("총 수입비 (원)", min_value=0, value=0, step=1000)
             total_units = st.number_input("상품 개수", min_value=1, value=1, step=1)
             sell_price = st.number_input("판매가 (원, 상품당)", min_value=0, value=0, step=100)
@@ -251,9 +250,9 @@ def main():
             unit_cost = total_cost / total_units if total_units else 0
             st.markdown(f"**상품 단가:** {format_number(unit_cost)}원")
 
-            if st.button("집단 추가"):
+            if st.button("상품 추가"):
                 if not group_name:
-                    st.warning("집단명을 입력해주세요.")
+                    st.warning("상품품명을 입력해주세요.")
                 else:
                     new_group = {
                         "group_name": group_name,
@@ -267,9 +266,9 @@ def main():
                     }
                     groups.append(new_group)
                     save_groups(groups)
-                    st.success(f"집단 '{group_name}'이 저장되었습니다.")
+                    st.success(f"상품 '{group_name}'이 저장되었습니다.")
 
-        st.subheader("📋 등록된 집단 목록")
+        st.subheader("📋 등록된 상품 목록")
         if groups:
             for i, g in enumerate(groups):
                 st.markdown(f"**{i+1}. {g['group_name']}**")
@@ -283,9 +282,9 @@ def main():
                     save_groups(groups)
                     st.experimental_rerun()
         else:
-            st.info("등록된 집단이 없습니다.")
+            st.info("등록된 상품이 없습니다.")
 
-        st.subheader("💰 집단별 실제 마진 계산")
+        st.subheader("💰 상품품별 실제 마진 계산")
         if groups:
             total_revenue_all = 0
             total_cost_all = 0
@@ -310,7 +309,7 @@ def main():
                 )
 
             st.markdown("---")
-            st.markdown("### 🏁 전체 집단 합계")
+            st.markdown("### 🏁 전체 상품 합계")
             total_margin_ratio = (total_profit_all / total_revenue_all * 100) if total_revenue_all else 0
             total_roi = (total_profit_all / total_cost_all * 100) if total_cost_all else 0
             st.markdown(
