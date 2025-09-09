@@ -70,76 +70,6 @@ def reset_inputs():
     st.session_state["qty_raw"] = "1"
     st.session_state["show_result"] = False  # 결과도 초기화
 
-# 🛠️ 이 함수를 main() 함수 밖으로 옮겨서 별도로 정의합니다.
-def detailed_calculator():
-    """
-    세부 마진 계산기 탭의 로직을 처리합니다.
-    """
-    st.info("여기에 상품을 등록하고 마진을 계산할 수 있습니다.")
-
-    with st.form("product_form"):
-        st.write("### 📝 상품 정보 입력")
-        
-        # 상품 정보 입력 필드
-        product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
-        sell_price = st.number_input("판매가 (원)", min_value=0, step=1000)
-        
-        # 비용 입력 필드
-        col1, col2 = st.columns(2)
-        with col1:
-            fee_rate = st.number_input("수수료 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
-            shipping_cost = st.number_input("배송비 (원)", min_value=0, step=100)
-            quantity = st.number_input("수량", min_value=1, step=1, value=1)
-        with col2:
-            inout_cost = st.number_input("입출고비 (원)", min_value=0, step=100)
-            cost_total = st.number_input("비용 (원)", min_value=0, step=100)
-            ad_cost = st.number_input("광고비 (원)", min_value=0, step=100)
-
-        # 단가 계산 (비용/수량)
-        try:
-            unit_cost = cost_total / quantity
-        except (ZeroDivisionError, TypeError):
-            unit_cost = 0
-
-        st.text_input("단가 (비용/수량)", value=f"{unit_cost:,.0f}원", disabled=True)
-        
-        # 판매량 입력 필드
-        sales_volume = st.number_input("판매량", min_value=1, step=1, value=1)
-        
-        calculate_button = st.form_submit_button("계산하기")
-
-    if calculate_button:
-        if not product_name or sell_price == 0:
-            st.warning("상품명과 판매가를 입력해 주세요.")
-            return
-
-        # 계산 수행
-        # VAT 10%를 가정합니다 (세금계산서 발행 시)
-        vat_rate = 0.1
-        
-        # 총매출 계산
-        total_revenue = sell_price * sales_volume
-        
-        # 총비용 계산
-        fee = (sell_price * fee_rate / 100) * sales_volume
-        total_cost = (cost_total) + (inout_cost * sales_volume) + (shipping_cost * sales_volume) + ad_cost + fee
-        
-        # 순이익금 계산
-        net_profit = total_revenue - total_cost
-
-        st.markdown("---")
-        st.subheader("📊 계산 결과")
-        
-        st.markdown(f"**매출:** {total_revenue:,.0f} 원")
-        st.markdown(f"**총 비용:** {total_cost:,.0f} 원")
-        st.markdown(f"**순이익금:** {net_profit:,.0f} 원")
-
-    # Supabase 연동 (추후 추가)
-    st.markdown("---")
-    st.subheader("📦 저장된 상품")
-    st.info("여기에 Supabase와 연동하여 저장된 상품 목록을 표시할 수 있습니다.")
-
-
 # 사이드바에 설정값 입력 필드 생성
 config = load_config()
 st.sidebar.header("🛠️ 설정값")
@@ -185,8 +115,8 @@ def main():
                     C = fee + inout_cost + packaging_cost + gift_cost
                     C_no_vat = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
-                               - supply_price * (target_margin / 100) \
-                               - C_no_vat
+                                - supply_price * (target_margin / 100) \
+                                - C_no_vat
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
@@ -287,7 +217,8 @@ def main():
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
-
+    
+    # 🐞 이 부분의 들여쓰기를 수정했습니다. 이제 '세부 마진 계산기' 탭 안에서 실행됩니다.
     with tab2:
         st.subheader("세부 마진 계산기")
         st.info("여기에 상품을 등록하고 마진을 계산할 수 있습니다.")
@@ -352,3 +283,7 @@ def main():
         st.markdown("---")
         st.subheader("📦 저장된 상품")
         st.info("여기에 Supabase와 연동하여 저장된 상품 목록을 표시할 수 있습니다.")
+
+# 메인 함수 호출
+if __name__ == "__main__":
+    main()
