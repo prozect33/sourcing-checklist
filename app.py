@@ -92,8 +92,8 @@ if st.sidebar.button("📂 기본값으로 저장"):
 # Supabase 클라이언트 초기화
 # 아래 두 줄의 값을 사용자의 Supabase 프로젝트 URL과 public key로 변경해야 합니다.
 # Supabase 대시보드의 'Project Settings > API'에서 확인할 수 있습니다.
-SUPABASE_URL = "https://vpwfaybntwzidrdsicbn.supabase.co" 
-SUPABASE_KEY = "sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK" 
+SUPABASE_URL = "https://your_project_url.supabase.co" 
+SUPABASE_KEY = "your_public_key" 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
@@ -332,11 +332,27 @@ def main():
 
         # Supabase에 저장된 상품 목록 불러오기
         st.markdown("---")
-        st.subheader("📦 저장된 상품")
+        st.subheader("상품 목록")
         try:
             response = supabase.table("products").select("*").order("timestamp", desc=True).limit(5).execute()
             df = pd.DataFrame(response.data)
             if not df.empty:
+                # 영어 컬럼명을 한글로 변환
+                df = df.rename(columns={
+                    "product_name": "상품명",
+                    "sell_price": "판매가",
+                    "fee": "수수료율",
+                    "inout_shipping_cost": "입출고/배송비",
+                    "purchase_cost": "매입비",
+                    "quantity": "수량",
+                    "unit_purchase_cost": "매입단가",
+                    "logistics_cost": "물류비",
+                    "customs_duty": "관세",
+                    "etc_cost": "기타비용",
+                    "timestamp": "저장일시"
+                })
+                # 인덱스를 1부터 시작하도록 수정
+                df.index = df.index + 1
                 st.dataframe(df)
             else:
                 st.info("아직 저장된 상품이 없습니다.")
