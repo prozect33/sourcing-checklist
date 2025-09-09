@@ -90,15 +90,15 @@ if st.sidebar.button("📂 기본값으로 저장"):
     st.sidebar.success("기본값이 저장되었습니다.")
 
 # Supabase 클라이언트 초기화
-# Streamlit Secrets를 사용하여 보안 강화
-# st.secrets에서 SUPABASE_URL과 SUPABASE_KEY를 가져옵니다.
+# 경고: 보안을 위해 이 방법은 권장하지 않습니다. 실제 배포 시에는 secrets.toml을 사용하세요.
+SUPABASE_URL = "https://vpwfaybntwzidrdsicbn.supabase.co" 
+SUPABASE_KEY = "sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK" 
 try:
-    url = st.secrets["https://vpwfaybntwzidrdsicbn.supabase.co"]
-    key = st.secrets["sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK"]
-    supabase: Client = create_client(url, key)
-except KeyError:
-    st.error("Supabase API 키가 설정되지 않았습니다. `.streamlit/secrets.toml` 파일에 'SUPABASE_URL'과 'SUPABASE_KEY'를 추가해주세요.")
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
+
 
 # 메인 함수
 def main():
