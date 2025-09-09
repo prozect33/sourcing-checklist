@@ -91,8 +91,8 @@ if st.sidebar.button("📂 기본값으로 저장"):
 
 # Supabase 클라이언트 초기화
 # 경고: 보안을 위해 이 방법은 권장하지 않습니다. 실제 배포 시에는 secrets.toml을 사용하세요.
-SUPABASE_URL = "https://vpwfaybntwzidrdsicbn.supabase.co" 
-SUPABASE_KEY = "sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK" 
+SUPABASE_URL = "https://your_project_url.supabase.co" 
+SUPABASE_KEY = "your_public_key" 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
@@ -243,7 +243,7 @@ def main():
             sell_price = st.number_input("판매가", min_value=0, step=1000)
 
         with col_left:
-            fee_rate = st.number_input("수수료", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
+            fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f")
         with col_right:
             inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100)
 
@@ -273,15 +273,12 @@ def main():
                 st.warning("상품명과 판매가를 입력해 주세요.")
             else:
                 try:
-                    # 계산 수행
-                    vat = 1.1
-                    fee = (sell_price * (fee_rate / 100))
-                    
                     # Supabase에 저장할 데이터
+                    # 수수료율(fee_rate)을 직접 저장하도록 수정
                     data_to_save = {
                         "product_name": product_name,
                         "sell_price": sell_price,
-                        "fee": fee,
+                        "fee": fee_rate,
                         "inout_shipping_cost": inout_shipping_cost,
                         "purchase_cost": purchase_cost,
                         "quantity": quantity,
@@ -300,6 +297,9 @@ def main():
                     st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
                 # 계산 결과 표시 (기존 코드)
+                # 계산에 필요한 수수료 금액은 별도로 계산
+                fee = (sell_price * (fee_rate / 100))
+                
                 # 총 비용 계산 (VAT를 고려하지 않은 단순 합산)
                 total_cost = (
                     purchase_cost + 
@@ -313,6 +313,7 @@ def main():
                 net_profit = (sell_price * quantity) - (total_cost + fee)
                 
                 # 마진율 계산 (공급가액 기준)
+                vat = 1.1
                 supply_price = sell_price / vat
                 total_revenue_no_vat = supply_price * quantity
                 
