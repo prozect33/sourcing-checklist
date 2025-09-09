@@ -229,24 +229,37 @@ def main():
             # 5x5 레이아웃을 위한 두 개의 컬럼 생성
             col_left, col_right = st.columns(2)
 
+            # 좌우로 번갈아 입력 항목 배치
             with col_left:
                 product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
-                sell_price = st.number_input("판매가 (원)", min_value=0, step=1000)
-                fee_rate = st.number_input("수수료 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
-                inout_shipping_cost = st.number_input("입출고/배송비 (원)", min_value=0, step=100)
-                purchase_cost = st.number_input("매입비 (원)", min_value=0, step=100)
+            with col_right:
+                sell_price = st.number_input("판매가", min_value=0, step=1000)
 
+            with col_left:
+                fee_rate = st.number_input("수수료", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
+            with col_right:
+                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100)
+
+            with col_left:
+                purchase_cost = st.number_input("매입비", min_value=0, step=100)
             with col_right:
                 quantity = st.number_input("수량", min_value=1, step=1, value=1)
-                # 매입단가 계산 (매입비/수량)
+            
+            # 매입단가 실시간 계산
+            with col_left:
                 try:
                     unit_purchase_cost = purchase_cost / quantity
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
-                st.text_input("매입단가 (매입비/수량)", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
-                logistics_cost = st.number_input("물류비 (원)", min_value=0, step=100)
-                customs_duty = st.number_input("관세 (원)", min_value=0, step=100)
-                etc_cost = st.number_input("기타 (원)", min_value=0, step=100)
+                st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
+            
+            with col_right:
+                logistics_cost = st.number_input("물류비", min_value=0, step=100)
+
+            with col_left:
+                customs_duty = st.number_input("관세", min_value=0, step=100)
+            with col_right:
+                etc_cost = st.number_input("기타", min_value=0, step=100)
             
             save_button = st.form_submit_button("저장하기")
 
