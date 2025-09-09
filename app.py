@@ -71,6 +71,22 @@ def reset_inputs():
     st.session_state["qty_raw"] = "1"
     st.session_state["show_result"] = False  # 결과도 초기화
 
+def load_supabase_credentials():
+    """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
+    try:
+        with open("credentials.json", "r") as f:
+            creds = json.load(f)
+            return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
+    except FileNotFoundError:
+        st.error("오류: 'credentials.json' 파일을 찾을 수 없습니다. 파일을 생성하고 Supabase 키를 입력해주세요.")
+        st.stop()
+    except json.JSONDecodeError:
+        st.error("오류: 'credentials.json' 파일의 형식이 잘못되었습니다. JSON 형식을 확인해주세요.")
+        st.stop()
+    except KeyError:
+        st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
+        st.stop()
+
 # 사이드바에 설정값 입력 필드 생성
 config = load_config()
 st.sidebar.header("🛠️ 설정값")
@@ -90,11 +106,8 @@ if st.sidebar.button("📂 기본값으로 저장"):
     st.sidebar.success("기본값이 저장되었습니다.")
 
 # Supabase 클라이언트 초기화
-# 아래 두 줄의 값을 사용자의 Supabase 프로젝트 URL과 public key로 변경해야 합니다.
-# Supabase 대시보드의 'Project Settings > API'에서 확인할 수 있습니다.
-SUPABASE_URL = "https://your_project_url.supabase.co" 
-SUPABASE_KEY = "your_public_key" 
 try:
+    SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
