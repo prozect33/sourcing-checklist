@@ -1,7 +1,3 @@
-내가 마진 계산기를 만들꺼야
-좀 세부적으로 만들건데 형식은 일단
-특정 원가로 들여온 상품 집단을 기록하고 그 집단의 판매량 및 광고료등을 넣어서 마진을 계산하려고 해
-
 import streamlit as st
 import json
 import os
