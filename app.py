@@ -213,7 +213,7 @@ def main():
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
-                    st.button("저장하기")
+                    st.button("저장하기", key="save_button_tab1")
                 if cost_display:
                     st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})")
                 else:
@@ -282,7 +282,7 @@ def main():
         with col_right:
             etc_cost = st.number_input("기타", min_value=0, step=100)
 
-        if st.button("저장하기"):
+        if st.button("저장하기", key="save_button_tab2"):
             if not product_name or sell_price == 0:
                 st.warning("상품명과 판매가를 입력해 주세요.")
             else:
