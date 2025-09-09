@@ -90,9 +90,10 @@ if st.sidebar.button("📂 기본값으로 저장"):
     st.sidebar.success("기본값이 저장되었습니다.")
 
 # Supabase 클라이언트 초기화
-# 경고: 보안을 위해 이 방법은 권장하지 않습니다. 실제 배포 시에는 secrets.toml을 사용하세요.
-SUPABASE_URL = "https://your_project_url.supabase.co" 
-SUPABASE_KEY = "your_public_key" 
+# 아래 두 줄의 값을 사용자의 Supabase 프로젝트 URL과 public key로 변경해야 합니다.
+# Supabase 대시보드의 'Project Settings > API'에서 확인할 수 있습니다.
+SUPABASE_URL = "https://vpwfaybntwzidrdsicbn.supabase.co" 
+SUPABASE_KEY = "sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK" 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
