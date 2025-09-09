@@ -3,6 +3,7 @@ import json
 import os
 import math
 import pandas as pd
+from supabase import create_client, Client
 
 # Streamlit 페이지 설정
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
@@ -87,6 +88,11 @@ config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=in
 if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
+
+# Supabase 클라이언트 초기화
+SUPABASE_URL = "https://vpwfaybntwzidrdsicbn.supabase.co" # 여기에 실제 URL 입력
+SUPABASE_KEY = "sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK" # 여기에 실제 키 입력
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 # 메인 함수
@@ -261,9 +267,34 @@ def main():
             if not product_name or sell_price == 0:
                 st.warning("상품명과 판매가를 입력해 주세요.")
             else:
-                # 계산 수행
-                vat = 1.1
+                try:
+                    # 계산 수행
+                    vat = 1.1
+                    fee = (sell_price * (fee_rate / 100))
+                    
+                    # Supabase에 저장할 데이터
+                    data_to_save = {
+                        "product_name": product_name,
+                        "sell_price": sell_price,
+                        "fee": fee,
+                        "inout_shipping_cost": inout_shipping_cost,
+                        "purchase_cost": purchase_cost,
+                        "quantity": quantity,
+                        "unit_purchase_cost": unit_purchase_cost,
+                        "logistics_cost": logistics_cost,
+                        "customs_duty": customs_duty,
+                        "etc_cost": etc_cost,
+                    }
+                    
+                    # Supabase에 데이터 저장
+                    response = supabase.table("products").insert(data_to_save).execute()
+                    
+                    st.success("상품 정보가 성공적으로 저장되었습니다!")
                 
+                except Exception as e:
+                    st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+
+                # 계산 결과 표시 (기존 코드)
                 # 총 비용 계산 (VAT를 고려하지 않은 단순 합산)
                 total_cost = (
                     purchase_cost + 
@@ -272,9 +303,6 @@ def main():
                     customs_duty + 
                     etc_cost
                 )
-                
-                # 수수료
-                fee = (sell_price * (fee_rate / 100)) * vat
                 
                 # 최종 순이익 계산
                 net_profit = (sell_price * quantity) - (total_cost + fee)
