@@ -5,7 +5,7 @@ import math
 import pandas as pd
 
 # Streamlit 페이지 설정
-st.set_page_config(page_title="간단 마진 계산기", layout="wide")
+st.set_page_page_config(page_title="간단 마진 계산기", layout="wide")
 
 st.markdown("""
     <style>
@@ -226,36 +226,28 @@ def main():
         with st.form("product_form"):
             st.write("### 📝 상품 정보 입력")
             
-            # 상품 정보 입력 필드
-            col_prod, col_price = st.columns(2)
-            with col_prod:
+            # 5x5 레이아웃을 위한 두 개의 컬럼 생성
+            col_left, col_right = st.columns(2)
+
+            with col_left:
                 product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
-            with col_price:
                 sell_price = st.number_input("판매가 (원)", min_value=0, step=1000)
-            
-            # 비용 입력 필드
-            col_costs1, col_costs2 = st.columns(2)
-            with col_costs1:
                 fee_rate = st.number_input("수수료 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
                 inout_shipping_cost = st.number_input("입출고/배송비 (원)", min_value=0, step=100)
-                logistics_cost = st.number_input("물류비 (원)", min_value=0, step=100)
-            with col_costs2:
                 purchase_cost = st.number_input("매입비 (원)", min_value=0, step=100)
-                customs_duty = st.number_input("관세 (원)", min_value=0, step=100)
-                etc_cost = st.number_input("기타 (원)", min_value=0, step=100)
 
-            col_purchase, col_qty = st.columns(2)
-            with col_purchase:
-                # 단가 계산 (매입비/수량)
+            with col_right:
                 quantity = st.number_input("수량", min_value=1, step=1, value=1)
+                # 매입단가 계산 (매입비/수량)
                 try:
                     unit_purchase_cost = purchase_cost / quantity
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
                 st.text_input("매입단가 (매입비/수량)", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
-            with col_qty:
-                pass # 빈 공간 유지를 위해
-
+                logistics_cost = st.number_input("물류비 (원)", min_value=0, step=100)
+                customs_duty = st.number_input("관세 (원)", min_value=0, step=100)
+                etc_cost = st.number_input("기타 (원)", min_value=0, step=100)
+            
             save_button = st.form_submit_button("저장하기")
 
         if save_button:
