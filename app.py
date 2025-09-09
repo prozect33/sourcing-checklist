@@ -90,10 +90,15 @@ if st.sidebar.button("📂 기본값으로 저장"):
     st.sidebar.success("기본값이 저장되었습니다.")
 
 # Supabase 클라이언트 초기화
-SUPABASE_URL = "https://vpwfaybntwzidrdsicbn.supabase.co" # 여기에 실제 URL 입력
-SUPABASE_KEY = "sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK" # 여기에 실제 키 입력
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
+# Streamlit Secrets를 사용하여 보안 강화
+# st.secrets에서 SUPABASE_URL과 SUPABASE_KEY를 가져옵니다.
+try:
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(url, key)
+except KeyError:
+    st.error("Supabase API 키가 설정되지 않았습니다. `.streamlit/secrets.toml` 파일에 'SUPABASE_URL'과 'SUPABASE_KEY'를 추가해주세요.")
+    st.stop()
 
 # 메인 함수
 def main():
@@ -323,10 +328,18 @@ def main():
                 st.markdown(f"**순이익금:** {net_profit:,.0f} 원")
                 st.markdown(f"**마진율 (공급가액 기준):** {margin_ratio:,.2f} %")
 
-        # Supabase 연동 (추후 추가)
+        # Supabase에 저장된 상품 목록 불러오기
         st.markdown("---")
         st.subheader("📦 저장된 상품")
-        st.info("여기에 Supabase와 연동하여 저장된 상품 목록을 표시할 수 있습니다.")
+        try:
+            response = supabase.table("products").select("*").order("timestamp", desc=True).limit(5).execute()
+            df = pd.DataFrame(response.data)
+            if not df.empty:
+                st.dataframe(df)
+            else:
+                st.info("아직 저장된 상품이 없습니다.")
+        except Exception as e:
+            st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
 
 # 메인 함수 호출
 if __name__ == "__main__":
