@@ -227,8 +227,11 @@ def main():
             st.write("### 📝 상품 정보 입력")
             
             # 상품 정보 입력 필드
-            product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
-            sell_price = st.number_input("판매가 (원)", min_value=0, step=1000)
+            col_prod, col_price = st.columns(2)
+            with col_prod:
+                product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
+            with col_price:
+                sell_price = st.number_input("판매가 (원)", min_value=0, step=1000)
             
             # 비용 입력 필드
             col1, col2 = st.columns(2)
@@ -247,10 +250,12 @@ def main():
             except (ZeroDivisionError, TypeError):
                 unit_cost = 0
 
-            st.text_input("단가 (비용/수량)", value=f"{unit_cost:,.0f}원", disabled=True)
-            
-            # 판매량 입력 필드
-            sales_volume = st.number_input("판매량", min_value=1, step=1, value=1)
+            col_unit, col_sales = st.columns(2)
+            with col_unit:
+                st.text_input("단가 (비용/수량)", value=f"{unit_cost:,.0f}원", disabled=True)
+            with col_sales:
+                # 판매량 입력 필드
+                sales_volume = st.number_input("판매량", min_value=1, step=1, value=1)
             
             calculate_button = st.form_submit_button("계산하기")
 
