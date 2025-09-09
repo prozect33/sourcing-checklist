@@ -5,7 +5,7 @@ import math
 import pandas as pd
 
 # Streamlit 페이지 설정
-st.set_page_page_config(page_title="간단 마진 계산기", layout="wide")
+st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 st.markdown("""
     <style>
