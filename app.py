@@ -236,49 +236,60 @@ def main():
                 fee_rate = st.number_input("수수료 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
                 shipping_cost = st.number_input("배송비 (원)", min_value=0, step=100)
                 quantity = st.number_input("수량", min_value=1, step=1, value=1)
+                
             with col2:
-                inout_cost = st.number_input("입출고비 (원)", min_value=0, step=100)
-                cost_total = st.number_input("비용 (원)", min_value=0, step=100)
+                purchase_cost = st.number_input("매입비 (원)", min_value=0, step=100)
+                logistics_cost = st.number_input("물류비 (원)", min_value=0, step=100)
+                customs_rate = st.number_input("관세 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=0.0)
+                misc_cost = st.number_input("기타 비용 (원)", min_value=0, step=100)
                 ad_cost = st.number_input("광고비 (원)", min_value=0, step=100)
 
-            # 단가 계산 (비용/수량)
-            try:
-                unit_cost = cost_total / quantity
-            except (ZeroDivisionError, TypeError):
-                unit_cost = 0
 
-            st.text_input("단가 (비용/수량)", value=f"{unit_cost:,.0f}원", disabled=True)
+            # 단가 계산 (매입비 / 수량) - 실시간으로 업데이트
+            unit_cost = 0
+            if quantity > 0:
+                unit_cost = purchase_cost / quantity
+            st.markdown(f"<div style='margin-top: 15px;'>**단가:** {unit_cost:,.0f} 원</div>", unsafe_allow_html=True)
+            st.markdown("---")
             
             # 판매량 입력 필드
             sales_volume = st.number_input("판매량", min_value=1, step=1, value=1)
             
-            calculate_button = st.form_submit_button("계산하기")
+            # 실시간 계산 결과
+            # 계산 수행
+            # VAT 10%를 가정합니다
+            vat_rate = 0.1
+            
+            # 총매출 계산
+            total_revenue = sell_price * sales_volume
+            
+            # 총비용 계산 (총 판매량에 맞춰 계산)
+            total_purchase_cost = purchase_cost
+            total_logistics_cost = logistics_cost * sales_volume
+            total_customs_cost = (purchase_cost * customs_rate / 100)
+            total_misc_cost = misc_cost * sales_volume
+            total_inout_cost = inout_cost * sales_volume
+            total_shipping_cost = shipping_cost * sales_volume
+            total_ad_cost = ad_cost
+            fee = (sell_price * fee_rate / 100) * sales_volume
+            
+            total_cost = total_purchase_cost + total_logistics_cost + total_customs_cost + total_misc_cost + total_inout_cost + total_shipping_cost + total_ad_cost + fee
+            
+            # 순이익금 계산
+            net_profit = total_revenue - total_cost
 
-        if calculate_button:
-            if not product_name or sell_price == 0:
-                st.warning("상품명과 판매가를 입력해 주세요.")
-            else:
-                # 계산 수행
-                # VAT 10%를 가정합니다
-                vat_rate = 0.1
-                
-                # 총매출 계산
-                total_revenue = sell_price * sales_volume
-                
-                # 총비용 계산
-                fee = (sell_price * fee_rate / 100) * sales_volume
-                total_cost = (cost_total) + (inout_cost * sales_volume) + (shipping_cost * sales_volume) + ad_cost + fee
-                
-                # 순이익금 계산
-                net_profit = total_revenue - total_cost
-
-                st.markdown("---")
-                st.subheader("📊 계산 결과")
-                
-                st.markdown(f"**매출:** {total_revenue:,.0f} 원")
-                st.markdown(f"**총 비용:** {total_cost:,.0f} 원")
-                st.markdown(f"**순이익금:** {net_profit:,.0f} 원")
-
+            # 계산 결과 출력
+            st.subheader("📊 계산 결과")
+            st.markdown(f"**매출:** {total_revenue:,.0f} 원")
+            st.markdown(f"**총 비용:** {total_cost:,.0f} 원")
+            st.markdown(f"**순이익금:** {net_profit:,.0f} 원")
+            
+            save_button = st.form_submit_button("저장")
+        
+        if save_button:
+             # 여기에 Supabase 등 DB에 데이터를 저장하는 로직을 추가할 수 있습니다.
+             st.success("상품 정보가 저장되었습니다.")
+            
         # Supabase 연동 (추후 추가)
         st.markdown("---")
         st.subheader("📦 저장된 상품")
