@@ -326,7 +326,6 @@ def main():
     if calculate_button:
         if not product_name or sell_price == 0:
             st.warning("상품명과 판매가를 입력해 주세요.")
-            # return
         else:
             # 계산 수행
             # VAT 10%를 가정합니다
