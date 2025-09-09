@@ -234,55 +234,67 @@ def main():
                 sell_price = st.number_input("판매가 (원)", min_value=0, step=1000)
             
             # 비용 입력 필드
-            col1, col2 = st.columns(2)
-            with col1:
+            col_costs1, col_costs2 = st.columns(2)
+            with col_costs1:
                 fee_rate = st.number_input("수수료 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
-                shipping_cost = st.number_input("배송비 (원)", min_value=0, step=100)
+                inout_shipping_cost = st.number_input("입출고/배송비 (원)", min_value=0, step=100)
+                logistics_cost = st.number_input("물류비 (원)", min_value=0, step=100)
+            with col_costs2:
+                purchase_cost = st.number_input("매입비 (원)", min_value=0, step=100)
+                customs_duty = st.number_input("관세 (원)", min_value=0, step=100)
+                etc_cost = st.number_input("기타 (원)", min_value=0, step=100)
+
+            col_purchase, col_qty = st.columns(2)
+            with col_purchase:
+                # 단가 계산 (매입비/수량)
                 quantity = st.number_input("수량", min_value=1, step=1, value=1)
-            with col2:
-                inout_cost = st.number_input("입출고비 (원)", min_value=0, step=100)
-                cost_total = st.number_input("비용 (원)", min_value=0, step=100)
-                ad_cost = st.number_input("광고비 (원)", min_value=0, step=100)
+                try:
+                    unit_purchase_cost = purchase_cost / quantity
+                except (ZeroDivisionError, TypeError):
+                    unit_purchase_cost = 0
+                st.text_input("매입단가 (매입비/수량)", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
+            with col_qty:
+                pass # 빈 공간 유지를 위해
 
-            # 단가 계산 (비용/수량)
-            try:
-                unit_cost = cost_total / quantity
-            except (ZeroDivisionError, TypeError):
-                unit_cost = 0
+            save_button = st.form_submit_button("저장하기")
 
-            col_unit, col_sales = st.columns(2)
-            with col_unit:
-                st.text_input("단가 (비용/수량)", value=f"{unit_cost:,.0f}원", disabled=True)
-            with col_sales:
-                # 판매량 입력 필드
-                sales_volume = st.number_input("판매량", min_value=1, step=1, value=1)
-            
-            calculate_button = st.form_submit_button("계산하기")
-
-        if calculate_button:
+        if save_button:
             if not product_name or sell_price == 0:
                 st.warning("상품명과 판매가를 입력해 주세요.")
             else:
                 # 계산 수행
-                # VAT 10%를 가정합니다
-                vat_rate = 0.1
+                vat = 1.1
                 
-                # 총매출 계산
-                total_revenue = sell_price * sales_volume
+                # 총 비용 계산 (VAT를 고려하지 않은 단순 합산)
+                total_cost = (
+                    purchase_cost + 
+                    inout_shipping_cost + 
+                    logistics_cost + 
+                    customs_duty + 
+                    etc_cost
+                )
                 
-                # 총비용 계산
-                fee = (sell_price * fee_rate / 100) * sales_volume
-                total_cost = (cost_total) + (inout_cost * sales_volume) + (shipping_cost * sales_volume) + ad_cost + fee
+                # 수수료
+                fee = (sell_price * (fee_rate / 100)) * vat
                 
-                # 순이익금 계산
-                net_profit = total_revenue - total_cost
-
+                # 최종 순이익 계산
+                net_profit = (sell_price * quantity) - (total_cost + fee)
+                
+                # 마진율 계산 (공급가액 기준)
+                supply_price = sell_price / vat
+                total_revenue_no_vat = supply_price * quantity
+                
+                net_profit_no_vat = total_revenue_no_vat - (total_cost / vat) - (fee / vat)
+                
+                margin_ratio = (net_profit_no_vat / total_revenue_no_vat) * 100
+                
                 st.markdown("---")
                 st.subheader("📊 계산 결과")
                 
-                st.markdown(f"**매출:** {total_revenue:,.0f} 원")
-                st.markdown(f"**총 비용:** {total_cost:,.0f} 원")
+                st.markdown(f"**총 매출:** {sell_price * quantity:,.0f} 원")
+                st.markdown(f"**총 비용:** {total_cost + fee:,.0f} 원")
                 st.markdown(f"**순이익금:** {net_profit:,.0f} 원")
+                st.markdown(f"**마진율 (공급가액 기준):** {margin_ratio:,.2f} %")
 
         # Supabase 연동 (추후 추가)
         st.markdown("---")
