@@ -218,52 +218,47 @@ def main():
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
                     st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
     
-    # 🐞 이 부분의 들여쓰기를 수정했습니다. 이제 '세부 마진 계산기' 탭 안에서 실행됩니다.
     with tab2:
         st.subheader("세부 마진 계산기")
         st.info("여기에 상품을 등록하고 마진을 계산할 수 있습니다.")
 
-        with st.form("product_form"):
-            st.write("### 📝 상품 정보 입력")
-            
-            # 5x5 레이아웃을 위한 두 개의 컬럼 생성
-            col_left, col_right = st.columns(2)
+        # 5x5 레이아웃을 위한 두 개의 컬럼 생성
+        col_left, col_right = st.columns(2)
 
-            # 좌우로 번갈아 입력 항목 배치
-            with col_left:
-                product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
-            with col_right:
-                sell_price = st.number_input("판매가", min_value=0, step=1000)
+        # 좌우로 번갈아 입력 항목 배치
+        with col_left:
+            product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
+        with col_right:
+            sell_price = st.number_input("판매가", min_value=0, step=1000)
 
-            with col_left:
-                fee_rate = st.number_input("수수료", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
-            with col_right:
-                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100)
+        with col_left:
+            fee_rate = st.number_input("수수료", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=10.8)
+        with col_right:
+            inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100)
 
-            with col_left:
-                purchase_cost = st.number_input("매입비", min_value=0, step=100)
-            with col_right:
-                quantity = st.number_input("수량", min_value=1, step=1, value=1)
-            
-            # 매입단가 실시간 계산
-            with col_left:
-                try:
-                    unit_purchase_cost = purchase_cost / quantity
-                except (ZeroDivisionError, TypeError):
-                    unit_purchase_cost = 0
-                st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
-            
-            with col_right:
-                logistics_cost = st.number_input("물류비", min_value=0, step=100)
+        with col_left:
+            purchase_cost = st.number_input("매입비", min_value=0, step=100)
+        with col_right:
+            quantity = st.number_input("수량", min_value=1, step=1, value=1)
+        
+        # 매입단가 실시간 계산
+        try:
+            unit_purchase_cost = purchase_cost / quantity
+        except (ZeroDivisionError, TypeError):
+            unit_purchase_cost = 0
+        st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
+        
+        col_left, col_right = st.columns(2)
+        with col_left:
+            logistics_cost = st.number_input("물류비", min_value=0, step=100)
+        with col_right:
+            customs_duty = st.number_input("관세", min_value=0, step=100)
+        
+        col_left, col_right = st.columns(2)
+        with col_left:
+            etc_cost = st.number_input("기타", min_value=0, step=100)
 
-            with col_left:
-                customs_duty = st.number_input("관세", min_value=0, step=100)
-            with col_right:
-                etc_cost = st.number_input("기타", min_value=0, step=100)
-            
-            save_button = st.form_submit_button("저장하기")
-
-        if save_button:
+        if st.button("저장하기"):
             if not product_name or sell_price == 0:
                 st.warning("상품명과 판매가를 입력해 주세요.")
             else:
