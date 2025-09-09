@@ -241,21 +241,20 @@ def main():
         with col_right:
             quantity = st.number_input("수량", min_value=1, step=1, value=1)
         
-        # 매입단가 실시간 계산
-        try:
-            unit_purchase_cost = purchase_cost / quantity
-        except (ZeroDivisionError, TypeError):
-            unit_purchase_cost = 0
-        st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
-        
-        col_left, col_right = st.columns(2)
+        # 매입단가와 물류비 항목을 새로운 열에 배치하여 레이아웃 수정
         with col_left:
-            logistics_cost = st.number_input("물류비", min_value=0, step=100)
+            try:
+                unit_purchase_cost = purchase_cost / quantity
+            except (ZeroDivisionError, TypeError):
+                unit_purchase_cost = 0
+            st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
         with col_right:
-            customs_duty = st.number_input("관세", min_value=0, step=100)
+            logistics_cost = st.number_input("물류비", min_value=0, step=100)
         
-        col_left, col_right = st.columns(2)
+        # 관세와 기타 항목을 다음 열에 배치
         with col_left:
+            customs_duty = st.number_input("관세", min_value=0, step=100)
+        with col_right:
             etc_cost = st.number_input("기타", min_value=0, step=100)
 
         if st.button("저장하기"):
