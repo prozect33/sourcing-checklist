@@ -93,8 +93,8 @@ if st.sidebar.button("📂 기본값으로 저장"):
 # Streamlit Secrets를 사용하여 보안 강화
 # st.secrets에서 SUPABASE_URL과 SUPABASE_KEY를 가져옵니다.
 try:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    url = st.secrets["https://vpwfaybntwzidrdsicbn.supabase.co"]
+    key = st.secrets["sb_publishable_e-q02tValFqaVeeEqlZekw_MOMYNPWK"]
     supabase: Client = create_client(url, key)
 except KeyError:
     st.error("Supabase API 키가 설정되지 않았습니다. `.streamlit/secrets.toml` 파일에 'SUPABASE_URL'과 'SUPABASE_KEY'를 추가해주세요.")
