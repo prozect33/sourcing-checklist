@@ -251,60 +251,113 @@ def main():
         st.subheader("세부 마진 계산기")
     
         with st.expander("상품 정보 입력"):
+            
+            product_list = ["새로운 상품 입력"]
+            try:
+                response = supabase.table("products").select("product_name").order("product_name").execute()
+                saved_products = [item['product_name'] for item in response.data]
+                product_list.extend(saved_products)
+            except Exception as e:
+                st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
+            
+            selected_product_for_edit = st.selectbox(
+                "상품 선택 또는 새로 입력", 
+                product_list, 
+                key="product_select_edit"
+            )
+
+            product_data = {}
+            if selected_product_for_edit and selected_product_for_edit != "새로운 상품 입력":
+                try:
+                    response = supabase.table("products").select("*").eq("product_name", selected_product_for_edit).execute()
+                    if response.data:
+                        product_data = response.data[0]
+                except Exception as e:
+                    st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
+
+            # 입력 필드에 기본값 설정
+            product_name = st.text_input("상품명", value=product_data.get("product_name", ""), placeholder="예: 무선 이어폰")
+            
             col_left, col_right = st.columns(2)
             with col_left:
-                product_name = st.text_input("상품명", value="", placeholder="예: 무선 이어폰")
+                sell_price = st.number_input("판매가", min_value=0, step=1000, value=int(product_data.get("sell_price", 0)))
             with col_right:
-                sell_price = st.number_input("판매가", min_value=0, step=1000, value=0)
+                fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=float(product_data.get("fee", 0.0)))
             with col_left:
-                fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=0.0)
+                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, value=int(product_data.get("inout_shipping_cost", 0)))
             with col_right:
-                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, value=0)
+                purchase_cost = st.number_input("매입비", min_value=0, step=100, value=int(product_data.get("purchase_cost", 0)))
             with col_left:
-                purchase_cost = st.number_input("매입비", min_value=0, step=100, value=0)
-            with col_right:
-                quantity = st.number_input("수량", min_value=1, step=1, value=1)
+                quantity = st.number_input("수량", min_value=1, step=1, value=int(product_data.get("quantity", 1)))
             
-            with col_left:
+            with col_right:
                 try:
                     unit_purchase_cost = purchase_cost / quantity
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
-            with col_right:
-                logistics_cost = st.number_input("물류비", min_value=0, step=100, value=0)
-            
             with col_left:
-                customs_duty = st.number_input("관세", min_value=0, step=100, value=0)
+                logistics_cost = st.number_input("물류비", min_value=0, step=100, value=int(product_data.get("logistics_cost", 0)))
             with col_right:
-                etc_cost = st.number_input("기타", min_value=0, step=100, value=0)
+                customs_duty = st.number_input("관세", min_value=0, step=100, value=int(product_data.get("customs_duty", 0)))
+            
+            etc_cost = st.number_input("기타", min_value=0, step=100, value=int(product_data.get("etc_cost", 0)))
 
-            if st.button("상품 저장하기"):
-                if not product_name or sell_price == 0:
-                    st.warning("상품명과 판매가를 입력해 주세요.")
-                else:
-                    try:
-                        data_to_save = {
-                            "product_name": product_name,
-                            "sell_price": sell_price,
-                            "fee": fee_rate,
-                            "inout_shipping_cost": inout_shipping_cost,
-                            "purchase_cost": purchase_cost,
-                            "quantity": quantity,
-                            "unit_purchase_cost": unit_purchase_cost,
-                            "logistics_cost": logistics_cost,
-                            "customs_duty": customs_duty,
-                            "etc_cost": etc_cost,
-                        }
-                        response = supabase.table("products").select("product_name").eq("product_name", product_name).execute()
-                        if response.data:
-                            supabase.table("products").update(data_to_save).eq("product_name", product_name).execute()
-                            st.success(f"'{product_name}' 상품 정보가 업데이트되었습니다!")
-                        else:
-                            supabase.table("products").insert(data_to_save).execute()
-                            st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
-                    except Exception as e:
-                        st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+            # 조건에 따라 버튼 표시
+            if selected_product_for_edit == "새로운 상품 입력":
+                if st.button("상품 저장하기"):
+                    if not product_name or sell_price == 0:
+                        st.warning("상품명과 판매가를 입력해 주세요.")
+                    else:
+                        try:
+                            data_to_save = {
+                                "product_name": product_name,
+                                "sell_price": sell_price,
+                                "fee": fee_rate,
+                                "inout_shipping_cost": inout_shipping_cost,
+                                "purchase_cost": purchase_cost,
+                                "quantity": quantity,
+                                "unit_purchase_cost": unit_purchase_cost,
+                                "logistics_cost": logistics_cost,
+                                "customs_duty": customs_duty,
+                                "etc_cost": etc_cost,
+                            }
+                            response = supabase.table("products").select("product_name").eq("product_name", product_name).execute()
+                            if response.data:
+                                st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
+                            else:
+                                supabase.table("products").insert(data_to_save).execute()
+                                st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
+                        except Exception as e:
+                            st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+            else:
+                col_mod, col_del = st.columns(2)
+                with col_mod:
+                    if st.button("수정하기"):
+                        try:
+                            data_to_update = {
+                                "sell_price": sell_price,
+                                "fee": fee_rate,
+                                "inout_shipping_cost": inout_shipping_cost,
+                                "purchase_cost": purchase_cost,
+                                "quantity": quantity,
+                                "unit_purchase_cost": unit_purchase_cost,
+                                "logistics_cost": logistics_cost,
+                                "customs_duty": customs_duty,
+                                "etc_cost": etc_cost,
+                            }
+                            supabase.table("products").update(data_to_update).eq("product_name", selected_product_for_edit).execute()
+                            st.success(f"'{selected_product_for_edit}' 상품 정보가 업데이트되었습니다!")
+                        except Exception as e:
+                            st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
+                with col_del:
+                    if st.button("삭제하기"):
+                        try:
+                            supabase.table("products").delete().eq("product_name", selected_product_for_edit).execute()
+                            st.success(f"'{selected_product_for_edit}' 상품이 삭제되었습니다!")
+                            st.session_state["product_select_edit"] = "새로운 상품 입력"
+                        except Exception as e:
+                            st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
 
         with st.expander("일일 정산"):
             product_list = ["상품을 선택해주세요"]
@@ -315,7 +368,7 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
-            selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
+            selected_product_name = st.selectbox("상품 선택", product_list, key="product_select_daily")
 
             product_data = {}
             if selected_product_name and selected_product_name != "상품을 선택해주세요":
@@ -344,15 +397,12 @@ def main():
             
             report_date = st.date_input("날짜 선택", datetime.date.today())
             
-            # Change label from "일일 매출액" to "전체 매출액" and add new fields
             total_revenue = st.number_input("전체 매출액", min_value=0, step=1000, key="total_revenue")
             ad_revenue = st.number_input("광고 매출액", min_value=0, step=1000, key="ad_revenue")
 
-            # Calculate organic revenue in real-time
             organic_revenue = total_revenue - ad_revenue
-            st.text_input("자연 매출액", value=f"{organic_revenue:,.0f}원", disabled=True)
+            st.text_input("자연 매출액", value=f"{organic_revenue:,.0f}", disabled=True)
 
-            # Relocate "일일 광고비"
             daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
             
             # 실시간 순이익금 계산
@@ -389,7 +439,6 @@ def main():
                             "daily_revenue": total_revenue,
                             "daily_ad_cost": daily_ad_cost,
                             "daily_profit": total_daily_profit,
-                            # Supabase 테이블에 ad_revenue와 organic_revenue 필드를 추가해야 합니다.
                             "ad_revenue": ad_revenue,
                             "organic_revenue": organic_revenue
                         }
