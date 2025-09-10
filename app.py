@@ -316,10 +316,6 @@ def main():
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
             selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
-
-            if st.button("상품 정보 확인"):
-                st.session_state.show_product_info = not st.session_state.show_product_info
-
             report_date = st.date_input("날짜 선택", datetime.date.today())
 
             product_data = {}
@@ -331,20 +327,20 @@ def main():
                 except Exception as e:
                     st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
             
-            if st.session_state.show_product_info and selected_product_name:
-                with st.expander("상품 상세 정보"):
-                    if product_data:
-                        st.markdown(f"**판매가:** {product_data.get('sell_price', 0):,}원")
-                        st.markdown(f"**수수료율:** {product_data.get('fee', 0.0):.2f}%")
-                        st.markdown(f"**매입비:** {product_data.get('purchase_cost', 0):,}원")
-                        st.markdown(f"**수량:** {product_data.get('quantity', 0):,}개")
-                        st.markdown(f"**매입단가:** {product_data.get('unit_purchase_cost', 0):,.0f}원")
-                        st.markdown(f"**입출고/배송비:** {product_data.get('inout_shipping_cost', 0):,}원")
-                        st.markdown(f"**물류비:** {product_data.get('logistics_cost', 0):,}원")
-                        st.markdown(f"**관세:** {product_data.get('customs_duty', 0):,}원")
-                        st.markdown(f"**기타:** {product_data.get('etc_cost', 0):,}원")
-                    else:
-                        st.info("선택된 상품의 상세 정보가 없습니다.")
+            # Remove the button and directly display the expander
+            with st.expander("상품 상세 정보"):
+                if product_data:
+                    st.markdown(f"**판매가:** {product_data.get('sell_price', 0):,}원")
+                    st.markdown(f"**수수료율:** {product_data.get('fee', 0.0):.2f}%")
+                    st.markdown(f"**매입비:** {product_data.get('purchase_cost', 0):,}원")
+                    st.markdown(f"**수량:** {product_data.get('quantity', 0):,}개")
+                    st.markdown(f"**매입단가:** {product_data.get('unit_purchase_cost', 0):,.0f}원")
+                    st.markdown(f"**입출고/배송비:** {product_data.get('inout_shipping_cost', 0):,}원")
+                    st.markdown(f"**물류비:** {product_data.get('logistics_cost', 0):,}원")
+                    st.markdown(f"**관세:** {product_data.get('customs_duty', 0):,}원")
+                    st.markdown(f"**기타:** {product_data.get('etc_cost', 0):,}원")
+                else:
+                    st.info("선택된 상품의 상세 정보가 없습니다.")
             
             daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
             daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
