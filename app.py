@@ -349,8 +349,8 @@ def main():
             response = supabase.table("products").select("*").order("timestamp", desc=True).limit(5).execute()
             df = pd.DataFrame(response.data)
             if not df.empty:
-                # 'timestamp' 컬럼 제거
-                df = df.drop(columns=["timestamp"])
+                # 'timestamp'와 'column_prozect33' 컬럼 제거
+                df = df.drop(columns=["timestamp", "column_prozect33"], errors='ignore')
                 # 영어 컬럼명을 한글로 변환
                 df = df.rename(columns={
                     "product_name": "상품명",
