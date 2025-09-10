@@ -343,12 +343,21 @@ def main():
                     st.info("선택된 상품의 상세 정보가 없습니다.")
             
             report_date = st.date_input("날짜 선택", datetime.date.today())
-            daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
+            
+            # Change label from "일일 매출액" to "전체 매출액" and add new fields
+            total_revenue = st.number_input("전체 매출액", min_value=0, step=1000, key="total_revenue")
+            ad_revenue = st.number_input("광고 매출액", min_value=0, step=1000, key="ad_revenue")
+
+            # Calculate organic revenue in real-time
+            organic_revenue = total_revenue - ad_revenue
+            st.text_input("자연 매출액", value=f"{organic_revenue:,.0f}원", disabled=True)
+
+            # Relocate "일일 광고비"
             daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
             
             # 실시간 순이익금 계산
             total_daily_profit = None
-            if selected_product_name and selected_product_name != "상품을 선택해주세요" and daily_revenue is not None and daily_ad_cost is not None:
+            if selected_product_name and selected_product_name != "상품을 선택해주세요" and total_revenue is not None and daily_ad_cost is not None:
                 try:
                     fixed_costs = product_data.get("inout_shipping_cost", 0) + \
                                   product_data.get("logistics_cost", 0) + \
@@ -356,10 +365,10 @@ def main():
                                   product_data.get("etc_cost", 0) + \
                                   product_data.get("purchase_cost", 0)
                     
-                    fee = (daily_revenue * (product_data.get("fee", 0.0) / 100))
+                    fee = (total_revenue * (product_data.get("fee", 0.0) / 100))
                     
                     total_daily_cost = fixed_costs + daily_ad_cost + fee
-                    total_daily_profit = daily_revenue - total_daily_cost
+                    total_daily_profit = total_revenue - total_daily_cost
                 except Exception as e:
                     st.error(f"순이익 계산 중 오류가 발생했습니다: {e}")
 
@@ -368,8 +377,8 @@ def main():
             if st.button("일일 정산 저장하기"):
                 if selected_product_name == "상품을 선택해주세요":
                     st.warning("먼저 계산할 상품을 선택해주세요.")
-                elif daily_revenue is None or daily_revenue == 0:
-                    st.warning("일일 매출액을 입력해주세요.")
+                elif total_revenue is None or total_revenue == 0:
+                    st.warning("전체 매출액을 입력해주세요.")
                 elif total_daily_profit is None:
                     st.warning("순이익금 계산에 오류가 있어 저장할 수 없습니다.")
                 else:
@@ -377,9 +386,12 @@ def main():
                         daily_sale_data = {
                             "date": str(report_date),
                             "product_name": selected_product_name,
-                            "daily_revenue": daily_revenue,
+                            "daily_revenue": total_revenue,
                             "daily_ad_cost": daily_ad_cost,
-                            "daily_profit": total_daily_profit
+                            "daily_profit": total_daily_profit,
+                            # Supabase 테이블에 ad_revenue와 organic_revenue 필드를 추가해야 합니다.
+                            "ad_revenue": ad_revenue,
+                            "organic_revenue": organic_revenue
                         }
 
                         supabase.table("daily_sales").insert(daily_sale_data).execute()
@@ -398,9 +410,11 @@ def main():
                     df_display = df.rename(columns={
                         "date": "날짜",
                         "product_name": "상품명",
-                        "daily_revenue": "일일 매출액",
+                        "daily_revenue": "전체 매출액",
                         "daily_ad_cost": "일일 광고비",
                         "daily_profit": "일일 순이익금",
+                        "ad_revenue": "광고 매출액",
+                        "organic_revenue": "자연 매출액"
                     })
                     st.dataframe(df_display, use_container_width=True)
 
