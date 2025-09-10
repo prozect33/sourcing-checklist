@@ -327,24 +327,34 @@ def main():
             daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
             daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
             
+            # 실시간 순이익금 계산
+            total_daily_profit = None
+            if selected_product_name and daily_revenue is not None and daily_ad_cost is not None:
+                try:
+                    fixed_costs = product_data.get("inout_shipping_cost", 0) + \
+                                  product_data.get("logistics_cost", 0) + \
+                                  product_data.get("customs_duty", 0) + \
+                                  product_data.get("etc_cost", 0) + \
+                                  product_data.get("purchase_cost", 0)
+                    
+                    fee = (daily_revenue * (product_data.get("fee", 0.0) / 100))
+                    
+                    total_daily_cost = fixed_costs + daily_ad_cost + fee
+                    total_daily_profit = daily_revenue - total_daily_cost
+                except Exception as e:
+                    st.error(f"순이익 계산 중 오류가 발생했습니다: {e}")
+
+            st.metric(label="일일 순이익금", value=f"{int(total_daily_profit):,}" if total_daily_profit is not None else "0")
+
             if st.button("일일 정산 저장하기"):
                 if not selected_product_name:
                     st.warning("먼저 계산할 상품을 선택해주세요.")
-                elif not daily_revenue:
+                elif daily_revenue is None or daily_revenue == 0:
                     st.warning("일일 매출액을 입력해주세요.")
+                elif total_daily_profit is None:
+                    st.warning("순이익금 계산에 오류가 있어 저장할 수 없습니다.")
                 else:
                     try:
-                        fixed_costs = product_data.get("inout_shipping_cost", 0) + \
-                                      product_data.get("logistics_cost", 0) + \
-                                      product_data.get("customs_duty", 0) + \
-                                      product_data.get("etc_cost", 0) + \
-                                      product_data.get("purchase_cost", 0)
-                        
-                        fee = (daily_revenue * (product_data.get("fee", 0.0) / 100))
-                        
-                        total_daily_cost = fixed_costs + daily_ad_cost + fee
-                        total_daily_profit = daily_revenue - total_daily_cost
-                        
                         daily_sale_data = {
                             "date": str(report_date),
                             "product_name": selected_product_name,
