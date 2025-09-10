@@ -3,6 +3,7 @@ import json
 import os
 import math
 import pandas as pd
+import datetime
 from supabase import create_client, Client
 
 # Streamlit 페이지 설정
@@ -302,8 +303,6 @@ def main():
                     except Exception as e:
                         st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
-        st.markdown("---")
-
         with st.expander("일일 정산"):
             product_list = []
             try:
@@ -314,6 +313,7 @@ def main():
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
             selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
+            report_date = st.date_input("날짜 선택", datetime.date.today())
 
             product_data = {}
             if selected_product_name:
@@ -327,7 +327,7 @@ def main():
             daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
             daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
             
-            if st.button("일일 이익 계산하기"):
+            if st.button("일일 정산 저장하기"):
                 if not selected_product_name:
                     st.warning("먼저 계산할 상품을 선택해주세요.")
                 elif not daily_revenue:
@@ -345,14 +345,53 @@ def main():
                         total_daily_cost = fixed_costs + daily_ad_cost + fee
                         total_daily_profit = daily_revenue - total_daily_cost
                         
-                        st.markdown("---")
-                        st.subheader("📊 일일 정산 결과")
-                        st.markdown(f"**일일 매출액:** {daily_revenue:,.0f} 원")
-                        st.markdown(f"**총 비용:** {int(total_daily_cost):,.0f} 원")
-                        st.markdown(f"**일일 순이익금:** {int(total_daily_profit):,.0f} 원")
+                        daily_sale_data = {
+                            "date": str(report_date),
+                            "product_name": selected_product_name,
+                            "daily_revenue": daily_revenue,
+                            "daily_ad_cost": daily_ad_cost,
+                            "daily_profit": total_daily_profit
+                        }
+
+                        supabase.table("daily_sales").insert(daily_sale_data).execute()
+                        st.success(f"{selected_product_name} 상품의 {report_date} 일일 정산이 저장되었습니다!")
 
                     except Exception as e:
-                        st.error(f"정산 계산 중 오류가 발생했습니다: {e}")
+                        st.error(f"정산 계산 및 저장 중 오류가 발생했습니다: {e}")
+        
+        with st.expander("판매 현황"):
+            try:
+                response = supabase.table("daily_sales").select("*").order("date", desc=True).execute()
+                df = pd.DataFrame(response.data)
+
+                if not df.empty:
+                    st.markdown("#### 일일 판매 기록")
+                    df_display = df.rename(columns={
+                        "date": "날짜",
+                        "product_name": "상품명",
+                        "daily_revenue": "일일 매출액",
+                        "daily_ad_cost": "일일 광고비",
+                        "daily_profit": "일일 순이익금",
+                    })
+                    st.dataframe(df_display, use_container_width=True)
+
+                    st.markdown("---")
+                    st.markdown("#### 상품별 총 순이익금")
+                    
+                    df_grouped = df.groupby("product_name").agg(
+                        total_profit=('daily_profit', 'sum')
+                    ).reset_index()
+                    
+                    df_grouped = df_grouped.rename(columns={
+                        "product_name": "상품명",
+                        "total_profit": "총 순이익금"
+                    })
+                    st.dataframe(df_grouped, use_container_width=True)
+
+                else:
+                    st.info("아직 저장된 판매 기록이 없습니다.")
+            except Exception as e:
+                st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
 # 메인 함수 호출
 if __name__ == "__main__":
