@@ -245,8 +245,7 @@ def main():
     
     with tab2:
         st.subheader("세부 마진 계산기")
-        st.info("여기에 상품을 등록하고 마진을 계산할 수 있습니다.")
-
+    
         # 5x5 레이아웃을 위한 두 개의 컬럼 생성
         col_left, col_right = st.columns(2)
 
@@ -350,6 +349,8 @@ def main():
             response = supabase.table("products").select("*").order("timestamp", desc=True).limit(5).execute()
             df = pd.DataFrame(response.data)
             if not df.empty:
+                # 'timestamp' 컬럼 제거
+                df = df.drop(columns=["timestamp"])
                 # 영어 컬럼명을 한글로 변환
                 df = df.rename(columns={
                     "product_name": "상품명",
@@ -362,7 +363,6 @@ def main():
                     "logistics_cost": "물류비",
                     "customs_duty": "관세",
                     "etc_cost": "기타비용",
-                    "timestamp": "저장일시"
                 })
                 # 인덱스를 1부터 시작하도록 수정
                 df.index = df.index + 1
