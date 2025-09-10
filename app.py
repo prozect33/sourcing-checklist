@@ -195,10 +195,10 @@ def main():
                     gift_cost = round(config['GIFT_COST'] * vat)
                     supply_price = sell_price_val / vat
                     C = fee + inout_cost + packaging_cost + gift_cost
-                    C_no_vat = fee + inout_cost + packaging_cost + gift_cost
+                    C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
                                 - supply_price * (target_margin / 100) \
-                                - C_no_vat
+                                - C_total_fixed_cost
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
@@ -241,7 +241,6 @@ def main():
                     unit_cost_val = round(
                         float(unit_yuan)
                         * config['EXCHANGE_RATE']
-                        * vat
                     )
                     cost_display = f"{unit_yuan}위안"
                 else:
