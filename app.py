@@ -246,26 +246,42 @@ def main():
     with tab2:
         st.subheader("세부 마진 계산기")
     
-        # 5x5 레이아웃을 위한 두 개의 컬럼 생성
+        st.markdown("---")
+        st.subheader("상품 정보")
+        product_list = ["새 상품 입력"]
+        try:
+            response = supabase.table("products").select("product_name").order("product_name").execute()
+            saved_products = [item['product_name'] for item in response.data]
+            product_list.extend(saved_products)
+        except Exception as e:
+            st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
+        
+        selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
+
+        product_data = {}
+        if selected_product_name != "새 상품 입력":
+            try:
+                response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
+                if response.data:
+                    product_data = response.data[0]
+            except Exception as e:
+                st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
+
         col_left, col_right = st.columns(2)
 
-        # 좌우로 번갈아 입력 항목 배치
         with col_left:
-            product_name = st.text_input("상품명", placeholder="예: 무선 이어폰")
+            product_name = st.text_input("상품명", value=product_data.get("product_name", ""), placeholder="예: 무선 이어폰")
         with col_right:
-            sell_price = st.number_input("판매가", min_value=0, step=1000)
-
+            sell_price = st.number_input("판매가", min_value=0, step=1000, value=int(product_data.get("sell_price", 0)))
         with col_left:
-            fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f")
+            fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=float(product_data.get("fee", 0.0)))
         with col_right:
-            inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100)
-
+            inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, value=int(product_data.get("inout_shipping_cost", 0)))
         with col_left:
-            purchase_cost = st.number_input("매입비", min_value=0, step=100)
+            purchase_cost = st.number_input("매입비", min_value=0, step=100, value=int(product_data.get("purchase_cost", 0)))
         with col_right:
-            quantity = st.number_input("수량", min_value=1, step=1, value=1)
+            quantity = st.number_input("수량", min_value=1, step=1, value=int(product_data.get("quantity", 1)))
         
-        # 매입단가와 물류비 항목을 새로운 열에 배치하여 레이아웃 수정
         with col_left:
             try:
                 unit_purchase_cost = purchase_cost / quantity
@@ -273,21 +289,18 @@ def main():
                 unit_purchase_cost = 0
             st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
         with col_right:
-            logistics_cost = st.number_input("물류비", min_value=0, step=100)
+            logistics_cost = st.number_input("물류비", min_value=0, step=100, value=int(product_data.get("logistics_cost", 0)))
         
-        # 관세와 기타 항목을 다음 열에 배치
         with col_left:
-            customs_duty = st.number_input("관세", min_value=0, step=100)
+            customs_duty = st.number_input("관세", min_value=0, step=100, value=int(product_data.get("customs_duty", 0)))
         with col_right:
-            etc_cost = st.number_input("기타", min_value=0, step=100)
+            etc_cost = st.number_input("기타", min_value=0, step=100, value=int(product_data.get("etc_cost", 0)))
 
-        if st.button("저장하기", key="save_button_tab2"):
+        if st.button("상품 저장하기"):
             if not product_name or sell_price == 0:
                 st.warning("상품명과 판매가를 입력해 주세요.")
             else:
                 try:
-                    # Supabase에 저장할 데이터
-                    # 수수료율(fee_rate)을 직접 저장하도록 수정
                     data_to_save = {
                         "product_name": product_name,
                         "sell_price": sell_price,
@@ -300,58 +313,55 @@ def main():
                         "customs_duty": customs_duty,
                         "etc_cost": etc_cost,
                     }
-                    
-                    # Supabase에 데이터 저장
-                    response = supabase.table("products").insert(data_to_save).execute()
-                    
-                    st.success("상품 정보가 성공적으로 저장되었습니다!")
-                
+                    response = supabase.table("products").select("product_name").eq("product_name", product_name).execute()
+                    if response.data:
+                        supabase.table("products").update(data_to_save).eq("product_name", product_name).execute()
+                        st.success(f"'{product_name}' 상품 정보가 업데이트되었습니다!")
+                    else:
+                        supabase.table("products").insert(data_to_save).execute()
+                        st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
                 except Exception as e:
                     st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
-                # 계산 결과 표시 (기존 코드)
-                # 계산에 필요한 수수료 금액은 별도로 계산
-                fee = (sell_price * (fee_rate / 100))
-                
-                # 총 비용 계산 (VAT를 고려하지 않은 단순 합산)
-                total_cost = (
-                    purchase_cost + 
-                    inout_shipping_cost + 
-                    logistics_cost + 
-                    customs_duty + 
-                    etc_cost
-                )
-                
-                # 최종 순이익 계산
-                net_profit = (sell_price * quantity) - (total_cost + fee)
-                
-                # 마진율 계산 (공급가액 기준)
-                vat = 1.1
-                supply_price = sell_price / vat
-                total_revenue_no_vat = supply_price * quantity
-                
-                net_profit_no_vat = total_revenue_no_vat - (total_cost / vat) - (fee / vat)
-                
-                margin_ratio = (net_profit_no_vat / total_revenue_no_vat) * 100
-                
-                st.markdown("---")
-                st.subheader("📊 계산 결과")
-                
-                st.markdown(f"**총 매출:** {sell_price * quantity:,.0f} 원")
-                st.markdown(f"**총 비용:** {total_cost + fee:,.0f} 원")
-                st.markdown(f"**순이익금:** {net_profit:,.0f} 원")
-                st.markdown(f"**마진율 (공급가액 기준):** {margin_ratio:,.2f} %")
-
-        # Supabase에 저장된 상품 목록 불러오기
         st.markdown("---")
-        st.subheader("상품 목록")
+        st.subheader("일일 정산")
+        daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
+        daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
+        
+        if st.button("일일 이익 계산하기"):
+            if not selected_product_name or selected_product_name == "새 상품 입력":
+                st.warning("먼저 계산할 상품을 선택해주세요.")
+            elif not daily_revenue:
+                st.warning("일일 매출액을 입력해주세요.")
+            else:
+                try:
+                    fixed_costs = product_data.get("inout_shipping_cost", 0) + \
+                                  product_data.get("logistics_cost", 0) + \
+                                  product_data.get("customs_duty", 0) + \
+                                  product_data.get("etc_cost", 0) + \
+                                  product_data.get("purchase_cost", 0)
+                    
+                    fee = (daily_revenue * (product_data.get("fee", 0.0) / 100))
+                    
+                    total_daily_cost = fixed_costs + daily_ad_cost + fee
+                    total_daily_profit = daily_revenue - total_daily_cost
+                    
+                    st.markdown("---")
+                    st.subheader("📊 일일 정산 결과")
+                    st.markdown(f"**일일 매출액:** {daily_revenue:,.0f} 원")
+                    st.markdown(f"**총 비용:** {int(total_daily_cost):,.0f} 원")
+                    st.markdown(f"**일일 순이익금:** {int(total_daily_profit):,.0f} 원")
+
+                except Exception as e:
+                    st.error(f"정산 계산 중 오류가 발생했습니다: {e}")
+
+        st.markdown("---")
+        st.subheader("저장된 상품 목록")
         try:
             response = supabase.table("products").select("*").order("timestamp", desc=True).limit(5).execute()
             df = pd.DataFrame(response.data)
             if not df.empty:
-                # 'timestamp'와 'column_prozect33' 컬럼 제거
                 df = df.drop(columns=["timestamp", "column_prozect33"], errors='ignore')
-                # 영어 컬럼명을 한글로 변환
                 df = df.rename(columns={
                     "product_name": "상품명",
                     "sell_price": "판매가",
@@ -364,7 +374,6 @@ def main():
                     "customs_duty": "관세",
                     "etc_cost": "기타비용",
                 })
-                # 인덱스를 1부터 시작하도록 수정
                 df.index = df.index + 1
                 st.dataframe(df)
             else:
