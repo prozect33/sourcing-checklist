@@ -324,9 +324,6 @@ def main():
                 value=st.session_state.product_name_edit,
                 placeholder="예: 무선 이어폰"
             )
-
-            if st.button("적용"):
-                load_product_data(selected_product_name)
             
             col_left, col_right = st.columns(2)
             with col_left:
