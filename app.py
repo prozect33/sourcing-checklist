@@ -246,40 +246,20 @@ def main():
     with tab2:
         st.subheader("세부 마진 계산기")
     
-        with st.expander("상품 정보"):
-            product_list = ["새 상품 입력"]
-            try:
-                response = supabase.table("products").select("product_name").order("product_name").execute()
-                saved_products = [item['product_name'] for item in response.data]
-                product_list.extend(saved_products)
-            except Exception as e:
-                st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
-            
-            selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
-
-            product_data = {}
-            if selected_product_name != "새 상품 입력":
-                try:
-                    response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
-                    if response.data:
-                        product_data = response.data[0]
-                except Exception as e:
-                    st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
-
+        with st.expander("상품 정보 입력"):
             col_left, col_right = st.columns(2)
-
             with col_left:
-                product_name = st.text_input("상품명", value=product_data.get("product_name", ""), placeholder="예: 무선 이어폰")
+                product_name = st.text_input("상품명", value="", placeholder="예: 무선 이어폰")
             with col_right:
-                sell_price = st.number_input("판매가", min_value=0, step=1000, value=int(product_data.get("sell_price", 0)))
+                sell_price = st.number_input("판매가", min_value=0, step=1000, value=0)
             with col_left:
-                fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=float(product_data.get("fee", 0.0)))
+                fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=0.0)
             with col_right:
-                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, value=int(product_data.get("inout_shipping_cost", 0)))
+                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, value=0)
             with col_left:
-                purchase_cost = st.number_input("매입비", min_value=0, step=100, value=int(product_data.get("purchase_cost", 0)))
+                purchase_cost = st.number_input("매입비", min_value=0, step=100, value=0)
             with col_right:
-                quantity = st.number_input("수량", min_value=1, step=1, value=int(product_data.get("quantity", 1)))
+                quantity = st.number_input("수량", min_value=1, step=1, value=1)
             
             with col_left:
                 try:
@@ -288,12 +268,12 @@ def main():
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_right:
-                logistics_cost = st.number_input("물류비", min_value=0, step=100, value=int(product_data.get("logistics_cost", 0)))
+                logistics_cost = st.number_input("물류비", min_value=0, step=100, value=0)
             
             with col_left:
-                customs_duty = st.number_input("관세", min_value=0, step=100, value=int(product_data.get("customs_duty", 0)))
+                customs_duty = st.number_input("관세", min_value=0, step=100, value=0)
             with col_right:
-                etc_cost = st.number_input("기타", min_value=0, step=100, value=int(product_data.get("etc_cost", 0)))
+                etc_cost = st.number_input("기타", min_value=0, step=100, value=0)
 
             if st.button("상품 저장하기"):
                 if not product_name or sell_price == 0:
@@ -323,62 +303,56 @@ def main():
                         st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
         st.markdown("---")
-        st.subheader("일일 정산")
-        daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
-        daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
-        
-        if st.button("일일 이익 계산하기"):
-            if not selected_product_name or selected_product_name == "새 상품 입력":
-                st.warning("먼저 계산할 상품을 선택해주세요.")
-            elif not daily_revenue:
-                st.warning("일일 매출액을 입력해주세요.")
-            else:
+
+        with st.expander("일일 정산"):
+            product_list = []
+            try:
+                response = supabase.table("products").select("product_name").order("product_name").execute()
+                saved_products = [item['product_name'] for item in response.data]
+                product_list.extend(saved_products)
+            except Exception as e:
+                st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
+            
+            selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
+
+            product_data = {}
+            if selected_product_name:
                 try:
-                    fixed_costs = product_data.get("inout_shipping_cost", 0) + \
-                                  product_data.get("logistics_cost", 0) + \
-                                  product_data.get("customs_duty", 0) + \
-                                  product_data.get("etc_cost", 0) + \
-                                  product_data.get("purchase_cost", 0)
-                    
-                    fee = (daily_revenue * (product_data.get("fee", 0.0) / 100))
-                    
-                    total_daily_cost = fixed_costs + daily_ad_cost + fee
-                    total_daily_profit = daily_revenue - total_daily_cost
-                    
-                    st.markdown("---")
-                    st.subheader("📊 일일 정산 결과")
-                    st.markdown(f"**일일 매출액:** {daily_revenue:,.0f} 원")
-                    st.markdown(f"**총 비용:** {int(total_daily_cost):,.0f} 원")
-                    st.markdown(f"**일일 순이익금:** {int(total_daily_profit):,.0f} 원")
-
+                    response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
+                    if response.data:
+                        product_data = response.data[0]
                 except Exception as e:
-                    st.error(f"정산 계산 중 오류가 발생했습니다: {e}")
+                    st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
+            
+            daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
+            daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
+            
+            if st.button("일일 이익 계산하기"):
+                if not selected_product_name:
+                    st.warning("먼저 계산할 상품을 선택해주세요.")
+                elif not daily_revenue:
+                    st.warning("일일 매출액을 입력해주세요.")
+                else:
+                    try:
+                        fixed_costs = product_data.get("inout_shipping_cost", 0) + \
+                                      product_data.get("logistics_cost", 0) + \
+                                      product_data.get("customs_duty", 0) + \
+                                      product_data.get("etc_cost", 0) + \
+                                      product_data.get("purchase_cost", 0)
+                        
+                        fee = (daily_revenue * (product_data.get("fee", 0.0) / 100))
+                        
+                        total_daily_cost = fixed_costs + daily_ad_cost + fee
+                        total_daily_profit = daily_revenue - total_daily_cost
+                        
+                        st.markdown("---")
+                        st.subheader("📊 일일 정산 결과")
+                        st.markdown(f"**일일 매출액:** {daily_revenue:,.0f} 원")
+                        st.markdown(f"**총 비용:** {int(total_daily_cost):,.0f} 원")
+                        st.markdown(f"**일일 순이익금:** {int(total_daily_profit):,.0f} 원")
 
-        st.markdown("---")
-        st.subheader("저장된 상품 목록")
-        try:
-            response = supabase.table("products").select("*").order("timestamp", desc=True).limit(5).execute()
-            df = pd.DataFrame(response.data)
-            if not df.empty:
-                df = df.drop(columns=["timestamp", "column_prozect33"], errors='ignore')
-                df = df.rename(columns={
-                    "product_name": "상품명",
-                    "sell_price": "판매가",
-                    "fee": "수수료율",
-                    "inout_shipping_cost": "입출고/배송비",
-                    "purchase_cost": "매입비",
-                    "quantity": "수량",
-                    "unit_purchase_cost": "매입단가",
-                    "logistics_cost": "물류비",
-                    "customs_duty": "관세",
-                    "etc_cost": "기타비용",
-                })
-                df.index = df.index + 1
-                st.dataframe(df)
-            else:
-                st.info("아직 저장된 상품이 없습니다.")
-        except Exception as e:
-            st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
+                    except Exception as e:
+                        st.error(f"정산 계산 중 오류가 발생했습니다: {e}")
 
 # 메인 함수 호출
 if __name__ == "__main__":
