@@ -307,7 +307,7 @@ def main():
                         st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
         with st.expander("일일 정산"):
-            product_list = []
+            product_list = ["상품을 선택해주세요"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
                 saved_products = [item['product_name'] for item in response.data]
@@ -316,10 +316,9 @@ def main():
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
             selected_product_name = st.selectbox("상품 선택", product_list, key="product_select")
-            report_date = st.date_input("날짜 선택", datetime.date.today())
 
             product_data = {}
-            if selected_product_name:
+            if selected_product_name and selected_product_name != "상품을 선택해주세요":
                 try:
                     response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
                     if response.data:
@@ -327,9 +326,10 @@ def main():
                 except Exception as e:
                     st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
             
-            # Remove the button and directly display the expander
             with st.expander("상품 상세 정보"):
-                if product_data:
+                if selected_product_name == "상품을 선택해주세요":
+                    st.info("먼저 상품을 선택해주세요.")
+                elif product_data:
                     st.markdown(f"**판매가:** {product_data.get('sell_price', 0):,}원")
                     st.markdown(f"**수수료율:** {product_data.get('fee', 0.0):.2f}%")
                     st.markdown(f"**매입비:** {product_data.get('purchase_cost', 0):,}원")
@@ -342,12 +342,13 @@ def main():
                 else:
                     st.info("선택된 상품의 상세 정보가 없습니다.")
             
+            report_date = st.date_input("날짜 선택", datetime.date.today())
             daily_revenue = st.number_input("일일 매출액", min_value=0, step=1000, key="daily_revenue")
             daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
             
             # 실시간 순이익금 계산
             total_daily_profit = None
-            if selected_product_name and daily_revenue is not None and daily_ad_cost is not None:
+            if selected_product_name and selected_product_name != "상품을 선택해주세요" and daily_revenue is not None and daily_ad_cost is not None:
                 try:
                     fixed_costs = product_data.get("inout_shipping_cost", 0) + \
                                   product_data.get("logistics_cost", 0) + \
@@ -365,7 +366,7 @@ def main():
             st.metric(label="일일 순이익금", value=f"{int(total_daily_profit):,}" if total_daily_profit is not None else "0")
 
             if st.button("일일 정산 저장하기"):
-                if not selected_product_name:
+                if selected_product_name == "상품을 선택해주세요":
                     st.warning("먼저 계산할 상품을 선택해주세요.")
                 elif daily_revenue is None or daily_revenue == 0:
                     st.warning("일일 매출액을 입력해주세요.")
