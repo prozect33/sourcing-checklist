@@ -444,18 +444,17 @@ def main():
             report_date = st.date_input("날짜 선택", datetime.date.today())
             
             st.markdown("---")
-            st.markdown("#### 판매 입력")
-            ad_sales_qty = st.number_input("광고 전환 판매 수", min_value=0, step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 매출액", min_value=0, step=1000, key="ad_revenue")
+            ad_sales_qty = st.number_input("광고 전환 판매 수량", min_value=0, step=1, key="ad_sales_qty")
+            ad_revenue = st.number_input("광고 전환 매출액", min_value=0, step=1000, key="ad_revenue")
             ad_cost = st.number_input("광고비", min_value=0, step=1000, key="ad_cost")
             
             st.markdown("---")
-            organic_sales_qty = st.number_input("자연 판매 수", min_value=0, step=1, key="organic_sales_qty")
+            organic_sales_qty = st.number_input("자연 판매 수량", min_value=0, step=1, key="organic_sales_qty")
             organic_revenue = st.number_input("자연 매출액", min_value=0, step=1000, key="organic_revenue")
             
             st.markdown("---")
             total_sales_qty = ad_sales_qty + organic_sales_qty
-            st.number_input("전체 판매 수", value=total_sales_qty, disabled=True, key="total_sales_qty")
+            st.number_input("전체 판매 수량", value=total_sales_qty, disabled=True, key="total_sales_qty")
             
             total_revenue = ad_revenue + organic_revenue
             st.number_input("전체 매출액", value=total_revenue, disabled=True, key="total_revenue")
