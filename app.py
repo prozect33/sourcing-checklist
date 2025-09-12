@@ -197,8 +197,8 @@ def main():
                     C = fee + inout_cost + packaging_cost + gift_cost
                     C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
-                                - supply_price * (target_margin / 100) \
-                                - C_total_fixed_cost
+                                 - supply_price * (target_margin / 100) \
+                                 - C_total_fixed_cost
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
@@ -443,78 +443,28 @@ def main():
             
             report_date = st.date_input("날짜 선택", datetime.date.today())
             
-            total_revenue = st.number_input("전체 매출액", min_value=0, step=1000, key="total_revenue")
+            st.markdown("---")
+            st.markdown("#### 판매 입력")
+            ad_sales_qty = st.number_input("광고 전환 판매 수", min_value=0, step=1, key="ad_sales_qty")
             ad_revenue = st.number_input("광고 매출액", min_value=0, step=1000, key="ad_revenue")
-
-            organic_revenue = total_revenue - ad_revenue
-            st.text_input("자연 매출액", value=f"{organic_revenue:,.0f}", disabled=True)
-
-            daily_ad_cost = st.number_input("일일 광고비", min_value=0, step=1000, key="daily_ad_cost")
+            ad_cost = st.number_input("광고비", min_value=0, step=1000, key="ad_cost")
             
-            total_daily_profit = None
-            if selected_product_name and selected_product_name != "상품을 선택해주세요" and total_revenue is not None and daily_ad_cost is not None:
-                try:
-                    # 판매가 데이터를 사용하여 일일 판매 수량 추정
-                    sell_price_per_unit = product_data.get("sell_price", 0)
-                    if sell_price_per_unit > 0:
-                        estimated_units_sold = total_revenue / sell_price_per_unit
-                    else:
-                        estimated_units_sold = 0
-
-                    # 각 비용을 판매 수량에 비례하여 계산
-                    total_purchase_cost = estimated_units_sold * product_data.get("unit_purchase_cost", 0)
-                    total_inout_shipping_cost = estimated_units_sold * product_data.get("inout_shipping_cost", 0)
-                    total_logistics_cost = estimated_units_sold * product_data.get("logistics_cost", 0)
-                    total_customs_duty = estimated_units_sold * product_data.get("customs_duty", 0)
-                    total_etc_cost = estimated_units_sold * product_data.get("etc_cost", 0)
-                    
-                    # 수수료 및 광고비 계산
-                    total_fee = total_revenue * (product_data.get("fee", 0.0) / 100)
-                    
-                    # 총 비용 합산 (광고비 포함)
-                    total_daily_cost = (
-                        total_purchase_cost +
-                        total_inout_shipping_cost +
-                        total_logistics_cost +
-                        total_customs_duty +
-                        total_etc_cost +
-                        total_fee +
-                        daily_ad_cost
-                    )
-                    
-                    # 일일 순이익 계산
-                    total_daily_profit = total_revenue - total_daily_cost
-                    
-                except Exception as e:
-                    st.error(f"순이익 계산 중 오류가 발생했습니다: {e}")
-
-            st.metric(label="일일 순이익금", value=f"{int(total_daily_profit):,}" if total_daily_profit is not None else "0")
+            st.markdown("---")
+            organic_sales_qty = st.number_input("자연 판매 수", min_value=0, step=1, key="organic_sales_qty")
+            organic_revenue = st.number_input("자연 매출액", min_value=0, step=1000, key="organic_revenue")
+            
+            st.markdown("---")
+            total_sales_qty = ad_sales_qty + organic_sales_qty
+            st.number_input("전체 판매 수", value=total_sales_qty, disabled=True, key="total_sales_qty")
+            
+            total_revenue = ad_revenue + organic_revenue
+            st.number_input("전체 매출액", value=total_revenue, disabled=True, key="total_revenue")
+            
+            st.metric(label="일일 순이익금", value="0")
 
             if st.button("일일 정산 저장하기"):
-                if selected_product_name == "상품을 선택해주세요":
-                    st.warning("먼저 계산할 상품을 선택해주세요.")
-                elif total_revenue is None or total_revenue == 0:
-                    st.warning("전체 매출액을 입력해주세요.")
-                elif total_daily_profit is None:
-                    st.warning("순이익금 계산에 오류가 있어 저장할 수 없습니다.")
-                else:
-                    try:
-                        daily_sale_data = {
-                            "date": str(report_date),
-                            "product_name": selected_product_name,
-                            "daily_revenue": total_revenue,
-                            "daily_ad_cost": daily_ad_cost,
-                            "daily_profit": total_daily_profit,
-                            "ad_revenue": ad_revenue,
-                            "organic_revenue": organic_revenue
-                        }
+                st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
 
-                        supabase.table("daily_sales").insert(daily_sale_data).execute()
-                        st.success(f"{selected_product_name} 상품의 {report_date} 일일 정산이 저장되었습니다!")
-
-                    except Exception as e:
-                        st.error(f"정산 계산 및 저장 중 오류가 발생했습니다: {e}")
-        
         with st.expander("판매 현황"):
             try:
                 response = supabase.table("daily_sales").select("*").order("date", desc=True).execute()
