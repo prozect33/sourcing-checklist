@@ -456,8 +456,24 @@ def main():
             
             st.markdown("---")
             st.markdown("#### 자연 판매")
-            organic_sales_qty = st.number_input("자연 판매 수량", min_value=0, step=1, key="organic_sales_qty")
-            organic_revenue = st.number_input("자연 판매 매출액", min_value=0, step=1000, key="organic_revenue")
+            
+            # 자연 판매 수량 (계산식 추가)
+            organic_sales_qty = st.number_input(
+                "자연 판매 수량", 
+                min_value=0, 
+                value=total_sales_qty - ad_sales_qty if total_sales_qty >= ad_sales_qty else 0, 
+                disabled=True,
+                key="organic_sales_qty"
+            )
+            
+            # 자연 판매 매출액 (계산식 추가)
+            organic_revenue = st.number_input(
+                "자연 판매 매출액", 
+                min_value=0, 
+                value=total_revenue - ad_revenue if total_revenue >= ad_revenue else 0, 
+                disabled=True, 
+                key="organic_revenue"
+            )
             
             st.metric(label="일일 순이익금", value="0")
 
