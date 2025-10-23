@@ -91,7 +91,8 @@ def load_supabase_credentials():
 # 사이드바에 설정값 입력 필드 생성
 config = load_config()
 st.sidebar.header("🛠️ 설정값")
-config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
+# min_value 제거
+config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f") 
 config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
 config["INOUT_COST"] = st.sidebar.number_input("입출고비용 (원)", value=int(config["INOUT_COST"]), step=100)
 config["PICKUP_COST"] = st.sidebar.number_input("회수비용 (원)", value=int(config["PICKUP_COST"]), step=100)
@@ -161,7 +162,10 @@ def load_product_data(selected_product_name):
                 st.session_state.fee_rate_edit = float(product_data.get("fee", 0.0))
                 st.session_state.inout_shipping_cost_edit = int(product_data.get("inout_shipping_cost", 0))
                 st.session_state.purchase_cost_edit = int(product_data.get("purchase_cost", 0))
-                st.session_state.quantity_edit = int(product_data.get("quantity", 1))
+                
+                # quantity_edit에 대해 min_value를 강제하지 않음 (0이나 음수도 허용)
+                st.session_state.quantity_edit = int(product_data.get("quantity", 0)) if "quantity" in product_data and product_data.get("quantity") is not None else 0
+                
                 st.session_state.logistics_cost_edit = int(product_data.get("logistics_cost", 0))
                 st.session_state.customs_duty_edit = int(product_data.get("customs_duty", 0))
                 st.session_state.etc_cost_edit = int(product_data.get("etc_cost", 0))
@@ -327,15 +331,20 @@ def main():
             
             col_left, col_right = st.columns(2)
             with col_left:
-                sell_price = st.number_input("판매가", min_value=0, step=1000, value=st.session_state.sell_price_edit, key="sell_price_input")
+                # min_value 제거
+                sell_price = st.number_input("판매가", step=1000, value=st.session_state.sell_price_edit, key="sell_price_input") 
             with col_right:
-                fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", value=st.session_state.fee_rate_edit, key="fee_rate_input")
+                # min_value 제거 (max_value는 그대로 유지)
+                fee_rate = st.number_input("수수료율 (%)", max_value=100.0, step=0.1, format="%.2f", value=st.session_state.fee_rate_edit, key="fee_rate_input")
             with col_left:
-                inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, value=st.session_state.inout_shipping_cost_edit, key="inout_shipping_cost_input")
+                # min_value 제거
+                inout_shipping_cost = st.number_input("입출고/배송비", step=100, value=st.session_state.inout_shipping_cost_edit, key="inout_shipping_cost_input")
             with col_right:
-                purchase_cost = st.number_input("매입비", min_value=0, step=100, value=st.session_state.purchase_cost_edit, key="purchase_cost_input")
+                # min_value 제거
+                purchase_cost = st.number_input("매입비", step=100, value=st.session_state.purchase_cost_edit, key="purchase_cost_input")
             with col_left:
-                quantity = st.number_input("수량", min_value=1, step=1, value=st.session_state.quantity_edit, key="quantity_input")
+                # min_value 제거 (원래 1이었음)
+                quantity = st.number_input("수량", step=1, value=st.session_state.quantity_edit, key="quantity_input")
             
             with col_right:
                 try:
@@ -344,11 +353,14 @@ def main():
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_left:
-                logistics_cost = st.number_input("물류비", min_value=0, step=100, value=st.session_state.logistics_cost_edit, key="logistics_cost_input")
+                # min_value 제거
+                logistics_cost = st.number_input("물류비", step=100, value=st.session_state.logistics_cost_edit, key="logistics_cost_input")
             with col_right:
-                customs_duty = st.number_input("관세", min_value=0, step=100, value=st.session_state.customs_duty_edit, key="customs_duty_input")
+                # min_value 제거
+                customs_duty = st.number_input("관세", step=100, value=st.session_state.customs_duty_edit, key="customs_duty_input")
             
-            etc_cost = st.number_input("기타", min_value=0, step=100, value=st.session_state.etc_cost_edit, key="etc_cost_input")
+            # min_value 제거
+            etc_cost = st.number_input("기타", step=100, value=st.session_state.etc_cost_edit, key="etc_cost_input")
             
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
@@ -447,31 +459,34 @@ def main():
             
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            total_sales_qty = st.number_input("전체 판매 수량", min_value=0, step=1, key="total_sales_qty")
-            total_revenue = st.number_input("전체 매출액", min_value=0, step=1000, key="total_revenue")
+            # min_value 제거
+            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty") 
+            # min_value 제거
+            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue") 
             
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", min_value=0, step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 전환 매출액", min_value=0, step=1000, key="ad_revenue")
-            ad_cost = st.number_input("광고비", min_value=0, step=1000, key="ad_cost")
+            # min_value 제거
+            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty") 
+            # min_value 제거
+            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue") 
+            # min_value 제거
+            ad_cost = st.number_input("광고비", step=1000, key="ad_cost") 
             
             st.markdown("---")
             st.markdown("#### 자연 판매")
             
-            # 자연 판매 수량 (계산식 추가)
-            organic_sales_qty = st.number_input(
+            # min_value 제거
+            organic_sales_qty = st.number_input( 
                 "자연 판매 수량", 
-                min_value=0, 
                 value=total_sales_qty - ad_sales_qty if total_sales_qty >= ad_sales_qty else 0, 
                 disabled=True,
                 key="organic_sales_qty"
             )
             
-            # 자연 판매 매출액 (계산식 추가)
-            organic_revenue = st.number_input(
+            # min_value 제거
+            organic_revenue = st.number_input( 
                 "자연 판매 매출액", 
-                min_value=0, 
                 value=total_revenue - ad_revenue if total_revenue >= ad_revenue else 0, 
                 disabled=True, 
                 key="organic_revenue"
