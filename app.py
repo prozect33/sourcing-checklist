@@ -137,6 +137,8 @@ if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 if "confirm_delete" not in st.session_state:
     st.session_state.confirm_delete = False
+if "rerun_flag" not in st.session_state: # <--- 재실행 플래그 초기화 추가
+    st.session_state.rerun_flag = False
 
 
 # 상품 정보 불러오기/리셋 함수
@@ -184,12 +186,19 @@ def load_product_data(selected_product_name):
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
 
-    # 3. 변경된 is_edit_mode 상태를 즉시 반영하기 위해 페이지를 강제 재실행합니다.
-    st.experimental_rerun()
+    # 3. 변경된 is_edit_mode 상태를 즉시 반영하기 위해 페이지를 강제 재실행 플래그를 설정합니다.
+    st.session_state.rerun_flag = True
 
 
 # 메인 함수
 def main():
+    
+    # 🚨🚨 재실행 로직 추가 (AttributeError 방지) 🚨🚨
+    if st.session_state.rerun_flag:
+        st.session_state.rerun_flag = False # 플래그 초기화
+        st.experimental_rerun()
+    # 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+    
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
 
@@ -392,6 +401,7 @@ def main():
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
                             st.session_state.confirm_delete = False
+                            st.session_state.rerun_flag = True # 수정 후 목록 업데이트를 위해 플래그 설정
                             
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
@@ -417,7 +427,7 @@ def main():
                                 st.session_state.is_edit_mode = False
                                 st.session_state.product_name_edit = ""
                                 st.session_state.confirm_delete = False
-                                st.experimental_rerun()
+                                st.session_state.rerun_flag = True # 삭제 후 목록 업데이트를 위해 플래그 설정
                                 
                             except Exception as e:
                                 st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
@@ -427,7 +437,7 @@ def main():
                         # 취소 버튼
                         if st.button("❌ 취소합니다", key="delete_cancel"):
                             st.session_state.confirm_delete = False
-                            st.experimental_rerun()
+                            st.session_state.rerun_flag = True # UI 업데이트를 위해 플래그 설정
             
             else: # is_edit_mode가 False일 때 (신규 상품 입력)
                 if st.button("상품 저장하기"):
@@ -453,7 +463,8 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
-                                st.experimental_rerun()
+                                st.session_state.rerun_flag = True # 저장 후 목록 업데이트를 위해 플래그 설정
+                                
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
