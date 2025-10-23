@@ -154,7 +154,8 @@ def reset_all_product_states():
     st.session_state.customs_duty_edit = 0
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
-    st.session_state.product_loader = "새로운 상품 입력" # 드롭다운 초기화
+    # st.session_state.product_loader는 위젯 키와 연결되어 직접 변경하면 안 됨.
+    # st.rerun() 시키면 selectbox가 초기 상태로 돌아감.
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
@@ -418,7 +419,7 @@ def main():
                                 deleted_name = st.session_state.product_name_edit
                                 supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 성공 문구 제거 및 상태 강제 초기화
+                                # 성공 문구 제거 및 상태 강제 초기화 (st.session_state.product_loader는 변경하지 않음)
                                 reset_all_product_states()
                                 st.rerun() 
                                 
