@@ -137,8 +137,6 @@ if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 if "confirm_delete" not in st.session_state:
     st.session_state.confirm_delete = False
-# st.session_state.rerun_flag 제거
-
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
@@ -185,17 +183,9 @@ def load_product_data(selected_product_name):
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
 
-    # 3. 강제 재실행 플래그 제거
-    # st.session_state.rerun_flag = True 제거
-
 
 # 메인 함수
 def main():
-    
-    # 🚨🚨 재실행 로직 제거 🚨🚨
-    # if st.session_state.rerun_flag:
-    #     st.session_state.rerun_flag = False
-    #     st.experimental_rerun()
     
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
@@ -229,7 +219,7 @@ def main():
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
-                        round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
+                        round(target_cost * vat) + fee + inout_cost + packaging + gift
                     )
                     margin_display.markdown(
                         f"""
@@ -400,6 +390,8 @@ def main():
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
                             st.session_state.confirm_delete = False
+                            # 수정 후에도 목록이 바로 갱신되도록 reran 호출 (목록의 상품 이름은 바뀌지 않으므로 필수 아님)
+                            st.experimental_rerun()
                             
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
@@ -418,13 +410,17 @@ def main():
                         # 최종 확인 버튼
                         if st.button("✅ 네, 삭제합니다", key="delete_confirm"):
                             try:
-                                supabase.table("products").delete().eq("product_name", st.session_state.product_name_edit).execute()
-                                st.success(f"'{st.session_state.product_name_edit}' 상품이 **성공적으로 삭제**되었습니다!")
+                                deleted_name = st.session_state.product_name_edit
+                                supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 상태 초기화 후 rerun 없이 자동 업데이트 기대
+                                # 상태 초기화 (목록 드롭다운이 새로운 상품 입력으로 돌아가도록 유도)
                                 st.session_state.is_edit_mode = False
                                 st.session_state.product_name_edit = ""
                                 st.session_state.confirm_delete = False
+                                
+                                st.success(f"'{deleted_name}' 상품이 **성공적으로 삭제**되었습니다! 🚀 자동으로 페이지를 새로고침하여 목록을 갱신합니다.")
+                                # 즉시 목록 갱신을 위해 reran 호출 (가장 좋은 UX)
+                                st.experimental_rerun()
                                 
                             except Exception as e:
                                 st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
@@ -458,7 +454,9 @@ def main():
                                 st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
-                                st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
+                                st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다! 🚀 자동으로 페이지를 새로고침하여 목록을 갱신합니다.")
+                                # 저장 후 목록 업데이트를 위해 reran 호출
+                                st.experimental_rerun()
                                 
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
