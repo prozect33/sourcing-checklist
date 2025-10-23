@@ -160,9 +160,9 @@ def reset_all_product_states():
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
     
-    # 🚨 수정: 위젯 key와 연결된 세션 상태를 직접 변경하는 코드를 제거합니다.
-    # (이것이 "cannot be modified after the widget is instantiated" 오류의 원인입니다.)
-    # 대신, 아래의 product_loader 변경과 st.rerun()을 통해 위젯을 리셋합니다.
+    # 위젯의 value로 사용되는 상태 변수를 초기화합니다.
+    # 위젯 key와 연결된 세션 상태는 직접 변경하지 않습니다. (오류 방지)
+    # st.session_state.product_loader = "새로운 상품 입력" 코드도 여기서 제거되었습니다.
 
 
 # 상품 정보 불러오기/리셋 함수
@@ -183,11 +183,6 @@ def load_product_data(selected_product_name):
         st.session_state.customs_duty_edit = 0
         st.session_state.etc_cost_edit = 0
         st.session_state.confirm_delete = False
-        # st.session_state.save_status = None # 메시지 표시를 위해 load_product_data 호출 전에 외부에서만 변경
-        
-        # 🚨 수정: load_product_data 내에서 rerun을 호출하지 않고, 
-        # 위젯의 value로 사용되는 상태 변수만 업데이트합니다.
-        # selectbox의 on_change 이벤트가 이 함수를 호출하므로, 이 시점에서는 rerun을 피합니다.
         
     # 2. 저장된 상품 로드
     else:
@@ -210,7 +205,6 @@ def load_product_data(selected_product_name):
                 
                 if "confirm_delete" in st.session_state:
                     st.session_state.confirm_delete = False
-                # st.session_state.save_status = None # 메시지 표시를 위해 load_product_data 호출 전에 외부에서만 변경
         
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
@@ -372,12 +366,19 @@ def main():
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
             # selectbox 위젯을 먼저 렌더링하고, on_change로 load_product_data 호출
+            # index를 명시적으로 설정하여, 리셋 시 "새로운 상품 입력"이 자동으로 선택되도록 합니다.
+            selected_index = product_list.index(st.session_state.product_loader) if st.session_state.product_loader in product_list else 0
+            
             selected_product_name = st.selectbox(
                 "저장된 상품 선택 또는 새로 입력",
                 product_list,
+                index=selected_index, # selectbox의 초기값 설정
                 key="product_loader",
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
+            
+            # 만약 `product_loader`의 값이 변경되었다면, `st.session_state`에 반영합니다.
+            st.session_state.product_loader = selected_product_name
 
             product_name = st.text_input(
                 "상품명",
@@ -452,9 +453,10 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             
-                            # 성공 후, 메시지 설정 및 리셋 트리거
+                            # 🚨 수정: product_loader 변경 코드를 제거하고, 리셋 후 rerun
+                            reset_all_product_states()
+                            st.session_state.product_loader = "새로운 상품 입력" # **오류를 피하기 위해, 이 값은 rerun 이후에 반영됩니다.**
                             st.session_state.save_status = 'updated'
-                            st.session_state.product_loader = "새로운 상품 입력" # 강제 리셋 트리거
                             st.rerun() 
                             
                         except Exception as e:
@@ -477,9 +479,10 @@ def main():
                                 deleted_name = st.session_state.product_name_edit
                                 supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 성공 후, 메시지 설정 및 리셋 트리거
+                                # 🚨 수정: product_loader 변경 코드를 제거하고, 리셋 후 rerun
+                                reset_all_product_states()
+                                st.session_state.product_loader = "새로운 상품 입력" # **오류를 피하기 위해, 이 값은 rerun 이후에 반영됩니다.**
                                 st.session_state.save_status = 'deleted'
-                                st.session_state.product_loader = "새로운 상품 입력" # 강제 리셋 트리거
                                 st.rerun() 
                                 
                             except Exception as e:
@@ -515,9 +518,10 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 
-                                # 성공 후, 메시지 설정 및 리셋 트리거
+                                # 🚨 수정: product_loader 변경 코드를 제거하고, 리셋 후 rerun
+                                reset_all_product_states()
+                                st.session_state.product_loader = "새로운 상품 입력" # **오류를 피하기 위해, 이 값은 rerun 이후에 반영됩니다.**
                                 st.session_state.save_status = 'saved'
-                                st.session_state.product_loader = "새로운 상품 입력" # 강제 리셋 트리거
                                 st.rerun() 
                                 
                         except Exception as e:
