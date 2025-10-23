@@ -70,7 +70,7 @@ def reset_inputs():
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = "1"
-    st.session_state["show_result"] = False  # 결과도 초기화
+    st.session_state["show_result"] = False
 
 def load_supabase_credentials():
     """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
@@ -135,14 +135,11 @@ if "etc_cost_edit" not in st.session_state:
     st.session_state.etc_cost_edit = 0
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
-# 삭제 확인을 위한 세션 상태 추가
 if "confirm_delete" not in st.session_state:
     st.session_state.confirm_delete = False
 
 
-# -----------------------------------------------------------
-# 상품 정보 불러오기/리셋 함수 (st.experimental_rerun() 포함)
-# -----------------------------------------------------------
+# 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
     """선택된 상품의 정보를 불러와 세션 상태를 업데이트하고 페이지를 재실행합니다."""
     
@@ -159,7 +156,6 @@ def load_product_data(selected_product_name):
         st.session_state.customs_duty_edit = 0
         st.session_state.etc_cost_edit = 0
         
-        # 삭제 확인 플래그 초기화
         if "confirm_delete" in st.session_state:
             st.session_state.confirm_delete = False
     
@@ -182,7 +178,6 @@ def load_product_data(selected_product_name):
                 st.session_state.customs_duty_edit = int(product_data.get("customs_duty", 0))
                 st.session_state.etc_cost_edit = int(product_data.get("etc_cost", 0))
                 
-                # 삭제 확인 플래그 초기화 (상품을 새로 로드했으니 확인 팝업은 없애야 함)
                 if "confirm_delete" in st.session_state:
                     st.session_state.confirm_delete = False
         
@@ -191,7 +186,6 @@ def load_product_data(selected_product_name):
 
     # 3. 변경된 is_edit_mode 상태를 즉시 반영하기 위해 페이지를 강제 재실행합니다.
     st.experimental_rerun()
-# -----------------------------------------------------------
 
 
 # 메인 함수
@@ -375,9 +369,7 @@ def main():
             
             etc_cost = st.number_input("기타", min_value=0, step=100, value=st.session_state.etc_cost_edit, key="etc_cost_input")
             
-            # -----------------------------------------------------------
-            # 상품 수정/삭제 로직 (삭제 확인 로직 포함)
-            # -----------------------------------------------------------
+            
             if st.session_state.is_edit_mode:
                 
                 col_mod, col_del = st.columns(2)
@@ -399,7 +391,7 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
-                            st.session_state.confirm_delete = False # 수정 후 확인 플래그 초기화
+                            st.session_state.confirm_delete = False
                             
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
@@ -425,7 +417,7 @@ def main():
                                 st.session_state.is_edit_mode = False
                                 st.session_state.product_name_edit = ""
                                 st.session_state.confirm_delete = False
-                                st.experimental_rerun() # 상품 목록 업데이트를 위해 페이지 재실행
+                                st.experimental_rerun()
                                 
                             except Exception as e:
                                 st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
@@ -435,8 +427,7 @@ def main():
                         # 취소 버튼
                         if st.button("❌ 취소합니다", key="delete_cancel"):
                             st.session_state.confirm_delete = False
-                            st.experimental_rerun() # UI 업데이트를 위해 재실행
-            # -----------------------------------------------------------
+                            st.experimental_rerun()
             
             else: # is_edit_mode가 False일 때 (신규 상품 입력)
                 if st.button("상품 저장하기"):
@@ -462,7 +453,7 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
-                                st.experimental_rerun() # 상품 목록 업데이트를 위해 재실행
+                                st.experimental_rerun()
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
@@ -580,4 +571,3 @@ def main():
 # 메인 함수 호출
 if __name__ == "__main__":
     main()
-```
