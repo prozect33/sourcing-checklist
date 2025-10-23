@@ -160,16 +160,9 @@ def reset_all_product_states():
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
     
-    # 위젯 key의 value도 명시적으로 초기화 (이전 오류 해결 코드에서 제거했으나, 
-    # st.rerun() 없이 상태만 변경하고 싶을 때 필요합니다. 여기서는 load_product_data로 대체)
-    if "sell_price_input" in st.session_state: st.session_state.sell_price_input = 0
-    if "fee_rate_input" in st.session_state: st.session_state.fee_rate_input = 0.0
-    if "inout_shipping_cost_input" in st.session_state: st.session_state.inout_shipping_cost_input = 0
-    if "purchase_cost_input" in st.session_state: st.session_state.purchase_cost_input = 0
-    if "quantity_input" in st.session_state: st.session_state.quantity_input = 0
-    if "logistics_cost_input" in st.session_state: st.session_state.logistics_cost_input = 0
-    if "customs_duty_input" in st.session_state: st.session_state.customs_duty_input = 0
-    if "etc_cost_input" in st.session_state: st.session_state.etc_cost_input = 0
+    # 🚨 수정: 위젯 key와 연결된 세션 상태를 직접 변경하는 코드를 제거합니다.
+    # (이것이 "cannot be modified after the widget is instantiated" 오류의 원인입니다.)
+    # 대신, 아래의 product_loader 변경과 st.rerun()을 통해 위젯을 리셋합니다.
 
 
 # 상품 정보 불러오기/리셋 함수
@@ -190,9 +183,12 @@ def load_product_data(selected_product_name):
         st.session_state.customs_duty_edit = 0
         st.session_state.etc_cost_edit = 0
         st.session_state.confirm_delete = False
-        st.session_state.save_status = None
-        # st.rerun()은 이 함수 밖에서 호출될 수 있도록 제거함.
-
+        # st.session_state.save_status = None # 메시지 표시를 위해 load_product_data 호출 전에 외부에서만 변경
+        
+        # 🚨 수정: load_product_data 내에서 rerun을 호출하지 않고, 
+        # 위젯의 value로 사용되는 상태 변수만 업데이트합니다.
+        # selectbox의 on_change 이벤트가 이 함수를 호출하므로, 이 시점에서는 rerun을 피합니다.
+        
     # 2. 저장된 상품 로드
     else:
         try:
@@ -214,7 +210,7 @@ def load_product_data(selected_product_name):
                 
                 if "confirm_delete" in st.session_state:
                     st.session_state.confirm_delete = False
-                st.session_state.save_status = None
+                # st.session_state.save_status = None # 메시지 표시를 위해 load_product_data 호출 전에 외부에서만 변경
         
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
@@ -354,7 +350,7 @@ def main():
     with tab2:
         st.subheader("세부 마진 계산기")
         
-        # 🚨 수정: 메시지 출력 위치
+        # 메시지 출력
         if st.session_state.save_status == 'saved':
             st.success("✅ 상품 정보가 성공적으로 **저장**되었습니다. 입력 필드가 초기화됩니다.")
             st.session_state.save_status = None
@@ -375,6 +371,7 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
+            # selectbox 위젯을 먼저 렌더링하고, on_change로 load_product_data 호출
             selected_product_name = st.selectbox(
                 "저장된 상품 선택 또는 새로 입력",
                 product_list,
@@ -389,6 +386,8 @@ def main():
             )
             
             col_left, col_right = st.columns(2)
+            
+            # 위젯의 value는 st.session_state.***_edit 변수와 연결됩니다.
             with col_left:
                 sell_price = st.number_input("판매가", min_value=0, step=1000, 
                                              value=st.session_state.sell_price_edit, 
@@ -413,6 +412,7 @@ def main():
             
             with col_right:
                 try:
+                    # 현재 위젯의 value를 기반으로 계산
                     unit_purchase_cost = purchase_cost / quantity if quantity != 0 else 0
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
@@ -452,8 +452,7 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             
-                            # 성공 후, 모든 상태 초기화 및 메시지 설정
-                            reset_all_product_states()
+                            # 성공 후, 메시지 설정 및 리셋 트리거
                             st.session_state.save_status = 'updated'
                             st.session_state.product_loader = "새로운 상품 입력" # 강제 리셋 트리거
                             st.rerun() 
@@ -478,8 +477,7 @@ def main():
                                 deleted_name = st.session_state.product_name_edit
                                 supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 성공 후, 모든 상태 초기화 및 메시지 설정
-                                reset_all_product_states()
+                                # 성공 후, 메시지 설정 및 리셋 트리거
                                 st.session_state.save_status = 'deleted'
                                 st.session_state.product_loader = "새로운 상품 입력" # 강제 리셋 트리거
                                 st.rerun() 
@@ -517,8 +515,7 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 
-                                # 성공 후, 모든 상태 초기화 및 메시지 설정
-                                reset_all_product_states()
+                                # 성공 후, 메시지 설정 및 리셋 트리거
                                 st.session_state.save_status = 'saved'
                                 st.session_state.product_loader = "새로운 상품 입력" # 강제 리셋 트리거
                                 st.rerun() 
