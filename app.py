@@ -11,10 +11,10 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 st.markdown("""
     <style>
-     [data-testid="stSidebarHeader"] { display: none !important; }
-     [data-testid="stSidebarContent"] { padding-top: 15px !important; }
-     [data-testid="stHeading"] { margin-bottom: 15px !important; }
-     [data-testid="stNumberInput"] button { display: none !important; }
+      [data-testid="stSidebarHeader"] { display: none !important; }
+      [data-testid="stSidebarContent"] { padding-top: 15px !important; }
+      [data-testid="stHeading"] { margin-bottom: 15px !important; }
+      [data-testid="stNumberInput"] button { display: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -75,6 +75,7 @@ def reset_inputs():
 def load_supabase_credentials():
     """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
     try:
+        # Note: 실제 환경에서는 st.secrets 또는 환경 변수를 사용하는 것이 보안상 더 좋습니다.
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
@@ -139,12 +140,13 @@ if "confirm_delete" not in st.session_state:
     st.session_state.confirm_delete = False
 if "product_loader" not in st.session_state:
     st.session_state.product_loader = "새로운 상품 입력"
+if "save_status" not in st.session_state:
+    st.session_state.save_status = None # 'saved', 'updated', 'deleted'
 
 
 def reset_all_product_states():
     """
     세부 계산기의 모든 입력 필드 관련 상태를 초기화합니다.
-    (주의: 위젯의 key와 직접 연결된 st.session_state는 건드리지 않음)
     """
     st.session_state.is_edit_mode = False
     st.session_state.product_name_edit = ""
@@ -157,11 +159,10 @@ def reset_all_product_states():
     st.session_state.customs_duty_edit = 0
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
-    
-    # 🚨 수정: 위젯의 key와 일치하는 세션 상태 초기화 로직은 제거합니다.
-    # (st.rerun()을 통해 위젯이 재생성되면서 초기화됩니다.)
+    # st.session_state.product_loader는 데이터 처리 성공 후 별도로 "새로운 상품 입력"으로 설정합니다.
 
-# 상품 정보 불러오기/리셋 함수
+
+# 상품 정보 불러오기/리셋 함수 (콜백)
 def load_product_data(selected_product_name):
     """선택된 상품의 정보를 불러와 세션 상태를 업데이트합니다."""
     
@@ -179,7 +180,9 @@ def load_product_data(selected_product_name):
         st.session_state.customs_duty_edit = 0
         st.session_state.etc_cost_edit = 0
         st.session_state.confirm_delete = False
-        st.rerun() # 상태 변경 후 새로고침하여 위젯에 반영
+        
+        # 🚨 핵심 수정: 콜백 함수 내부에서 st.rerun() 호출 제거
+        # Selectbox의 on_change 이벤트가 이미 rerurn을 예약했으므로 불필요합니다.
 
     # 2. 저장된 상품 로드
     else:
@@ -236,8 +239,8 @@ def main():
                     supply_price = sell_price_val / vat
                     C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
-                                    - supply_price * (target_margin / 100) \
-                                    - C_total_fixed_cost
+                                - supply_price * (target_margin / 100) \
+                                - C_total_fixed_cost
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
@@ -340,6 +343,17 @@ def main():
     
     with tab2:
         st.subheader("세부 마진 계산기")
+        
+        # ✅ 메시지 출력 로직 (데이터 저장/수정/삭제 후)
+        if st.session_state.save_status == 'saved':
+            st.success("✅ 상품 정보가 성공적으로 **저장**되었습니다. 입력 필드가 초기화됩니다.")
+            st.session_state.save_status = None
+        elif st.session_state.save_status == 'updated':
+            st.success("✅ 상품 정보가 성공적으로 **수정**되었습니다. 입력 필드가 초기화됩니다.")
+            st.session_state.save_status = None
+        elif st.session_state.save_status == 'deleted':
+            st.success("🗑️ 상품 정보가 성공적으로 **삭제**되었습니다. 입력 필드가 초기화됩니다.")
+            st.session_state.save_status = None
     
         with st.expander("상품 정보 입력"):
             product_list = ["새로운 상품 입력"]
@@ -351,9 +365,13 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
+            # 🚨 핵심 수정: Selectbox의 index를 현재 로드된 상품으로 설정
+            selected_index = product_list.index(st.session_state.product_loader) if st.session_state.product_loader in product_list else 0
+            
             selected_product_name = st.selectbox(
                 "저장된 상품 선택 또는 새로 입력",
                 product_list,
+                index=selected_index, # 이 부분이 다음 실행 주기에서 Selectbox 값을 제어합니다.
                 key="product_loader",
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
@@ -371,21 +389,21 @@ def main():
                                              key="sell_price_input")
             with col_right:
                 fee_rate = st.number_input("수수료율 (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.2f", 
-                                           value=st.session_state.fee_rate_edit, 
-                                           key="fee_rate_input")
+                                             value=st.session_state.fee_rate_edit, 
+                                             key="fee_rate_input")
             with col_left:
                 inout_shipping_cost = st.number_input("입출고/배송비", min_value=0, step=100, 
-                                                      value=st.session_state.inout_shipping_cost_edit, 
-                                                      key="inout_shipping_cost_input")
+                                                     value=st.session_state.inout_shipping_cost_edit, 
+                                                     key="inout_shipping_cost_input")
             with col_right:
                 purchase_cost = st.number_input("매입비", min_value=0, step=100, 
-                                                value=st.session_state.purchase_cost_edit, 
-                                                key="purchase_cost_input")
+                                                 value=st.session_state.purchase_cost_edit, 
+                                                 key="purchase_cost_input")
             with col_left:
                 # 수량 기본값 0, min_value 0
                 quantity = st.number_input("수량", min_value=0, step=1, 
-                                           value=st.session_state.quantity_edit, 
-                                           key="quantity_input")
+                                             value=st.session_state.quantity_edit, 
+                                             key="quantity_input")
             
             with col_right:
                 try:
@@ -395,16 +413,16 @@ def main():
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_left:
                 logistics_cost = st.number_input("물류비", min_value=0, step=100, 
-                                                 value=st.session_state.logistics_cost_edit, 
-                                                 key="logistics_cost_input")
+                                                     value=st.session_state.logistics_cost_edit, 
+                                                     key="logistics_cost_input")
             with col_right:
                 customs_duty = st.number_input("관세", min_value=0, step=100, 
-                                               value=st.session_state.customs_duty_edit, 
-                                               key="customs_duty_input")
+                                                 value=st.session_state.customs_duty_edit, 
+                                                 key="customs_duty_input")
             
             etc_cost = st.number_input("기타", min_value=0, step=100, 
-                                       value=st.session_state.etc_cost_edit, 
-                                       key="etc_cost_input")
+                                         value=st.session_state.etc_cost_edit, 
+                                         key="etc_cost_input")
             
             
             if st.session_state.is_edit_mode:
@@ -428,8 +446,10 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             
-                            # 성공 후, 모든 상태 초기화
+                            # 성공 후: 리셋 상태 설정 및 RERUN
                             reset_all_product_states()
+                            st.session_state.product_loader = "새로운 상품 입력" # Selectbox 리셋
+                            st.session_state.save_status = 'updated' # 메시지 출력 상태 설정
                             st.rerun() 
                             
                         except Exception as e:
@@ -452,8 +472,10 @@ def main():
                                 deleted_name = st.session_state.product_name_edit
                                 supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 성공 후, 모든 상태 초기화
+                                # 성공 후: 리셋 상태 설정 및 RERUN
                                 reset_all_product_states()
+                                st.session_state.product_loader = "새로운 상품 입력" # Selectbox 리셋
+                                st.session_state.save_status = 'deleted' # 메시지 출력 상태 설정
                                 st.rerun() 
                                 
                             except Exception as e:
@@ -489,8 +511,10 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 
-                                # 성공 후, 모든 상태 초기화
+                                # 성공 후: 리셋 상태 설정 및 RERUN
                                 reset_all_product_states()
+                                st.session_state.product_loader = "새로운 상품 입력" # Selectbox 리셋
+                                st.session_state.save_status = 'saved' # 메시지 출력 상태 설정
                                 st.rerun() 
                                 
                         except Exception as e:
