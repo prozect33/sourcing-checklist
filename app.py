@@ -137,13 +137,12 @@ if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 if "confirm_delete" not in st.session_state:
     st.session_state.confirm_delete = False
-if "rerun_flag" not in st.session_state:
-    st.session_state.rerun_flag = False
+# st.session_state.rerun_flag 제거
 
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
-    """선택된 상품의 정보를 불러와 세션 상태를 업데이트하고 페이지를 재실행합니다."""
+    """선택된 상품의 정보를 불러와 세션 상태를 업데이트합니다."""
     
     # 1. 상태 초기화 (새로운 상품 입력 선택 시)
     if selected_product_name == "새로운 상품 입력":
@@ -165,7 +164,6 @@ def load_product_data(selected_product_name):
     else:
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
-            # 💡 수정: response.data가 None이거나 리스트가 아닐 경우를 대비
             if response.data and isinstance(response.data, list):
                 product_data = response.data[0]
                 
@@ -187,17 +185,17 @@ def load_product_data(selected_product_name):
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
 
-    # 3. 변경된 is_edit_mode 상태를 즉시 반영하기 위해 페이지를 강제 재실행 플래그를 설정합니다.
-    st.session_state.rerun_flag = True
+    # 3. 강제 재실행 플래그 제거
+    # st.session_state.rerun_flag = True 제거
 
 
 # 메인 함수
 def main():
     
-    # 🚨🚨 재실행 로직 🚨🚨
-    if st.session_state.rerun_flag:
-        st.session_state.rerun_flag = False
-        st.experimental_rerun()
+    # 🚨🚨 재실행 로직 제거 🚨🚨
+    # if st.session_state.rerun_flag:
+    #     st.session_state.rerun_flag = False
+    #     st.experimental_rerun()
     
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
@@ -335,7 +333,6 @@ def main():
             product_list = ["새로운 상품 입력"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
-                # 💡 수정: response.data가 리스트이고 비어있지 않은 경우에만 처리
                 if response.data and isinstance(response.data, list):
                     saved_products = [item['product_name'] for item in response.data]
                     product_list.extend(saved_products)
@@ -403,7 +400,6 @@ def main():
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
                             st.session_state.confirm_delete = False
-                            st.session_state.rerun_flag = True
                             
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
@@ -425,11 +421,10 @@ def main():
                                 supabase.table("products").delete().eq("product_name", st.session_state.product_name_edit).execute()
                                 st.success(f"'{st.session_state.product_name_edit}' 상품이 **성공적으로 삭제**되었습니다!")
                                 
-                                # 상태 초기화 및 페이지 리프레시 유도
+                                # 상태 초기화 후 rerun 없이 자동 업데이트 기대
                                 st.session_state.is_edit_mode = False
                                 st.session_state.product_name_edit = ""
                                 st.session_state.confirm_delete = False
-                                st.session_state.rerun_flag = True
                                 
                             except Exception as e:
                                 st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
@@ -439,7 +434,6 @@ def main():
                         # 취소 버튼
                         if st.button("❌ 취소합니다", key="delete_cancel"):
                             st.session_state.confirm_delete = False
-                            st.session_state.rerun_flag = True
             
             else: # is_edit_mode가 False일 때 (신규 상품 입력)
                 if st.button("상품 저장하기"):
@@ -465,7 +459,6 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
-                                st.session_state.rerun_flag = True
                                 
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
@@ -474,7 +467,6 @@ def main():
             product_list = ["상품을 선택해주세요"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
-                # 💡 수정: response.data가 리스트이고 비어있지 않은 경우에만 처리
                 if response.data and isinstance(response.data, list):
                     saved_products = [item['product_name'] for item in response.data]
                     product_list.extend(saved_products)
@@ -487,7 +479,6 @@ def main():
             if selected_product_name and selected_product_name != "상품을 선택해주세요":
                 try:
                     response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
-                    # 💡 수정: response.data가 None이거나 리스트가 아닐 경우를 대비
                     if response.data and isinstance(response.data, list):
                         product_data = response.data[0]
                 except Exception as e:
