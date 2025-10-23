@@ -1,12 +1,3 @@
-네, 알겠습니다. 원래 주신 코드에 **'상품 삭제하기' 기능의 확인(Confirmation) 로직**과 **`st.experimental_rerun()` 호출**을 모두 적용한 **수정된 전체 코드**를 드리겠습니다.
-
-아래 코드를 복사하여 기존의 Streamlit 파일 내용 전체를 덮어쓰시면 됩니다.
-
------
-
-## 💻 수정된 전체 코드 (상품 삭제 및 UI 개선)
-
-```python
 import streamlit as st
 import json
 import os
