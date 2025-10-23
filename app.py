@@ -126,7 +126,7 @@ if "inout_shipping_cost_edit" not in st.session_state:
 if "purchase_cost_edit" not in st.session_state:
     st.session_state.purchase_cost_edit = 0
 if "quantity_edit" not in st.session_state:
-    st.session_state.quantity_edit = 1
+    st.session_state.quantity_edit = 0 # 기본값 0으로 설정
 if "logistics_cost_edit" not in st.session_state:
     st.session_state.logistics_cost_edit = 0
 if "customs_duty_edit" not in st.session_state:
@@ -142,20 +142,32 @@ if "product_loader" not in st.session_state:
 
 
 def reset_all_product_states():
-    """세부 계산기의 모든 입력 필드 상태를 초기화합니다."""
+    """
+    세부 계산기의 모든 입력 필드 관련 상태를 초기화하고 
+    위젯의 Key 값도 초기화하여 확실하게 공란으로 만듭니다.
+    """
     st.session_state.is_edit_mode = False
     st.session_state.product_name_edit = ""
     st.session_state.sell_price_edit = 0
     st.session_state.fee_rate_edit = 0.0
     st.session_state.inout_shipping_cost_edit = 0
     st.session_state.purchase_cost_edit = 0
-    st.session_state.quantity_edit = 1
+    st.session_state.quantity_edit = 0 # 기본값 0
     st.session_state.logistics_cost_edit = 0
     st.session_state.customs_duty_edit = 0
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
-    # st.session_state.product_loader는 위젯 키와 연결되어 직접 변경하면 안 됨.
-    # st.rerun() 시키면 selectbox가 초기 상태로 돌아감.
+    
+    # 위젯 키(key) 상태 강제 초기화: 이 부분이 입력값 초기화를 확실히 해줍니다.
+    if "sell_price_input" in st.session_state: st.session_state.sell_price_input = 0
+    if "fee_rate_input" in st.session_state: st.session_state.fee_rate_input = 0.0
+    if "inout_shipping_cost_input" in st.session_state: st.session_state.inout_shipping_cost_input = 0
+    if "purchase_cost_input" in st.session_state: st.session_state.purchase_cost_input = 0
+    if "quantity_input" in st.session_state: st.session_state.quantity_input = 0
+    if "logistics_cost_input" in st.session_state: st.session_state.logistics_cost_input = 0
+    if "customs_duty_input" in st.session_state: st.session_state.customs_duty_input = 0
+    if "etc_cost_input" in st.session_state: st.session_state.etc_cost_input = 0
+
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
@@ -164,6 +176,7 @@ def load_product_data(selected_product_name):
     # 1. 상태 초기화 (새로운 상품 입력 선택 시)
     if selected_product_name == "새로운 상품 입력":
         reset_all_product_states()
+        # product_loader는 selectbox 자체의 key로 인해 직접 변경하지 않습니다.
     
     # 2. 저장된 상품 로드
     else:
@@ -179,7 +192,7 @@ def load_product_data(selected_product_name):
                 st.session_state.fee_rate_edit = float(product_data.get("fee", 0.0))
                 st.session_state.inout_shipping_cost_edit = int(product_data.get("inout_shipping_cost", 0))
                 st.session_state.purchase_cost_edit = int(product_data.get("purchase_cost", 0))
-                st.session_state.quantity_edit = int(product_data.get("quantity", 1))
+                st.session_state.quantity_edit = int(product_data.get("quantity", 0)) # 로드 시에도 0 처리
                 st.session_state.logistics_cost_edit = int(product_data.get("logistics_cost", 0))
                 st.session_state.customs_duty_edit = int(product_data.get("customs_duty", 0))
                 st.session_state.etc_cost_edit = int(product_data.get("etc_cost", 0))
@@ -358,7 +371,8 @@ def main():
             with col_right:
                 purchase_cost = st.number_input("매입비", min_value=0, step=100, value=st.session_state.purchase_cost_edit, key="purchase_cost_input")
             with col_left:
-                quantity = st.number_input("수량", min_value=1, step=1, value=st.session_state.quantity_edit, key="quantity_input")
+                # 🌟 수정: 수량 기본값 0, min_value 0
+                quantity = st.number_input("수량", min_value=0, step=1, value=st.session_state.quantity_edit, key="quantity_input")
             
             with col_right:
                 try:
@@ -395,7 +409,7 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             
-                            # 성공 문구 제거 및 상태 강제 초기화
+                            # ✨ 성공 후, 모든 상태 초기화
                             reset_all_product_states()
                             st.rerun() 
                             
@@ -419,7 +433,7 @@ def main():
                                 deleted_name = st.session_state.product_name_edit
                                 supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 성공 문구 제거 및 상태 강제 초기화 (st.session_state.product_loader는 변경하지 않음)
+                                # ✨ 성공 후, 모든 상태 초기화
                                 reset_all_product_states()
                                 st.rerun() 
                                 
@@ -456,7 +470,7 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 
-                                # 성공 문구 제거 및 상태 강제 초기화
+                                # ✨ 성공 후, 모든 상태 초기화
                                 reset_all_product_states()
                                 st.rerun() 
                                 
