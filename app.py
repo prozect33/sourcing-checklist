@@ -141,7 +141,7 @@ if "confirm_delete" not in st.session_state:
 
 
 # -----------------------------------------------------------
-# ⭐ 수정/삭제 버튼 표시를 위한 핵심 수정 함수
+# 상품 정보 불러오기/리셋 함수 (st.experimental_rerun() 포함)
 # -----------------------------------------------------------
 def load_product_data(selected_product_name):
     """선택된 상품의 정보를 불러와 세션 상태를 업데이트하고 페이지를 재실행합니다."""
@@ -191,8 +191,6 @@ def load_product_data(selected_product_name):
 
     # 3. 변경된 is_edit_mode 상태를 즉시 반영하기 위해 페이지를 강제 재실행합니다.
     st.experimental_rerun()
-# -----------------------------------------------------------
-# ⭐ load_product_data 함수 수정 완료
 # -----------------------------------------------------------
 
 
@@ -378,7 +376,7 @@ def main():
             etc_cost = st.number_input("기타", min_value=0, step=100, value=st.session_state.etc_cost_edit, key="etc_cost_input")
             
             # -----------------------------------------------------------
-            # ⭐ 상품 수정/삭제 로직 (삭제 확인 로직 추가)
+            # 상품 수정/삭제 로직 (삭제 확인 로직 포함)
             # -----------------------------------------------------------
             if st.session_state.is_edit_mode:
                 
@@ -438,8 +436,6 @@ def main():
                         if st.button("❌ 취소합니다", key="delete_cancel"):
                             st.session_state.confirm_delete = False
                             st.experimental_rerun() # UI 업데이트를 위해 재실행
-            # -----------------------------------------------------------
-            # ⭐ 수정/삭제 로직 끝
             # -----------------------------------------------------------
             
             else: # is_edit_mode가 False일 때 (신규 상품 입력)
