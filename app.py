@@ -146,6 +146,7 @@ if "save_status" not in st.session_state:
 def reset_all_product_states():
     """
     세부 계산기의 모든 입력 필드 관련 상태를 초기화합니다.
+    (저장, 삭제 성공 후 호출되어 입력 필드를 리셋시키는 역할)
     """
     st.session_state.is_edit_mode = False
     st.session_state.product_name_edit = ""
@@ -158,7 +159,7 @@ def reset_all_product_states():
     st.session_state.customs_duty_edit = 0
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
-    # st.session_state.product_loader는 위젯 key이므로, 여기서 직접 변경하지 않습니다.
+    # 위젯 key와 연결된 st.session_state.product_loader는 여기서 변경하지 않습니다.
 
 
 # 상품 정보 불러오기/리셋 함수
@@ -341,6 +342,7 @@ def main():
         st.subheader("세부 마진 계산기")
         
         # 메시지 출력
+        # 메시지 상태가 남아있으면 메시지를 출력합니다.
         if st.session_state.save_status == 'saved':
             st.success("✅ 상품 정보가 성공적으로 **저장**되었습니다. 입력 필드가 초기화됩니다.")
             st.session_state.save_status = None
@@ -362,7 +364,7 @@ def main():
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
             # selectbox의 index 설정.
-            # product_loader 값이 리스트에 있으면 해당 인덱스를, 없으면(새로운 상품 입력 등) 0을 선택합니다.
+            # 다음 rerun 시 "새로운 상품 입력"을 자동으로 선택하기 위해, product_loader의 값을 사용합니다.
             selected_index = product_list.index(st.session_state.product_loader) if st.session_state.product_loader in product_list else 0
             
             selected_product_name = st.selectbox(
@@ -373,9 +375,7 @@ def main():
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
             
-            # 🚨 오류 유발 코드 제거
-            # 이전 버전에서 오류를 유발했던 코드 (381번째 줄)를 삭제했습니다.
-            # st.session_state.product_loader = selected_product_name 
+            # **오류 유발 코드를 제거했습니다. st.selectbox의 반환 값은 key에 의해 자동 저장됩니다.**
 
             product_name = st.text_input(
                 "상품명",
