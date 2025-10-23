@@ -219,7 +219,7 @@ def main():
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
-                        round(target_cost * vat) + fee + inout_cost + packaging + gift
+                        round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
                     )
                     margin_display.markdown(
                         f"""
@@ -390,8 +390,8 @@ def main():
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
                             st.session_state.confirm_delete = False
-                            # 수정 후에도 목록이 바로 갱신되도록 reran 호출 (목록의 상품 이름은 바뀌지 않으므로 필수 아님)
-                            st.experimental_rerun()
+                            # 수정 후에도 목록이 바로 갱신되도록 reran 호출
+                            st.rerun() # 🚨 수정된 부분 1
                             
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
@@ -419,8 +419,8 @@ def main():
                                 st.session_state.confirm_delete = False
                                 
                                 st.success(f"'{deleted_name}' 상품이 **성공적으로 삭제**되었습니다! 🚀 자동으로 페이지를 새로고침하여 목록을 갱신합니다.")
-                                # 즉시 목록 갱신을 위해 reran 호출 (가장 좋은 UX)
-                                st.experimental_rerun()
+                                # 즉시 목록 갱신을 위해 reran 호출
+                                st.rerun() # 🚨 수정된 부분 2
                                 
                             except Exception as e:
                                 st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
@@ -456,7 +456,7 @@ def main():
                                 supabase.table("products").insert(data_to_save).execute()
                                 st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다! 🚀 자동으로 페이지를 새로고침하여 목록을 갱신합니다.")
                                 # 저장 후 목록 업데이트를 위해 reran 호출
-                                st.experimental_rerun()
+                                st.rerun() # 🚨 수정된 부분 3
                                 
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
