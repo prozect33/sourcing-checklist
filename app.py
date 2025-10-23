@@ -146,7 +146,6 @@ if "save_status" not in st.session_state:
 def reset_all_product_states():
     """
     세부 계산기의 모든 입력 필드 관련 상태를 초기화합니다.
-    (저장, 삭제 성공 후 호출되어 입력 필드를 리셋시키는 역할)
     """
     st.session_state.is_edit_mode = False
     st.session_state.product_name_edit = ""
@@ -159,10 +158,7 @@ def reset_all_product_states():
     st.session_state.customs_duty_edit = 0
     st.session_state.etc_cost_edit = 0
     st.session_state.confirm_delete = False
-    
-    # 위젯의 value로 사용되는 상태 변수를 초기화합니다.
-    # 위젯 key와 연결된 세션 상태는 직접 변경하지 않습니다. (오류 방지)
-    # st.session_state.product_loader = "새로운 상품 입력" 코드도 여기서 제거되었습니다.
+    # st.session_state.product_loader는 위젯 key이므로, 여기서 직접 변경하지 않습니다.
 
 
 # 상품 정보 불러오기/리셋 함수
@@ -365,8 +361,8 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
-            # selectbox 위젯을 먼저 렌더링하고, on_change로 load_product_data 호출
-            # index를 명시적으로 설정하여, 리셋 시 "새로운 상품 입력"이 자동으로 선택되도록 합니다.
+            # selectbox의 index 설정.
+            # product_loader 값이 리스트에 있으면 해당 인덱스를, 없으면(새로운 상품 입력 등) 0을 선택합니다.
             selected_index = product_list.index(st.session_state.product_loader) if st.session_state.product_loader in product_list else 0
             
             selected_product_name = st.selectbox(
@@ -377,8 +373,9 @@ def main():
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
             
-            # 만약 `product_loader`의 값이 변경되었다면, `st.session_state`에 반영합니다.
-            st.session_state.product_loader = selected_product_name
+            # 🚨 오류 유발 코드 제거
+            # 이전 버전에서 오류를 유발했던 코드 (381번째 줄)를 삭제했습니다.
+            # st.session_state.product_loader = selected_product_name 
 
             product_name = st.text_input(
                 "상품명",
@@ -453,9 +450,9 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             
-                            # 🚨 수정: product_loader 변경 코드를 제거하고, 리셋 후 rerun
-                            reset_all_product_states()
-                            st.session_state.product_loader = "새로운 상품 입력" # **오류를 피하기 위해, 이 값은 rerun 이후에 반영됩니다.**
+                            # 성공 후, 메시지 설정 및 리셋 트리거
+                            reset_all_product_states() # 위젯 value를 초기화
+                            st.session_state.product_loader = "새로운 상품 입력" # 다음 rerun 시 selectbox 초기 선택값 설정
                             st.session_state.save_status = 'updated'
                             st.rerun() 
                             
@@ -479,9 +476,9 @@ def main():
                                 deleted_name = st.session_state.product_name_edit
                                 supabase.table("products").delete().eq("product_name", deleted_name).execute()
                                 
-                                # 🚨 수정: product_loader 변경 코드를 제거하고, 리셋 후 rerun
-                                reset_all_product_states()
-                                st.session_state.product_loader = "새로운 상품 입력" # **오류를 피하기 위해, 이 값은 rerun 이후에 반영됩니다.**
+                                # 성공 후, 메시지 설정 및 리셋 트리거
+                                reset_all_product_states() # 위젯 value를 초기화
+                                st.session_state.product_loader = "새로운 상품 입력" # 다음 rerun 시 selectbox 초기 선택값 설정
                                 st.session_state.save_status = 'deleted'
                                 st.rerun() 
                                 
@@ -518,9 +515,9 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 
-                                # 🚨 수정: product_loader 변경 코드를 제거하고, 리셋 후 rerun
-                                reset_all_product_states()
-                                st.session_state.product_loader = "새로운 상품 입력" # **오류를 피하기 위해, 이 값은 rerun 이후에 반영됩니다.**
+                                # 성공 후, 메시지 설정 및 리셋 트리거
+                                reset_all_product_states() # 위젯 value를 초기화
+                                st.session_state.product_loader = "새로운 상품 입력" # 다음 rerun 시 selectbox 초기 선택값 설정
                                 st.session_state.save_status = 'saved'
                                 st.rerun() 
                                 
