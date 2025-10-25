@@ -61,16 +61,19 @@ def format_number(val):
         return ""
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
-# --- [새로 정의된 리셋 함수] ---
-def reset_inputs(): # tab1용 리셋 함수 (기존)
+def reset_inputs(): # tab1용 리셋 함수
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = ""
     st.session_state["show_result"] = False
 
+# --- [수정된 reset_tab2_inputs 함수: st.experimental_rerun() 제거] ---
 def reset_tab2_inputs(status_message=""):
-    """tab2의 모든 입력 필드를 초기화하고 상태 메시지를 설정합니다."""
+    """
+    tab2의 모든 입력 필드를 초기화하고 상태 메시지를 설정합니다. 
+    st.experimental_rerun() 호출은 DB 작업 후 메인 로직에서 담당합니다.
+    """
     # 모든 입력 필드 세션 상태를 빈 값으로 리셋
     st.session_state.product_name_input = ""
     st.session_state.sell_price_input = ""
@@ -89,9 +92,8 @@ def reset_tab2_inputs(status_message=""):
     # 성공 메시지를 표시하기 위한 플래그 설정
     st.session_state.reset_status = status_message
     
-    # 앱 전체 재실행 (필드 리셋을 확실하게 반영하기 위해)
-    st.experimental_rerun()
-# --- [리셋 함수 끝] ---
+# --- [reset_tab2_inputs 함수 끝] ---
+
 
 def load_supabase_credentials():
     try:
@@ -134,7 +136,7 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# --- [세션 상태 초기화] ---
+# 세션 상태 초기화
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
@@ -157,19 +159,16 @@ if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 if "reset_status" not in st.session_state: # 알림 메시지 플래그 초기화
     st.session_state.reset_status = ""
-# --- [세션 상태 초기화 끝] ---
 
 def load_product_data(selected_product_name):
     """
     Selectbox 선택 시 데이터를 로드하거나 입력 필드를 초기화하는 함수.
-    이 함수는 리셋 로직을 포함하지 않도록 변경했습니다. (reset_tab2_inputs 함수가 리셋을 전담)
     """
     if selected_product_name == "새로운 상품 입력":
-        # '새로운 상품 입력' 선택 시 is_edit_mode만 변경하고, 필드 리셋은 하지 않습니다.
-        # on_change 이벤트가 발생할 때마다 reset_tab2_inputs를 호출할 필요는 없습니다.
         st.session_state.is_edit_mode = False
-        # 필드 값은 session_state에 빈 문자열로 남아있거나, 이전에 입력된 값 그대로 표시됩니다.
-        # 새로운 상품 입력으로의 전환은 reset_tab2_inputs를 통해서만 명확히 이루어지도록 합니다.
+        # 새로운 상품을 선택해도 필드를 직접 건드리지 않습니다. 
+        # 사용자가 입력한 데이터는 session_state에 그대로 남아있다가, 
+        # 저장/수정/삭제 후 reset_tab2_inputs에 의해 초기화됩니다.
     else:
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
@@ -239,6 +238,7 @@ def main():
 
     # --- [상태 메시지 표시] ---
     if st.session_state.reset_status:
+        # st.success, st.warning, st.error 중 reset_status 값에 따라 메시지 표시
         if st.session_state.reset_status == "저장 완료":
             st.success("💾 새로운 상품이 성공적으로 저장되었습니다! 새로운 상품 입력 모드로 전환됨")
         elif st.session_state.reset_status == "수정 완료":
@@ -250,10 +250,10 @@ def main():
 
     with tab1:
         # tab1의 로직은 변경하지 않습니다.
-        # ... (기존 tab1 로직)
         left, right = st.columns(2)
         with left:
             st.subheader("판매정보 입력")
+            # st.text_input의 value를 직접 설정하지 않고, key로 세션 상태를 사용합니다.
             sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
             margin_display = st.empty()
 
@@ -422,7 +422,7 @@ def main():
             with col_left:
                 st.text_input("수량", value=st.session_state.quantity_input, key="quantity_input")
 
-            # --- [수량 계산 로직 (수정 필요 없음)] ---
+            # 수량 계산 로직
             sell_price = safe_int(st.session_state.sell_price_input)
             fee_rate = safe_float(st.session_state.fee_rate_input)
             inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
@@ -449,15 +449,14 @@ def main():
             etc_cost = safe_int(st.session_state.etc_cost_input)
             
             quantity_to_save = quantity
-            # --- [수량 계산 로직 끝] ---
+            # 수량 계산 로직 끝
 
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
                 
                 # --- [수정하기 버튼 로직] ---
                 with col_mod:
-                    # on_click에 리셋 함수 연결 및 메시지 설정
-                    if st.button("수정하기", on_click=lambda: reset_tab2_inputs("수정 완료")):
+                    if st.button("수정하기"):
                         if validate_inputs():
                             try:
                                 data_to_update = {
@@ -471,26 +470,33 @@ def main():
                                     "customs_duty": customs_duty,
                                     "etc_cost": etc_cost,
                                 }
+                                # Supabase 업데이트 실행
                                 supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
-                                # 메시지는 on_click 콜백에서 처리했으므로, 여기서는 DB 업데이트만 실행
-                                # st.rerun()은 콜백 함수에서 처리됩니다.
+                                
+                                # DB 작업 성공 후 리셋 및 재실행 요청
+                                reset_tab2_inputs("수정 완료")
+                                st.experimental_rerun() 
+                                
                             except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 
                 # --- [삭제하기 버튼 로직] ---
                 with col_del:
-                    # on_click에 리셋 함수 연결 및 메시지 설정
-                    if st.button("삭제하기", on_click=lambda: reset_tab2_inputs("삭제 완료")):
+                    if st.button("삭제하기"):
                         try:
+                            # Supabase 삭제 실행
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
-                            # 메시지는 on_click 콜백에서 처리
+                            
+                            # DB 작업 성공 후 리셋 및 재실행 요청
+                            reset_tab2_inputs("삭제 완료")
+                            st.experimental_rerun()
+                            
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
                             
             else:
                 # --- [상품 저장하기 버튼 로직] ---
-                # on_click에 리셋 함수 연결 및 메시지 설정
-                if st.button("상품 저장하기", on_click=lambda: reset_tab2_inputs("저장 완료")):
+                if st.button("상품 저장하기"):
                     if validate_inputs():
                         product_name_to_save = st.session_state.product_name_input
                         
@@ -498,31 +504,35 @@ def main():
                             st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
                         else:
                             try:
-                                data_to_save = {
-                                    "product_name": product_name_to_save,
-                                    "sell_price": sell_price,
-                                    "fee": fee_rate,
-                                    "inout_shipping_cost": inout_shipping_cost,
-                                    "purchase_cost": purchase_cost,
-                                    "quantity": quantity_to_save, 
-                                    "unit_purchase_cost": unit_purchase_cost,
-                                    "logistics_cost": logistics_cost,
-                                    "customs_duty": customs_duty,
-                                    "etc_cost": etc_cost,
-                                }
+                                # 중복 체크
                                 response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
                                 if response.data:
                                     st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
-                                    # 저장 실패 시 리셋 방지 (다시 로드되더라도 리셋 메시지를 띄우지 않도록)
-                                    st.session_state.reset_status = "" 
+                                    # 저장 실패 시 리셋 방지
                                 else:
+                                    data_to_save = {
+                                        "product_name": product_name_to_save,
+                                        "sell_price": sell_price,
+                                        "fee": fee_rate,
+                                        "inout_shipping_cost": inout_shipping_cost,
+                                        "purchase_cost": purchase_cost,
+                                        "quantity": quantity_to_save, 
+                                        "unit_purchase_cost": unit_purchase_cost,
+                                        "logistics_cost": logistics_cost,
+                                        "customs_duty": customs_duty,
+                                        "etc_cost": etc_cost,
+                                    }
+                                    # Supabase 저장 실행
                                     supabase.table("products").insert(data_to_save).execute()
-                                    # 메시지는 on_click 콜백에서 처리
+                                    
+                                    # DB 작업 성공 후 리셋 및 재실행 요청
+                                    reset_tab2_inputs("저장 완료")
+                                    st.experimental_rerun()
+
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
-                                st.session_state.reset_status = "" # 저장 실패 시 리셋 방지
                                 
-        # --- (tab2 나머지 로직은 변경하지 않습니다) ---
+        # --- (일일 정산 및 판매 현황 로직) ---
         with st.expander("일일 정산"):
             product_list = ["상품을 선택해주세요"]
             try:
