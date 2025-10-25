@@ -62,6 +62,9 @@ def save_config(config):
 
 def format_number(val):
     """숫자를 천 단위로 포맷팅합니다."""
+    # val이 None일 경우를 대비하여 처리
+    if val is None:
+        return ""
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
@@ -69,7 +72,7 @@ def reset_inputs():
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
-    st.session_state["qty_raw"] = "" # 변경: 1 -> ""
+    st.session_state["qty_raw"] = ""
     st.session_state["show_result"] = False  # 결과도 초기화
 
 def load_supabase_credentials():
@@ -114,25 +117,25 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화 (위젯 KEY와 동일하게 사용)
+# 세션 상태 초기화 (모든 숫자 입력 필드를 빈 문자열로 초기화)
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
-    st.session_state.sell_price_input = 0
+    st.session_state.sell_price_input = "" # 변경: 0 -> ""
 if "fee_rate_input" not in st.session_state:
-    st.session_state.fee_rate_input = 0.0
+    st.session_state.fee_rate_input = "" # 변경: 0.0 -> ""
 if "inout_shipping_cost_input" not in st.session_state:
-    st.session_state.inout_shipping_cost_input = 0
+    st.session_state.inout_shipping_cost_input = "" # 변경: 0 -> ""
 if "purchase_cost_input" not in st.session_state:
-    st.session_state.purchase_cost_input = 0
+    st.session_state.purchase_cost_input = "" # 변경: 0 -> ""
 if "quantity_input" not in st.session_state:
-    st.session_state.quantity_input = None # 변경: 1 -> None (빈칸으로 표시)
+    st.session_state.quantity_input = "" # 변경: 1 또는 None -> ""
 if "logistics_cost_input" not in st.session_state:
-    st.session_state.logistics_cost_input = 0
+    st.session_state.logistics_cost_input = "" # 변경: 0 -> ""
 if "customs_duty_input" not in st.session_state:
-    st.session_state.customs_duty_input = 0
+    st.session_state.customs_duty_input = "" # 변경: 0 -> ""
 if "etc_cost_input" not in st.session_state:
-    st.session_state.etc_cost_input = 0
+    st.session_state.etc_cost_input = "" # 변경: 0 -> ""
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 
@@ -142,14 +145,14 @@ def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
         st.session_state.product_name_input = ""
-        st.session_state.sell_price_input = 0
-        st.session_state.fee_rate_input = 0.0
-        st.session_state.inout_shipping_cost_input = 0
-        st.session_state.purchase_cost_input = 0
-        st.session_state.quantity_input = None # 변경: 1 -> None (빈칸으로 초기화)
-        st.session_state.logistics_cost_input = 0
-        st.session_state.customs_duty_input = 0
-        st.session_state.etc_cost_input = 0
+        st.session_state.sell_price_input = "" # 변경: 0 -> ""
+        st.session_state.fee_rate_input = "" # 변경: 0.0 -> ""
+        st.session_state.inout_shipping_cost_input = "" # 변경: 0 -> ""
+        st.session_state.purchase_cost_input = "" # 변경: 0 -> ""
+        st.session_state.quantity_input = "" # 변경: 1 또는 None -> ""
+        st.session_state.logistics_cost_input = "" # 변경: 0 -> ""
+        st.session_state.customs_duty_input = "" # 변경: 0 -> ""
+        st.session_state.etc_cost_input = "" # 변경: 0 -> ""
     else:
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
@@ -157,22 +160,45 @@ def load_product_data(selected_product_name):
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
                 
-                # 위젯 key에 해당하는 세션 상태 변수에 값을 직접 할당
+                # DB에서 불러온 값을 문자열로 변환하여 세션 상태에 저장 (빈칸 유지 목적)
                 st.session_state.product_name_input = product_data.get("product_name", "")
-                st.session_state.sell_price_input = int(product_data.get("sell_price", 0))
-                st.session_state.fee_rate_input = float(product_data.get("fee", 0.0))
-                st.session_state.inout_shipping_cost_input = int(product_data.get("inout_shipping_cost", 0))
-                st.session_state.purchase_cost_input = int(product_data.get("purchase_cost", 0))
+                
+                # 값이 None 또는 0이면 빈 문자열로, 아니면 문자열로 변환
+                def get_display_value(key, default=""):
+                    val = product_data.get(key)
+                    if val is None or val == 0:
+                        return ""
+                    # 수수료율 (fee)는 소수점 유지
+                    if key == "fee":
+                        return str(float(val))
+                    return str(int(val)) if isinstance(val, (int, float)) and val == int(val) else str(val)
 
-                # quantity_input 처리: DB 값이 0이거나 None이면 None으로 설정 (빈칸으로 표시)
-                db_qty = product_data.get("quantity")
-                st.session_state.quantity_input = int(db_qty) if db_qty is not None and int(db_qty) > 0 else None
+                st.session_state.sell_price_input = get_display_value("sell_price")
+                st.session_state.fee_rate_input = get_display_value("fee")
+                st.session_state.inout_shipping_cost_input = get_display_value("inout_shipping_cost")
+                st.session_state.purchase_cost_input = get_display_value("purchase_cost")
+                st.session_state.quantity_input = get_display_value("quantity")
+                st.session_state.logistics_cost_input = get_display_value("logistics_cost")
+                st.session_state.customs_duty_input = get_display_value("customs_duty")
+                st.session_state.etc_cost_input = get_display_value("etc_cost")
 
-                st.session_state.logistics_cost_input = int(product_data.get("logistics_cost", 0))
-                st.session_state.customs_duty_input = int(product_data.get("customs_duty", 0))
-                st.session_state.etc_cost_input = int(product_data.get("etc_cost", 0))
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
+
+# 문자열을 안전하게 정수로 변환 (계산/저장 시 사용)
+def safe_int(value):
+    try:
+        # 빈 문자열이면 0으로 처리
+        return int(float(value)) if value else 0
+    except (ValueError, TypeError):
+        return 0
+
+# 문자열을 안전하게 실수로 변환 (수수료율 등)
+def safe_float(value):
+    try:
+        return float(value) if value else 0.0
+    except (ValueError, TypeError):
+        return 0.0
 
 # 메인 함수
 def main():
@@ -226,7 +252,7 @@ def main():
                 unit_yuan = st.text_input("위안화 (¥)", key="unit_yuan")
             with col2:
                 unit_won = st.text_input("원화 (₩)", key="unit_won")
-            qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", "")) # 기본값 ""
+            qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", ""))
             calc_col, reset_col = st.columns(2)
             if calc_col.button("계산하기"):
                 st.session_state["show_result"] = True
@@ -326,6 +352,7 @@ def main():
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
 
+            # 상품명은 이미 text_input
             product_name = st.text_input(
                 "상품명",
                 value=st.session_state.product_name_input, 
@@ -335,47 +362,54 @@ def main():
 
             col_left, col_right = st.columns(2)
             with col_left:
-                st.number_input("판매가", step=1000, key="sell_price_input")
+                # 변경: number_input -> text_input
+                st.text_input("판매가", key="sell_price_input")
             with col_right:
-                st.number_input("수수료율 (%)", max_value=100.0, step=0.1, format="%.2f", key="fee_rate_input")
+                # 수수료율은 소수점을 입력해야 하므로 text_input 사용
+                st.text_input("수수료율 (%)", key="fee_rate_input") 
             with col_left:
-                st.number_input("입출고/배송비", step=100, key="inout_shipping_cost_input")
+                # 변경: number_input -> text_input
+                st.text_input("입출고/배송비", key="inout_shipping_cost_input")
             with col_right:
-                st.number_input("매입비", step=100, key="purchase_cost_input")
+                # 변경: number_input -> text_input
+                st.text_input("매입비", key="purchase_cost_input")
             with col_left:
-                st.number_input("수량", step=1, key="quantity_input") # key를 통해 None 값이 전달되어 빈칸으로 표시됨
+                # 변경: number_input -> text_input
+                st.text_input("수량", key="quantity_input")
 
-            # 수량과 매입비는 세션 상태에서 직접 가져와서 계산
-            # 수량이 None일 경우 계산 시 1로 간주
-            quantity = st.session_state.quantity_input
-            quantity_for_calc = quantity if quantity is not None and quantity > 0 else 1 # 0 또는 None이면 1로 간주
+            # 로컬 변수: 세션 상태를 안전하게 숫자로 변환 (빈칸이면 0 또는 1)
+            sell_price = safe_int(st.session_state.sell_price_input)
+            fee_rate = safe_float(st.session_state.fee_rate_input)
+            inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
+            purchase_cost = safe_int(st.session_state.purchase_cost_input)
+            quantity = safe_int(st.session_state.quantity_input)
             
-            purchase_cost = st.session_state.purchase_cost_input
+            # 매입단가 계산 시 안전한 수량 (0 또는 빈칸이면 1로 간주)
+            quantity_for_calc = quantity if quantity > 0 else 1 
             
             with col_right:
                 try:
-                    # None이나 0이 아닌 quantity_for_calc 사용
                     unit_purchase_cost = purchase_cost / quantity_for_calc
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_left:
-                st.number_input("물류비", step=100, key="logistics_cost_input")
+                # 변경: number_input -> text_input
+                st.text_input("물류비", key="logistics_cost_input")
             with col_right:
-                st.number_input("관세", step=100, key="customs_duty_input")
+                # 변경: number_input -> text_input
+                st.text_input("관세", key="customs_duty_input")
 
-            st.number_input("기타", step=100, key="etc_cost_input")
+            # 변경: number_input -> text_input
+            st.text_input("기타", key="etc_cost_input")
 
-            # 로컬 변수로 위젯의 현재 값 가져오기
-            sell_price = st.session_state.sell_price_input
-            fee_rate = st.session_state.fee_rate_input
-            inout_shipping_cost = st.session_state.inout_shipping_cost_input
-            logistics_cost = st.session_state.logistics_cost_input
-            customs_duty = st.session_state.customs_duty_input
-            etc_cost = st.session_state.etc_cost_input
+            # 로컬 변수: 나머지 필드도 안전하게 숫자로 변환
+            logistics_cost = safe_int(st.session_state.logistics_cost_input)
+            customs_duty = safe_int(st.session_state.customs_duty_input)
+            etc_cost = safe_int(st.session_state.etc_cost_input)
             
-            # DB 저장 시에는 None이 아닌 실제 값을 저장 (None이면 0으로 저장)
-            quantity_to_save = quantity if quantity is not None else 0 
+            # DB 저장 시에는 quantity가 0이면 0으로 저장
+            quantity_to_save = quantity
 
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
@@ -387,7 +421,7 @@ def main():
                                 "fee": fee_rate,
                                 "inout_shipping_cost": inout_shipping_cost,
                                 "purchase_cost": purchase_cost,
-                                "quantity": quantity_to_save, # None 대신 0 또는 입력된 값 저장
+                                "quantity": quantity_to_save, 
                                 "unit_purchase_cost": unit_purchase_cost,
                                 "logistics_cost": logistics_cost,
                                 "customs_duty": customs_duty,
@@ -420,7 +454,7 @@ def main():
                                 "fee": fee_rate,
                                 "inout_shipping_cost": inout_shipping_cost,
                                 "purchase_cost": purchase_cost,
-                                "quantity": quantity_to_save, # None 대신 0 또는 입력된 값 저장
+                                "quantity": quantity_to_save, 
                                 "unit_purchase_cost": unit_purchase_cost,
                                 "logistics_cost": logistics_cost,
                                 "customs_duty": customs_duty,
