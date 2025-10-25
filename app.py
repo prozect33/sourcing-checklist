@@ -69,6 +69,7 @@ def format_number(val):
 
 def reset_inputs():
     """입력 필드를 초기화합니다."""
+    # TAB1의 입력 필드를 빈 문자열로 초기화 (TAB2와 일관성 유지)
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
@@ -201,8 +202,7 @@ def safe_float(value):
     except (ValueError, TypeError):
         return 0.0
         
-# ----------------------------------------------------------------------
-# [수정된 로직] 필수 필드 검증 함수
+# 필수 필드 검증 함수
 def validate_inputs():
     """
     필수 입력 필드가 채워져 있는지 확인하고, 비어있는 경우 해당 필드의 이름만 표시합니다.
@@ -228,7 +228,6 @@ def validate_inputs():
             return False
             
     return True
-# ----------------------------------------------------------------------
 
 # 메인 함수
 def main():
@@ -243,7 +242,7 @@ def main():
             st.subheader("판매정보 입력")
             sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
             margin_display = st.empty()
-            # ... (tab1 계산 로직은 변경 없음)
+            # TAB1 계산 로직
             if sell_price_raw.strip():
                 try:
                     target_margin = 50.0
@@ -257,7 +256,6 @@ def main():
                     packaging_cost = round(config['PACKAGING_COST'] * vat)
                     gift_cost = round(config['GIFT_COST'] * vat)
                     supply_price = sell_price_val / vat
-                    C = fee + inout_cost + packaging_cost + gift_cost
                     C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
                                 - supply_price * (target_margin / 100) \
@@ -282,13 +280,16 @@ def main():
                 unit_yuan = st.text_input("위안화 (¥)", key="unit_yuan")
             with col2:
                 unit_won = st.text_input("원화 (₩)", key="unit_won")
+            # TAB1 수량 입력 필드. 세션 상태에서 값 가져오기
             qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", ""))
+            
             calc_col, reset_col = st.columns(2)
             if calc_col.button("계산하기"):
                 st.session_state["show_result"] = True
             if "show_result" not in st.session_state:
                 st.session_state["show_result"] = False
             reset_col.button("리셋", on_click=reset_inputs)
+        
         with right:
             if st.session_state["show_result"]:
                 try:
@@ -310,6 +311,8 @@ def main():
                 else:
                     unit_cost_val = 0
                     cost_display = ""
+                
+                # 상세 계산
                 vat = 1.1
                 unit_cost = round(unit_cost_val * qty)
                 fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
@@ -329,11 +332,14 @@ def main():
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
+
+                # 결과 출력
                 col_title, col_button = st.columns([4,1])
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
                     st.button("저장하기", key="save_button_tab1")
+                
                 if cost_display:
                     st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ 원가: {format_number(unit_cost)}원")
                 else:
@@ -343,6 +349,7 @@ def main():
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원 / ROI: {roi:.2f}%")
                 st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 📊 ROAS: {roas:.2f}%")
+                
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
@@ -402,7 +409,7 @@ def main():
             with col_left:
                 st.text_input("수량", key="quantity_input")
 
-            # 로컬 변수: 세션 상태를 안전하게 숫자로 변환 (빈칸이면 0 또는 1)
+            # 로컬 변수: 세션 상태를 안전하게 숫자로 변환
             sell_price = safe_int(st.session_state.sell_price_input)
             fee_rate = safe_float(st.session_state.fee_rate_input)
             inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
@@ -452,15 +459,18 @@ def main():
                                 }
                                 supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
                                 st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
+                                # 수정 후에는 재실행하지 않고 상태 유지
                             except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
                     if st.button("삭제하기"):
                         try:
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
-                            st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
-                            st.session_state.is_edit_mode = False
-                            st.session_state.product_name_input = ""
+                            st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다! 페이지를 다시 로드합니다.")
+                            
+                            # ✨ [수정된 로직] 위젯 상태 초기화 오류 방지를 위해 페이지 강제 재실행
+                            st.experimental_rerun() 
+                            
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
             else:
@@ -468,7 +478,7 @@ def main():
                     if validate_inputs(): # 검증 로직 호출
                         product_name_to_save = st.session_state.product_name_input
                         
-                        # validate_inputs에서 상품명은 이미 검증되었고, 여기서는 판매가 0 검증만 유지
+                        # 판매가 0 검증
                         if sell_price == 0:
                             st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
                         else:
@@ -491,6 +501,7 @@ def main():
                                 else:
                                     supabase.table("products").insert(data_to_save).execute()
                                     st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                    # 저장 후에는 재실행하지 않고 상태 유지
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
