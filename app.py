@@ -504,25 +504,34 @@ def main():
             report_date = st.date_input("날짜 선택", datetime.date.today())
 
             st.markdown("---")
-            st.markdown("#### 전체 판매")
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
-
-            st.markdown("---")
-            st.markdown("#### 광고 판매")
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
-            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
-
-            st.markdown("---")
             st.markdown("#### 자연 판매")
 
-            # 자연판매 자동 계산
-            organic_sales_qty = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
-            organic_revenue = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
+# 1️⃣ 자동 계산
+            organic_sales_qty = max(
+                st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0
+            )
+            organic_revenue = max(
+                st.session_state.total_revenue - st.session_state.ad_revenue, 0
+            )
 
-            st.metric(label="자연 판매 수량", value=organic_sales_qty)
-            st.metric(label="자연 판매 매출액", value=organic_revenue)
+# 2️⃣ session_state에 저장 (number_input에 반영 가능)
+            st.session_state.organic_sales_qty = organic_sales_qty
+            st.session_state.organic_revenue = organic_revenue
+
+# 3️⃣ 기존 UI 유지
+            st.number_input(
+                "자연 판매 수량",
+                value=st.session_state.organic_sales_qty,
+                disabled=True,
+                key="organic_sales_qty_input"
+            )
+
+            st.number_input(
+                "자연 판매 매출액",
+                value=st.session_state.organic_revenue,
+                disabled=True,
+                key="organic_revenue_input"
+            )
 
             st.metric(label="일일 순이익금", value="0")
 
