@@ -560,7 +560,7 @@ def main():
                 daily_profit = (
                     total_revenue
                     - (total_revenue * fee_rate_val / 100)
-                    - inout_shipping_cost_val
+                    - inout_shipping_cost_val * 1.1
                     - unit_purchase_cost * total_sales_qty_val
                     - unit_logistics * total_sales_qty_val
                     - unit_customs * total_sales_qty_val
