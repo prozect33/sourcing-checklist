@@ -82,6 +82,22 @@ def load_supabase_credentials():
     except KeyError:
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
+        
+# --- 새로운 함수 추가: 자연 판매 계산 및 세션 상태 업데이트 ---
+def update_organic_sales():
+    """전체 판매량/매출액과 광고 판매량/매출액을 기반으로 자연 판매량을 계산합니다."""
+    # 전체 판매 - 광고 판매
+    total_qty = st.session_state.get('total_sales_qty', 0)
+    ad_qty = st.session_state.get('ad_sales_qty', 0)
+    organic_qty = max(0, total_qty - ad_qty)
+    st.session_state["organic_sales_qty"] = organic_qty
+
+    # 전체 매출액 - 광고 매출액
+    total_rev = st.session_state.get('total_revenue', 0)
+    ad_rev = st.session_state.get('ad_revenue', 0)
+    organic_rev = max(0, total_rev - ad_rev)
+    st.session_state["organic_revenue"] = organic_rev
+# -----------------------------------------------------------
 
 config = load_config()
 st.sidebar.header("🛠️ 설정값")
@@ -107,6 +123,7 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
+# 세션 상태 초기화 (기존 코드 유지)
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
@@ -128,7 +145,7 @@ if "etc_cost_input" not in st.session_state:
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 
-# Initialize session state for daily settlement fields if they don't exist
+# 일일 정산 필드 세션 상태 초기화
 if "total_sales_qty" not in st.session_state:
     st.session_state.total_sales_qty = 0
 if "ad_sales_qty" not in st.session_state:
@@ -137,6 +154,12 @@ if "total_revenue" not in st.session_state:
     st.session_state.total_revenue = 0
 if "ad_revenue" not in st.session_state:
     st.session_state.ad_revenue = 0
+# --- 자연 판매 계산 결과를 위한 세션 상태 추가 ---
+if "organic_sales_qty" not in st.session_state:
+    st.session_state.organic_sales_qty = 0
+if "organic_revenue" not in st.session_state:
+    st.session_state.organic_revenue = 0
+# -----------------------------------------------------------
 
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
@@ -515,40 +538,37 @@ def main():
 
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
+            # --- on_change 콜백 함수 적용 ---
+            st.number_input("전체 판매 수량", step=1, key="total_sales_qty", on_change=update_organic_sales)
+            st.number_input("전체 매출액", step=1000, key="total_revenue", on_change=update_organic_sales)
+            # ---------------------------------
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
+            # --- on_change 콜백 함수 적용 ---
+            st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty", on_change=update_organic_sales)
+            st.number_input("광고 전환 매출액", step=1000, key="ad_revenue", on_change=update_organic_sales)
+            # ---------------------------------
             ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
 
             st.markdown("---")
             st.markdown("#### 자연 판매")
 
-            # Calculate organic sales based on session state values
-            total_qty = st.session_state.get('total_sales_qty', 0)
-            ad_qty = st.session_state.get('ad_sales_qty', 0)
-            organic_qty_calc = max(0, total_qty - ad_qty)
-
-            total_rev = st.session_state.get('total_revenue', 0)
-            ad_rev = st.session_state.get('ad_revenue', 0)
-            organic_rev_calc = max(0, total_rev - ad_rev)
-
+            # --- 자동 계산 값 사용 및 disabled 처리 ---
             organic_sales_qty = st.number_input(
                 "자연 판매 수량",
-                value=organic_qty_calc, # Use the calculated value
+                value=st.session_state.organic_sales_qty,
                 disabled=True,
-                key="organic_sales_qty"
+                key="organic_sales_qty_display" # 기존 키와 충돌 방지
             )
 
             organic_revenue = st.number_input(
                 "자연 판매 매출액",
-                value=organic_rev_calc, # Use the calculated value
+                value=st.session_state.organic_revenue,
                 disabled=True,
-                key="organic_revenue"
+                key="organic_revenue_display" # 기존 키와 충돌 방지
             )
+            # ------------------------------------------
 
             st.metric(label="일일 순이익금", value="0")
 
