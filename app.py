@@ -121,21 +121,21 @@ except Exception as e:
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
-    st.session_state.sell_price_input = "" # 변경: 0 -> ""
+    st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state:
-    st.session_state.fee_rate_input = "" # 변경: 0.0 -> ""
+    st.session_state.fee_rate_input = ""
 if "inout_shipping_cost_input" not in st.session_state:
-    st.session_state.inout_shipping_cost_input = "" # 변경: 0 -> ""
+    st.session_state.inout_shipping_cost_input = ""
 if "purchase_cost_input" not in st.session_state:
-    st.session_state.purchase_cost_input = "" # 변경: 0 -> ""
+    st.session_state.purchase_cost_input = ""
 if "quantity_input" not in st.session_state:
-    st.session_state.quantity_input = "" # 변경: 1 또는 None -> ""
+    st.session_state.quantity_input = ""
 if "logistics_cost_input" not in st.session_state:
-    st.session_state.logistics_cost_input = "" # 변경: 0 -> ""
+    st.session_state.logistics_cost_input = ""
 if "customs_duty_input" not in st.session_state:
-    st.session_state.customs_duty_input = "" # 변경: 0 -> ""
+    st.session_state.customs_duty_input = ""
 if "etc_cost_input" not in st.session_state:
-    st.session_state.etc_cost_input = "" # 변경: 0 -> ""
+    st.session_state.etc_cost_input = ""
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 
@@ -145,14 +145,14 @@ def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
         st.session_state.product_name_input = ""
-        st.session_state.sell_price_input = "" # 변경: 0 -> ""
-        st.session_state.fee_rate_input = "" # 변경: 0.0 -> ""
-        st.session_state.inout_shipping_cost_input = "" # 변경: 0 -> ""
-        st.session_state.purchase_cost_input = "" # 변경: 0 -> ""
-        st.session_state.quantity_input = "" # 변경: 1 또는 None -> ""
-        st.session_state.logistics_cost_input = "" # 변경: 0 -> ""
-        st.session_state.customs_duty_input = "" # 변경: 0 -> ""
-        st.session_state.etc_cost_input = "" # 변경: 0 -> ""
+        st.session_state.sell_price_input = ""
+        st.session_state.fee_rate_input = ""
+        st.session_state.inout_shipping_cost_input = ""
+        st.session_state.purchase_cost_input = ""
+        st.session_state.quantity_input = ""
+        st.session_state.logistics_cost_input = ""
+        st.session_state.customs_duty_input = ""
+        st.session_state.etc_cost_input = ""
     else:
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
@@ -166,6 +166,7 @@ def load_product_data(selected_product_name):
                 # 값이 None 또는 0이면 빈 문자열로, 아니면 문자열로 변환
                 def get_display_value(key, default=""):
                     val = product_data.get(key)
+                    # DB에 저장된 값이 0이라도 빈칸으로 표시
                     if val is None or val == 0:
                         return ""
                     # 수수료율 (fee)는 소수점 유지
@@ -199,6 +200,38 @@ def safe_float(value):
         return float(value) if value else 0.0
     except (ValueError, TypeError):
         return 0.0
+        
+# ----------------------------------------------------------------------
+# [추가된 로직] 필수 필드 검증 함수
+def validate_inputs():
+    """
+    필수 입력 필드가 채워져 있는지 확인하고, 비어있는 경우 경고 메시지를 표시합니다.
+    '기타' 필드는 제외합니다.
+    """
+    # 필수 필드 목록 (키: 표시 이름)
+    required_fields = {
+        "product_name_input": "상품명",
+        "sell_price_input": "판매가",
+        "fee_rate_input": "수수료율",
+        "inout_shipping_cost_input": "입출고/배송비",
+        "purchase_cost_input": "매입비",
+        "quantity_input": "수량",
+        "logistics_cost_input": "물류비",
+        "customs_duty_input": "관세",
+    }
+    
+    missing_fields = []
+    
+    for key, name in required_fields.items():
+        # 세션 상태 값이 비어있는지 확인
+        if not st.session_state.get(key):
+            missing_fields.append(name)
+            
+    if missing_fields:
+        st.warning(f"다음 필수 입력 필드를 채워주세요: {', '.join(missing_fields)}")
+        return False
+    return True
+# ----------------------------------------------------------------------
 
 # 메인 함수
 def main():
@@ -262,6 +295,7 @@ def main():
         with right:
             if st.session_state["show_result"]:
                 try:
+                    # TAB1 계산 로직: 수량이 빈 문자열이면 1로 처리
                     sell_price = int(float(sell_price_raw))
                     qty = int(float(qty_raw)) if qty_raw else 1
                 except:
@@ -352,7 +386,6 @@ def main():
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
 
-            # 상품명은 이미 text_input
             product_name = st.text_input(
                 "상품명",
                 value=st.session_state.product_name_input, 
@@ -362,19 +395,14 @@ def main():
 
             col_left, col_right = st.columns(2)
             with col_left:
-                # 변경: number_input -> text_input
                 st.text_input("판매가", key="sell_price_input")
             with col_right:
-                # 수수료율은 소수점을 입력해야 하므로 text_input 사용
                 st.text_input("수수료율 (%)", key="fee_rate_input") 
             with col_left:
-                # 변경: number_input -> text_input
                 st.text_input("입출고/배송비", key="inout_shipping_cost_input")
             with col_right:
-                # 변경: number_input -> text_input
                 st.text_input("매입비", key="purchase_cost_input")
             with col_left:
-                # 변경: number_input -> text_input
                 st.text_input("수량", key="quantity_input")
 
             # 로컬 변수: 세션 상태를 안전하게 숫자로 변환 (빈칸이면 0 또는 1)
@@ -394,19 +422,16 @@ def main():
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_left:
-                # 변경: number_input -> text_input
                 st.text_input("물류비", key="logistics_cost_input")
             with col_right:
-                # 변경: number_input -> text_input
                 st.text_input("관세", key="customs_duty_input")
 
-            # 변경: number_input -> text_input
             st.text_input("기타", key="etc_cost_input")
 
             # 로컬 변수: 나머지 필드도 안전하게 숫자로 변환
             logistics_cost = safe_int(st.session_state.logistics_cost_input)
             customs_duty = safe_int(st.session_state.customs_duty_input)
-            etc_cost = safe_int(st.session_state.etc_cost_input)
+            etc_cost = safe_int(st.session_state.etc_cost_input) # '기타' 필드는 필수 검증에서 제외되지만, 숫자로 변환 필요
             
             # DB 저장 시에는 quantity가 0이면 0으로 저장
             quantity_to_save = quantity
@@ -415,22 +440,23 @@ def main():
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
-                        try:
-                            data_to_update = {
-                                "sell_price": sell_price,
-                                "fee": fee_rate,
-                                "inout_shipping_cost": inout_shipping_cost,
-                                "purchase_cost": purchase_cost,
-                                "quantity": quantity_to_save, 
-                                "unit_purchase_cost": unit_purchase_cost,
-                                "logistics_cost": logistics_cost,
-                                "customs_duty": customs_duty,
-                                "etc_cost": etc_cost,
-                            }
-                            supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
-                            st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
-                        except Exception as e:
-                            st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
+                        if validate_inputs(): # [변경] 검증 로직 추가
+                            try:
+                                data_to_update = {
+                                    "sell_price": sell_price,
+                                    "fee": fee_rate,
+                                    "inout_shipping_cost": inout_shipping_cost,
+                                    "purchase_cost": purchase_cost,
+                                    "quantity": quantity_to_save, 
+                                    "unit_purchase_cost": unit_purchase_cost,
+                                    "logistics_cost": logistics_cost,
+                                    "customs_duty": customs_duty,
+                                    "etc_cost": etc_cost,
+                                }
+                                supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
+                                st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
+                            except Exception as e:
+                                st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
                     if st.button("삭제하기"):
                         try:
@@ -442,32 +468,34 @@ def main():
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
             else:
                 if st.button("상품 저장하기"):
-                    product_name_to_save = st.session_state.product_name_input
-                    
-                    if not product_name_to_save or sell_price == 0:
-                        st.warning("상품명과 판매가를 입력해 주세요.")
-                    else:
-                        try:
-                            data_to_save = {
-                                "product_name": product_name_to_save,
-                                "sell_price": sell_price,
-                                "fee": fee_rate,
-                                "inout_shipping_cost": inout_shipping_cost,
-                                "purchase_cost": purchase_cost,
-                                "quantity": quantity_to_save, 
-                                "unit_purchase_cost": unit_purchase_cost,
-                                "logistics_cost": logistics_cost,
-                                "customs_duty": customs_duty,
-                                "etc_cost": etc_cost,
-                            }
-                            response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
-                            if response.data:
-                                st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
-                            else:
-                                supabase.table("products").insert(data_to_save).execute()
-                                st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
-                        except Exception as e:
-                            st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+                    if validate_inputs(): # [변경] 검증 로직 추가
+                        product_name_to_save = st.session_state.product_name_input
+                        
+                        # 상품명은 validate_inputs에서 이미 검증되었지만, 추가적인 판매가 0 검증은 유지
+                        if sell_price == 0:
+                            st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
+                        else:
+                            try:
+                                data_to_save = {
+                                    "product_name": product_name_to_save,
+                                    "sell_price": sell_price,
+                                    "fee": fee_rate,
+                                    "inout_shipping_cost": inout_shipping_cost,
+                                    "purchase_cost": purchase_cost,
+                                    "quantity": quantity_to_save, 
+                                    "unit_purchase_cost": unit_purchase_cost,
+                                    "logistics_cost": logistics_cost,
+                                    "customs_duty": customs_duty,
+                                    "etc_cost": etc_cost,
+                                }
+                                response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
+                                if response.data:
+                                    st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
+                                else:
+                                    supabase.table("products").insert(data_to_save).execute()
+                                    st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                            except Exception as e:
+                                st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
         with st.expander("일일 정산"):
             product_list = ["상품을 선택해주세요"]
