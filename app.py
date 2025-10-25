@@ -68,8 +68,7 @@ def format_number(val):
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
-    """입력 필드를 초기화합니다."""
-    # TAB1의 입력 필드를 빈 문자열로 초기화 (TAB2와 일관성 유지)
+    """TAB1의 입력 필드를 초기화합니다."""
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
@@ -79,6 +78,7 @@ def reset_inputs():
 def load_supabase_credentials():
     """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
     try:
+        # NOTE: 이 파일은 사용자 환경에 있어야 합니다.
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
@@ -118,7 +118,7 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화 (모든 숫자 입력 필드를 빈 문자열로 초기화)
+# 세션 상태 초기화 (TAB2 필드의 값 유지를 위해 빈 문자열로 초기화)
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
@@ -224,7 +224,7 @@ def validate_inputs():
         # 세션 상태 값이 비어있는지 확인
         if not st.session_state.get(key):
             # 첫 번째로 발견된 누락 필드만 경고 메시지로 표시하고 즉시 종료
-            st.warning(f"{name} 필드를 채워주세요") 
+            st.warning(f"**{name}** 필드를 채워주세요") 
             return False
             
     return True
@@ -468,7 +468,9 @@ def main():
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
                             st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다! 페이지를 다시 로드합니다.")
                             
-                            # ✨ [수정된 로직] st.experimental_rerun() 대신 st.rerun() 사용
+                            # ✨ [핵심 수정 로직]: selectbox 값을 '새로운 상품 입력'으로 강제 설정하여 초기화 유도
+                            st.session_state.product_loader = "새로운 상품 입력"
+                            # ✨ [최신 Streamlit 권장]: 오류 없이 페이지를 완전히 다시 로드하여 모든 필드 초기화
                             st.rerun() 
                             
                         except Exception as e:
