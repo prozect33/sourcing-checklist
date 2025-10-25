@@ -541,9 +541,7 @@ def main():
 
 
             if selected_product_name != "상품을 선택해주세요" and product_data:
-                total_sales_qty_val = total_sales_qty
-                ad_cost_val = ad_cost
-
+                sell_price_val = product_data.get("sell_price", 0)
                 fee_rate_val = product_data.get("fee", 0.0)
                 inout_shipping_cost_val = product_data.get("inout_shipping_cost", 0)
                 purchase_cost_val = product_data.get("purchase_cost", 0)
@@ -551,20 +549,23 @@ def main():
                 logistics_cost_val = product_data.get("logistics_cost", 0)
                 customs_duty_val = product_data.get("customs_duty", 0)
                 etc_cost_val = product_data.get("etc_cost", 0)
+                ad_cost_val = ad_cost  # 사용자가 입력한 광고비
 
+                # 단가 계산
                 unit_purchase_cost = purchase_cost_val / quantity_val if quantity_val else 0
                 unit_logistics = logistics_cost_val / quantity_val if quantity_val else 0
                 unit_customs = customs_duty_val / quantity_val if quantity_val else 0
                 unit_etc = etc_cost_val / quantity_val if quantity_val else 0
 
+                # 일일 순이익금 계산
                 daily_profit = (
-                    total_revenue
-                    - (total_revenue * fee_rate_val / 100 * 1.1)
-                    - inout_shipping_cost_val * 1.1
-                    - unit_purchase_cost * total_sales_qty_val
-                    - unit_logistics * total_sales_qty_val
-                    - unit_customs * total_sales_qty_val
-                    - unit_etc * total_sales_qty_val
+                    sell_price_val
+                    - (sell_price_val * fee_rate_val / 100 * 1.1)
+                    - (inout_shipping_cost_val * 1.1)
+                    - unit_purchase_cost
+                    - unit_logistics
+                    - unit_customs
+                    - unit_etc
                     - ad_cost_val
                 )
             else:
