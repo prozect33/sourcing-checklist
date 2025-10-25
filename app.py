@@ -75,8 +75,6 @@ def reset_inputs():
 def load_supabase_credentials():
     """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
     try:
-        # 이 부분은 실제로 파일을 만들었을 때 작동합니다.
-        # 파일이 없다면 에러가 나도록 유지합니다.
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
@@ -117,7 +115,7 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화 (세부 마진 계산기)
+# 세션 상태 초기화 (세부 마진 계산기) - 'edit' 상태 변수
 if "product_name_edit" not in st.session_state:
     st.session_state.product_name_edit = ""
 if "sell_price_edit" not in st.session_state:
@@ -138,15 +136,25 @@ if "etc_cost_edit" not in st.session_state:
     st.session_state.etc_cost_edit = 0
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
-# 💡 상품 선택 박스 초기화를 위한 key 값 초기화 (전역)
 if 'product_loader' not in st.session_state:
-    st.session_state.product_loader = "새로운 상품 입력"
+    st.session_state.product_loader = "새로운 상품 입력" # 선택 박스 기본값 설정
+
+# 입력 위젯의 key에 대한 세션 상태 초기화 (초기 로드 시 오류 방지)
+# 이 부분은 페이지 시작 시점에만 한 번 실행됩니다.
+if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = 0
+if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = 0.0
+if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = 0
+if "purchase_cost_input" not in st.session_state: st.session_state.purchase_cost_input = 0
+if "quantity_input" not in st.session_state: st.session_state.quantity_input = 1
+if "logistics_cost_input" not in st.session_state: st.session_state.logistics_cost_input = 0
+if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_input = 0
+if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = 0
 
 
-## 💡 수정된 초기화 함수: st.session_state.product_loader를 직접 수정하지 않음
+## 💡 수정된 초기화 함수: 모든 입력 필드의 key 값 초기화 추가
 def reset_detail_inputs():
     """세부 마진 계산기 탭의 입력 필드와 선택 박스 상태를 초기화하고 페이지를 재실행합니다."""
-    # 모든 입력 필드 관련 세션 상태를 초기값으로 리셋
+    # 상품 데이터 (edit) 관련 세션 상태 초기값으로 리셋
     st.session_state.product_name_edit = ""
     st.session_state.sell_price_edit = 0
     st.session_state.fee_rate_edit = 0.0
@@ -158,16 +166,23 @@ def reset_detail_inputs():
     st.session_state.etc_cost_edit = 0
     st.session_state.is_edit_mode = False
     
-    # 🚨 product_loader를 직접 수정하는 대신, st.rerun()을 통해
-    # 전역 초기화 코드(위의 if 'product_loader' not in st.session_state: ...)가
-    # 실행되어 '새로운 상품 입력'으로 돌아가도록 유도합니다.
+    # 🚨 핵심 수정: number_input의 key에 저장된 값들을 초기화하여 강제로 기본값으로 만듭니다.
+    st.session_state.sell_price_input = 0
+    st.session_state.fee_rate_input = 0.0
+    st.session_state.inout_shipping_cost_input = 0
+    st.session_state.purchase_cost_input = 0
+    st.session_state.quantity_input = 1
+    st.session_state.logistics_cost_input = 0
+    st.session_state.customs_duty_input = 0
+    st.session_state.etc_cost_input = 0
+    
+    # 페이지 재실행을 통해 상품 목록을 다시 로드하고 위젯을 리셋
     st.rerun() 
 
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
     """선택된 상품의 정보를 불러와 세션 상태를 업데이트합니다."""
-    # 이 함수는 selectbox의 on_change 이벤트에서만 실행됩니다.
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
         st.session_state.product_name_edit = ""
@@ -179,24 +194,45 @@ def load_product_data(selected_product_name):
         st.session_state.logistics_cost_edit = 0
         st.session_state.customs_duty_edit = 0
         st.session_state.etc_cost_edit = 0
+        
+        # 🚨 상품 로드 시 '새로운 상품 입력'이면 모든 입력 필드 key 값도 초기화
+        st.session_state.sell_price_input = 0
+        st.session_state.fee_rate_input = 0.0
+        st.session_state.inout_shipping_cost_input = 0
+        st.session_state.purchase_cost_input = 0
+        st.session_state.quantity_input = 1
+        st.session_state.logistics_cost_input = 0
+        st.session_state.customs_duty_input = 0
+        st.session_state.etc_cost_input = 0
+
     else:
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
             if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
+                
+                # 'edit' 상태 변수 업데이트
                 st.session_state.product_name_edit = product_data.get("product_name", "")
                 st.session_state.sell_price_edit = int(product_data.get("sell_price", 0))
                 st.session_state.fee_rate_edit = float(product_data.get("fee", 0.0))
                 st.session_state.inout_shipping_cost_edit = int(product_data.get("inout_shipping_cost", 0))
                 st.session_state.purchase_cost_edit = int(product_data.get("purchase_cost", 0))
-                
-                # quantity_edit에 대해 min_value를 강제하지 않음
                 st.session_state.quantity_edit = int(product_data.get("quantity", 0)) if "quantity" in product_data and product_data.get("quantity") is not None else 0
-                
                 st.session_state.logistics_cost_edit = int(product_data.get("logistics_cost", 0))
                 st.session_state.customs_duty_edit = int(product_data.get("customs_duty", 0))
                 st.session_state.etc_cost_edit = int(product_data.get("etc_cost", 0))
+
+                # 🚨 입력 필드 key 상태도 로드된 값으로 업데이트 (선택된 상품으로 채움)
+                st.session_state.sell_price_input = st.session_state.sell_price_edit
+                st.session_state.fee_rate_input = st.session_state.fee_rate_edit
+                st.session_state.inout_shipping_cost_input = st.session_state.inout_shipping_cost_edit
+                st.session_state.purchase_cost_input = st.session_state.purchase_cost_edit
+                st.session_state.quantity_input = st.session_state.quantity_edit
+                st.session_state.logistics_cost_input = st.session_state.logistics_cost_edit
+                st.session_state.customs_duty_input = st.session_state.customs_duty_edit
+                st.session_state.etc_cost_input = st.session_state.etc_cost_edit
+
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
 
@@ -361,42 +397,43 @@ def main():
             
             col_left, col_right = st.columns(2)
             with col_left:
-                # min_value 제거
-                sell_price = st.number_input("판매가", step=1000, value=st.session_state.sell_price_edit, key="sell_price_input") 
+                # 'sell_price_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                sell_price = st.number_input("판매가", step=1000, value=st.session_state.sell_price_input, key="sell_price_input") 
             with col_right:
-                # min_value 제거 (max_value는 그대로 유지)
-                fee_rate = st.number_input("수수료율 (%)", max_value=100.0, step=0.1, format="%.2f", value=st.session_state.fee_rate_edit, key="fee_rate_input")
+                # 'fee_rate_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                fee_rate = st.number_input("수수료율 (%)", max_value=100.0, step=0.1, format="%.2f", value=st.session_state.fee_rate_input, key="fee_rate_input")
             with col_left:
-                # min_value 제거
-                inout_shipping_cost = st.number_input("입출고/배송비", step=100, value=st.session_state.inout_shipping_cost_edit, key="inout_shipping_cost_input")
+                # 'inout_shipping_cost_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                inout_shipping_cost = st.number_input("입출고/배송비", step=100, value=st.session_state.inout_shipping_cost_input, key="inout_shipping_cost_input")
             with col_right:
-                # min_value 제거
-                purchase_cost = st.number_input("매입비", step=100, value=st.session_state.purchase_cost_edit, key="purchase_cost_input")
+                # 'purchase_cost_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                purchase_cost = st.number_input("매입비", step=100, value=st.session_state.purchase_cost_input, key="purchase_cost_input")
             with col_left:
-                # min_value 제거
-                quantity = st.number_input("수량", step=1, value=st.session_state.quantity_edit, key="quantity_input")
+                # 'quantity_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                quantity = st.number_input("수량", step=1, value=st.session_state.quantity_input, key="quantity_input")
             
             with col_right:
                 try:
-                    unit_purchase_cost = purchase_cost / quantity
+                    unit_purchase_cost = purchase_cost / quantity if quantity else 0
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_left:
-                # min_value 제거
-                logistics_cost = st.number_input("물류비", step=100, value=st.session_state.logistics_cost_edit, key="logistics_cost_input")
+                # 'logistics_cost_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                logistics_cost = st.number_input("물류비", step=100, value=st.session_state.logistics_cost_input, key="logistics_cost_input")
             with col_right:
-                # min_value 제거
-                customs_duty = st.number_input("관세", step=100, value=st.session_state.customs_duty_edit, key="customs_duty_input")
+                # 'customs_duty_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+                customs_duty = st.number_input("관세", step=100, value=st.session_state.customs_duty_input, key="customs_duty_input")
             
-            # min_value 제거
-            etc_cost = st.number_input("기타", step=100, value=st.session_state.etc_cost_edit, key="etc_cost_input")
+            # 'etc_cost_input' key의 세션 상태를 value로 사용하여 리셋이 반영되도록 합니다.
+            etc_cost = st.number_input("기타", step=100, value=st.session_state.etc_cost_input, key="etc_cost_input")
             
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
                         try:
+                            # 현재 입력 필드의 값 사용
                             data_to_update = {
                                 "sell_price": sell_price,
                                 "fee": fee_rate,
@@ -429,6 +466,7 @@ def main():
                         st.warning("상품명과 판매가를 입력해 주세요.")
                     else:
                         try:
+                            # 현재 입력 필드의 값 사용
                             data_to_save = {
                                 "product_name": product_name,
                                 "sell_price": sell_price,
