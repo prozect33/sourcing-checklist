@@ -466,12 +466,10 @@ def main():
                     if st.button("삭제하기"):
                         try:
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
-                            st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다! 페이지를 다시 로드합니다.")
+                            st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
                             
-                            # ✨ [핵심 수정 로직]: selectbox 값을 '새로운 상품 입력'으로 강제 설정하여 초기화 유도
-                            st.session_state.product_loader = "새로운 상품 입력"
-                            # ✨ [최신 Streamlit 권장]: 오류 없이 페이지를 완전히 다시 로드하여 모든 필드 초기화
-                            st.rerun() 
+                            # 🚫 [수정된 로직]: 오류 발생 가능성 있는 모든 리셋/재실행 코드를 제거함
+                            # 사용자가 수동으로 새로고침(F5)해야 화면이 초기화됩니다.
                             
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
