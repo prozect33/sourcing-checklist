@@ -83,7 +83,6 @@ def load_supabase_credentials():
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
 
-# 사이드바 설정
 config = load_config()
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
@@ -101,7 +100,6 @@ if st.sidebar.button("📂 기본값으로 저장"):
     save_config(config)
     st.sidebar.success("기본값이 저장되었습니다.")
 
-# Supabase 클라이언트 초기화
 try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -109,7 +107,6 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
@@ -149,9 +146,9 @@ def load_product_data(selected_product_name):
             if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
-                
+
                 st.session_state.product_name_input = product_data.get("product_name", "")
-                
+
                 def get_display_value(key, default=""):
                     val = product_data.get(key)
                     if val is None or val == 0:
@@ -183,7 +180,7 @@ def safe_float(value):
         return float(value) if value else 0.0
     except (ValueError, TypeError):
         return 0.0
-        
+
 def validate_inputs():
     required_fields = {
         "product_name_input": "상품명",
@@ -195,12 +192,12 @@ def validate_inputs():
         "logistics_cost_input": "물류비",
         "customs_duty_input": "관세",
     }
-    
+
     for key, name in required_fields.items():
         if not st.session_state.get(key):
-            st.warning(f"**{name}** 필드를 채워주세요") 
+            st.warning(f"**{name}** 필드를 채워주세요")
             return False
-            
+
     return True
 
 def main():
@@ -254,14 +251,14 @@ def main():
             with col2:
                 unit_won = st.text_input("원화 (₩)", key="unit_won")
             qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", ""))
-            
+
             calc_col, reset_col = st.columns(2)
             if calc_col.button("계산하기"):
                 st.session_state["show_result"] = True
             if "show_result" not in st.session_state:
                 st.session_state["show_result"] = False
             reset_col.button("리셋", on_click=reset_inputs)
-        
+
         with right:
             if st.session_state["show_result"]:
                 try:
@@ -282,8 +279,7 @@ def main():
                 else:
                     unit_cost_val = 0
                     cost_display = ""
-                
-                # 상세 계산
+
                 vat = 1.1
                 unit_cost = round(unit_cost_val * qty)
                 fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
@@ -304,13 +300,12 @@ def main():
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                 roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
 
-                # 결과 출력
                 col_title, col_button = st.columns([4,1])
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
                     st.button("저장하기", key="save_button_tab1")
-                
+
                 if cost_display:
                     st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ 원가: {format_number(unit_cost)}원")
                 else:
@@ -320,7 +315,7 @@ def main():
                 st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원 / ROI: {roi:.2f}%")
                 st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 📊 ROAS: {roas:.2f}%")
-                
+
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
                         return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
@@ -363,7 +358,7 @@ def main():
 
             product_name = st.text_input(
                 "상품명",
-                value=st.session_state.product_name_input, 
+                value=st.session_state.product_name_input,
                 key="product_name_input",
                 placeholder="예: 무선 이어폰"
             )
@@ -372,7 +367,7 @@ def main():
             with col_left:
                 st.text_input("판매가", key="sell_price_input")
             with col_right:
-                st.text_input("수수료율 (%)", key="fee_rate_input") 
+                st.text_input("수수료율 (%)", key="fee_rate_input")
             with col_left:
                 st.text_input("입출고/배송비", key="inout_shipping_cost_input")
             with col_right:
@@ -385,9 +380,9 @@ def main():
             inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
             purchase_cost = safe_int(st.session_state.purchase_cost_input)
             quantity = safe_int(st.session_state.quantity_input)
-            
-            quantity_for_calc = quantity if quantity > 0 else 1 
-            
+
+            quantity_for_calc = quantity if quantity > 0 else 1
+
             with col_right:
                 try:
                     unit_purchase_cost = purchase_cost / quantity_for_calc
@@ -404,7 +399,7 @@ def main():
             logistics_cost = safe_int(st.session_state.logistics_cost_input)
             customs_duty = safe_int(st.session_state.customs_duty_input)
             etc_cost = safe_int(st.session_state.etc_cost_input)
-            
+
             quantity_to_save = quantity
 
             if st.session_state.is_edit_mode:
@@ -418,7 +413,7 @@ def main():
                                     "fee": fee_rate,
                                     "inout_shipping_cost": inout_shipping_cost,
                                     "purchase_cost": purchase_cost,
-                                    "quantity": quantity_to_save, 
+                                    "quantity": quantity_to_save,
                                     "unit_purchase_cost": unit_purchase_cost,
                                     "logistics_cost": logistics_cost,
                                     "customs_duty": customs_duty,
@@ -439,7 +434,7 @@ def main():
                 if st.button("상품 저장하기"):
                     if validate_inputs():
                         product_name_to_save = st.session_state.product_name_input
-                        
+
                         if sell_price == 0:
                             st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
                         else:
@@ -450,7 +445,7 @@ def main():
                                     "fee": fee_rate,
                                     "inout_shipping_cost": inout_shipping_cost,
                                     "purchase_cost": purchase_cost,
-                                    "quantity": quantity_to_save, 
+                                    "quantity": quantity_to_save,
                                     "unit_purchase_cost": unit_purchase_cost,
                                     "logistics_cost": logistics_cost,
                                     "customs_duty": customs_duty,
@@ -493,7 +488,7 @@ def main():
                     display_qty = product_data.get('quantity')
                     if display_qty is None:
                         display_qty = 0
-                    
+
                     st.markdown(f"**판매가:** {product_data.get('sell_price', 0):,}원")
                     st.markdown(f"**수수료율:** {product_data.get('fee', 0.0):.2f}%")
                     st.markdown(f"**매입비:** {product_data.get('purchase_cost', 0):,}원")
