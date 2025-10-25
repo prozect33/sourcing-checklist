@@ -130,6 +130,14 @@ if "etc_cost_input" not in st.session_state:
     st.session_state.etc_cost_input = ""
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
+if "total_sales_qty" not in st.session_state:
+    st.session_state.total_sales_qty = 0
+if "ad_sales_qty" not in st.session_state:
+    st.session_state.ad_sales_qty = 0
+if "total_revenue" not in st.session_state:
+    st.session_state.total_revenue = 0
+if "ad_revenue" not in st.session_state:
+    st.session_state.ad_revenue = 0
 
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
@@ -230,14 +238,18 @@ def main():
                     gift_cost = round(config['GIFT_COST'] * vat)
                     supply_price = sell_price_val / vat
                     C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
-                    raw_cost2 = sell_price_val \
-                                - supply_price * (target_margin / 100) \
-                                - C_total_fixed_cost
-                    target_cost = max(0, int(raw_cost2))
+                    
+                    # 목표 마진 50%를 달성하기 위한 최대 원가 (Raw Cost)
+                    raw_cost2 = supply_price - (supply_price * (target_margin / 100))
+                    target_cost = max(0, int(raw_cost2) - int(C_total_fixed_cost/vat)) 
+                    
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
+                    
+                    # 판매가에서 모든 비용을 제외한 순이익 (광고, 기타 제외)
                     profit = sell_price_val - (
-                        round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
+                        target_cost + fee + inout_cost + packaging_cost + gift_cost
                     )
+                    
                     margin_display.markdown(
                         f"""
 <div style='height:10px; line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
@@ -298,28 +310,32 @@ def main():
                 total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                 profit2 = sell_price - total_cost
                 supply_price2 = sell_price / vat
+                
+                # 마진 계산: 광고비, 기타비용, 반품비 등을 제외한 기본 마진
                 margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
                 margin_ratio = round((margin_profit / supply_price2) * 100, 2)
+                
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
-                roas = round((sell_price / (profit2 + ad)) * 100, 2) if profit2 else 0
+                roas = round((sell_price / (ad)) * 100, 2) if ad else 0 # ROAS 계산 수정 (광고비만으로)
 
                 # 결과 출력
                 col_title, col_button = st.columns([4,1])
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
-                    st.button("저장하기", key="save_button_tab1")
+                    # '간단 마진 계산기'의 계산 결과를 저장하는 로직은 복잡하여 일단 버튼만 둡니다.
+                    st.button("저장하기", key="save_button_tab1", disabled=True, help="세부 마진 계산기 탭에서 상품 정보를 저장해주세요.")
                 
                 if cost_display:
-                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ 원가: {format_number(unit_cost)}원")
+                    st.markdown(f"- 🏷️ 원가: **{format_number(unit_cost)}원** ({cost_display})" if unit_cost > 0 else f"- 🏷️ 원가: **{format_number(unit_cost)}원**")
                 else:
-                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원")
-                st.markdown(f"- 💰 마진: {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
-                st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
-                st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원 / ROI: {roi:.2f}%")
-                st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
-                st.markdown(f"- 📊 ROAS: {roas:.2f}%")
+                    st.markdown(f"- 🏷️ 원가: **{format_number(unit_cost)}원**")
+                st.markdown(f"- 💰 마진 (광고/기타 제외): **{format_number(margin_profit)}원** / ROI: {roi_margin:.2f}%")
+                st.markdown(f"- 📈 마진율 (공급가 기준): **{margin_ratio:.2f}%**")
+                st.markdown(f"- 🧾 최소 이익 (모든 비용 포함): **{format_number(profit2)}원** / ROI: {roi:.2f}%")
+                st.markdown(f"- 📉 최소마진율: **{(profit2/supply_price2*100):.2f}%**")
+                st.markdown(f"- 📊 ROAS: **{roas:.2f}%**")
                 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
@@ -329,20 +345,33 @@ def main():
                     st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("입출고비용:", f"{format_number(inout)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("회수비용:", f"{format_number(pickup)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("재입고비용:", f"{format_number(restock)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("반품비용:", f"{format_number(return_cost)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("기타비용:", f"{format_number(etc)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("사은품 비용:", f"{format_number(gift)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("총비용:", f"{format_number(total_cost)}원"), unsafe_allow_html=True)
+                    st.markdown("---")
                     st.markdown(styled_line("공급가액:", f"{format_number(round(supply_price2))}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
                     st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
-                    st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
+                    st.markdown(styled_line("투자수익률 (ROI):", f"{roi:.2f}%"), unsafe_allow_html=True)
+
 
     with tab2:
         st.subheader("세부 마진 계산기")
+
+        # tab2 전용 초기화 함수 (main() 내부에 정의)
+        def reset_tab2_inputs():
+            keys_to_reset = [
+                "product_name_input", "sell_price_input", "fee_rate_input",
+                "inout_shipping_cost_input", "purchase_cost_input", "quantity_input",
+                "logistics_cost_input", "customs_duty_input", "etc_cost_input",
+                "product_loader"
+            ]
+            for key in keys_to_reset:
+                if key in st.session_state:
+                    st.session_state[key] = ""
+            st.session_state.is_edit_mode = False
 
         with st.expander("상품 정보 입력"):
             product_list = ["새로운 상품 입력"]
@@ -425,16 +454,18 @@ def main():
                                     "etc_cost": etc_cost,
                                 }
                                 supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
-                                st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
+                                reset_tab2_inputs()
+                                st.success("상품 정보가 수정되었습니다. 새로운 상품 입력 상태로 돌아갑니다.")
                             except Exception as e:
-                                st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
+                                st.error(f"데이터 수정 중 오류: {e}")
                 with col_del:
                     if st.button("삭제하기"):
                         try:
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
-                            st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
+                            reset_tab2_inputs()
+                            st.success("상품이 삭제되었습니다. 새로운 상품 입력 상태로 돌아갑니다.")
                         except Exception as e:
-                            st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
+                            st.error(f"데이터 삭제 중 오류: {e}")
             else:
                 if st.button("상품 저장하기"):
                     if validate_inputs():
@@ -461,10 +492,69 @@ def main():
                                     st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                                 else:
                                     supabase.table("products").insert(data_to_save).execute()
-                                    st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                    reset_tab2_inputs()
+                                    st.success("상품이 저장되었습니다. 새로운 상품 입력 상태로 돌아갑니다.")
                             except Exception as e:
-                                st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+                                st.error(f"데이터 저장 중 오류: {e}")
+        
+        # ----------------------------------------------
+        # **추가된 세부 마진 계산 결과 표시 로직**
+        # ----------------------------------------------
+        if sell_price > 0 and (purchase_cost > 0 or unit_purchase_cost > 0):
+            st.markdown("---")
+            st.subheader("마진 계산 결과 (단위: 1개)")
 
+            # 계산에 사용할 1개당 비용
+            unit_inout_cost = inout_shipping_cost / quantity_for_calc
+            unit_logistics_cost = logistics_cost / quantity_for_calc
+            unit_customs_duty = customs_duty / quantity_for_calc
+            unit_etc_cost = etc_cost / quantity_for_calc
+            
+            # 1. 원가 계산 (매입 + 부대 비용)
+            unit_cost_raw = unit_purchase_cost + unit_logistics_cost + unit_customs_duty
+            
+            # 2. 총 판매 비용 (수수료, 배송비, 기타 비용 포함)
+            vat_rate = 1.1
+            fee_amount = (sell_price * fee_rate / 100) # VAT 여부는 로직에 따라 다름. 여기서는 판매가 기준 단순 계산.
+            
+            # 총 단위 비용 = 원가(매입+부대) + 판매비용(수수료+입출고/배송+기타)
+            total_unit_cost = unit_cost_raw + fee_amount + unit_inout_cost + unit_etc_cost
+            
+            # 3. 마진 계산
+            profit_margin_amount = sell_price - total_unit_cost
+            
+            # 4. 마진율 계산 (공급가액 기준)
+            supply_price_unit = sell_price / vat_rate
+            margin_ratio = (profit_margin_amount / supply_price_unit) * 100 if supply_price_unit else 0
+            
+            # 5. 투자수익률 (ROI)
+            roi_ratio = (profit_margin_amount / unit_purchase_cost) * 100 if unit_purchase_cost else 0
+
+            col_res1, col_res2, col_res3 = st.columns(3)
+            
+            col_res1.metric("단위 판매가 (VAT 포함)", f"{sell_price:,.0f}원")
+            col_res1.metric("총 비용 (1개당)", f"{total_unit_cost:,.0f}원")
+            
+            col_res2.metric("순이익금 (1개당)", f"{profit_margin_amount:,.0f}원", 
+                            delta=f"{margin_ratio:,.2f}% (공급가 마진율)", delta_color="normal")
+            
+            col_res3.metric("매입단가", f"{unit_purchase_cost:,.0f}원")
+            col_res3.metric("투자수익률 (ROI)", f"{roi_ratio:,.2f}%")
+            
+            with st.expander("세부 비용 Breakdown"):
+                st.markdown(f"**- 원가 (매입단가 + 부대비용):** {unit_cost_raw:,.0f}원")
+                st.markdown(f"**- 판매 수수료 ({fee_rate:.2f}%):** {fee_amount:,.0f}원")
+                st.markdown(f"**- 입출고/배송비:** {unit_inout_cost:,.0f}원")
+                st.markdown(f"**- 물류비:** {unit_logistics_cost:,.0f}원")
+                st.markdown(f"**- 관세:** {unit_customs_duty:,.0f}원")
+                st.markdown(f"**- 기타:** {unit_etc_cost:,.0f}원")
+                st.markdown(f"**- 총 이익:** {profit_margin_amount:,.0f}원")
+
+
+        else:
+            st.info("판매가와 매입비(또는 수량)을 입력하면 마진 결과가 표시됩니다.")
+        # ----------------------------------------------
+        
         with st.expander("일일 정산"):
             product_list = ["상품을 선택해주세요"]
             try:
