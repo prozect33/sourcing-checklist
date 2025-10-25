@@ -202,10 +202,10 @@ def safe_float(value):
         return 0.0
         
 # ----------------------------------------------------------------------
-# [추가된 로직] 필수 필드 검증 함수
+# [수정된 로직] 필수 필드 검증 함수
 def validate_inputs():
     """
-    필수 입력 필드가 채워져 있는지 확인하고, 비어있는 경우 경고 메시지를 표시합니다.
+    필수 입력 필드가 채워져 있는지 확인하고, 비어있는 경우 해당 필드의 이름만 표시합니다.
     '기타' 필드는 제외합니다.
     """
     # 필수 필드 목록 (키: 표시 이름)
@@ -220,16 +220,13 @@ def validate_inputs():
         "customs_duty_input": "관세",
     }
     
-    missing_fields = []
-    
     for key, name in required_fields.items():
         # 세션 상태 값이 비어있는지 확인
         if not st.session_state.get(key):
-            missing_fields.append(name)
+            # 첫 번째로 발견된 누락 필드만 경고 메시지로 표시하고 즉시 종료
+            st.warning(f"{name} 필드를 채워주세요") 
+            return False
             
-    if missing_fields:
-        st.warning(f"다음 필수 입력 필드를 채워주세요: {', '.join(missing_fields)}")
-        return False
     return True
 # ----------------------------------------------------------------------
 
@@ -431,7 +428,7 @@ def main():
             # 로컬 변수: 나머지 필드도 안전하게 숫자로 변환
             logistics_cost = safe_int(st.session_state.logistics_cost_input)
             customs_duty = safe_int(st.session_state.customs_duty_input)
-            etc_cost = safe_int(st.session_state.etc_cost_input) # '기타' 필드는 필수 검증에서 제외되지만, 숫자로 변환 필요
+            etc_cost = safe_int(st.session_state.etc_cost_input)
             
             # DB 저장 시에는 quantity가 0이면 0으로 저장
             quantity_to_save = quantity
@@ -440,7 +437,7 @@ def main():
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
-                        if validate_inputs(): # [변경] 검증 로직 추가
+                        if validate_inputs(): # 검증 로직 호출
                             try:
                                 data_to_update = {
                                     "sell_price": sell_price,
@@ -468,10 +465,10 @@ def main():
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
             else:
                 if st.button("상품 저장하기"):
-                    if validate_inputs(): # [변경] 검증 로직 추가
+                    if validate_inputs(): # 검증 로직 호출
                         product_name_to_save = st.session_state.product_name_input
                         
-                        # 상품명은 validate_inputs에서 이미 검증되었지만, 추가적인 판매가 0 검증은 유지
+                        # validate_inputs에서 상품명은 이미 검증되었고, 여기서는 판매가 0 검증만 유지
                         if sell_price == 0:
                             st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
                         else:
