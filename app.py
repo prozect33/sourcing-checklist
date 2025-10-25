@@ -21,7 +21,7 @@ st.markdown("""
 DEFAULT_CONFIG_FILE = "default_config.json"
 
 def default_config():
-    return {
+    return {
         "FEE_RATE": 10.8,
         "AD_RATE": 20.0,
         "INOUT_COST": 3000.0,
