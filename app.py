@@ -540,7 +540,37 @@ def main():
             )
 
 
-            st.metric(label="일일 순이익금", value="0")
+            if selected_product_name != "상품을 선택해주세요" and product_data:
+                total_sales_qty_val = total_sales_qty
+                ad_cost_val = ad_cost
+
+                fee_rate_val = product_data.get("fee", 0.0)
+                inout_shipping_cost_val = product_data.get("inout_shipping_cost", 0)
+                purchase_cost_val = product_data.get("purchase_cost", 0)
+                quantity_val = product_data.get("quantity", 1)
+                logistics_cost_val = product_data.get("logistics_cost", 0)
+                customs_duty_val = product_data.get("customs_duty", 0)
+                etc_cost_val = product_data.get("etc_cost", 0)
+
+                unit_purchase_cost = purchase_cost_val / quantity_val if quantity_val else 0
+                unit_logistics = logistics_cost_val / quantity_val if quantity_val else 0
+                unit_customs = customs_duty_val / quantity_val if quantity_val else 0
+                unit_etc = etc_cost_val / quantity_val if quantity_val else 0
+
+                daily_profit = (
+                    total_revenue
+                    - (total_revenue * fee_rate_val / 100)
+                    - inout_shipping_cost_val
+                    - unit_purchase_cost * total_sales_qty_val
+                    - unit_logistics * total_sales_qty_val
+                    - unit_customs * total_sales_qty_val
+                    - unit_etc * total_sales_qty_val
+                    - ad_cost_val
+                )
+            else:
+                daily_profit = 0
+
+            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
 
             if st.button("일일 정산 저장하기"):
                 st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
