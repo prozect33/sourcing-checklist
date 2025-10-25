@@ -6,7 +6,6 @@ import pandas as pd
 import datetime
 from supabase import create_client, Client
 
-# Streamlit 페이지 설정
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 st.markdown("""
@@ -22,7 +21,6 @@ st.markdown("""
 DEFAULT_CONFIG_FILE = "default_config.json"
 
 def default_config():
-    """기본 설정값을 반환합니다."""
     return {
         "FEE_RATE": 10.8,
         "AD_RATE": 20.0,
@@ -37,7 +35,6 @@ def default_config():
     }
 
 def load_config():
-    """설정 파일을 불러옵니다. 파일이 없거나 오류 발생 시 기본값을 사용합니다."""
     if os.path.exists(DEFAULT_CONFIG_FILE):
         try:
             with open(DEFAULT_CONFIG_FILE, "r") as f:
@@ -56,29 +53,23 @@ def load_config():
         return default_config()
 
 def save_config(config):
-    """현재 설정값을 파일에 저장합니다."""
     with open(DEFAULT_CONFIG_FILE, "w") as f:
         json.dump(config, f)
 
 def format_number(val):
-    """숫자를 천 단위로 포맷팅합니다."""
-    # val이 None일 경우를 대비하여 처리
     if val is None:
         return ""
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
-    """TAB1의 입력 필드를 초기화합니다."""
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = ""
-    st.session_state["show_result"] = False  # 결과도 초기화
+    st.session_state["show_result"] = False
 
 def load_supabase_credentials():
-    """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
     try:
-        # NOTE: 이 파일은 사용자 환경에 있어야 합니다.
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
@@ -92,7 +83,7 @@ def load_supabase_credentials():
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
 
-# 사이드바에 설정값 입력 필드 생성
+# 사이드바 설정
 config = load_config()
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
@@ -118,7 +109,7 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화 (TAB2 필드의 값 유지를 위해 빈 문자열로 초기화)
+# 세션 상태 초기화
 if "product_name_input" not in st.session_state:
     st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state:
@@ -140,9 +131,7 @@ if "etc_cost_input" not in st.session_state:
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 
-# 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
-    """선택된 상품의 정보를 불러와 세션 상태를 업데이트합니다."""
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
         st.session_state.product_name_input = ""
@@ -161,16 +150,12 @@ def load_product_data(selected_product_name):
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
                 
-                # DB에서 불러온 값을 문자열로 변환하여 세션 상태에 저장 (빈칸 유지 목적)
                 st.session_state.product_name_input = product_data.get("product_name", "")
                 
-                # 값이 None 또는 0이면 빈 문자열로, 아니면 문자열로 변환
                 def get_display_value(key, default=""):
                     val = product_data.get(key)
-                    # DB에 저장된 값이 0이라도 빈칸으로 표시
                     if val is None or val == 0:
                         return ""
-                    # 수수료율 (fee)는 소수점 유지
                     if key == "fee":
                         return str(float(val))
                     return str(int(val)) if isinstance(val, (int, float)) and val == int(val) else str(val)
@@ -187,28 +172,19 @@ def load_product_data(selected_product_name):
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
 
-# 문자열을 안전하게 정수로 변환 (계산/저장 시 사용)
 def safe_int(value):
     try:
-        # 빈 문자열이면 0으로 처리
         return int(float(value)) if value else 0
     except (ValueError, TypeError):
         return 0
 
-# 문자열을 안전하게 실수로 변환 (수수료율 등)
 def safe_float(value):
     try:
         return float(value) if value else 0.0
     except (ValueError, TypeError):
         return 0.0
         
-# 필수 필드 검증 함수
 def validate_inputs():
-    """
-    필수 입력 필드가 채워져 있는지 확인하고, 비어있는 경우 해당 필드의 이름만 표시합니다.
-    '기타' 필드는 제외합니다.
-    """
-    # 필수 필드 목록 (키: 표시 이름)
     required_fields = {
         "product_name_input": "상품명",
         "sell_price_input": "판매가",
@@ -221,15 +197,12 @@ def validate_inputs():
     }
     
     for key, name in required_fields.items():
-        # 세션 상태 값이 비어있는지 확인
         if not st.session_state.get(key):
-            # 첫 번째로 발견된 누락 필드만 경고 메시지로 표시하고 즉시 종료
             st.warning(f"**{name}** 필드를 채워주세요") 
             return False
             
     return True
 
-# 메인 함수
 def main():
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
@@ -242,7 +215,7 @@ def main():
             st.subheader("판매정보 입력")
             sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
             margin_display = st.empty()
-            # TAB1 계산 로직
+
             if sell_price_raw.strip():
                 try:
                     target_margin = 50.0
@@ -280,7 +253,6 @@ def main():
                 unit_yuan = st.text_input("위안화 (¥)", key="unit_yuan")
             with col2:
                 unit_won = st.text_input("원화 (₩)", key="unit_won")
-            # TAB1 수량 입력 필드. 세션 상태에서 값 가져오기
             qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", ""))
             
             calc_col, reset_col = st.columns(2)
@@ -293,7 +265,6 @@ def main():
         with right:
             if st.session_state["show_result"]:
                 try:
-                    # TAB1 계산 로직: 수량이 빈 문자열이면 1로 처리
                     sell_price = int(float(sell_price_raw))
                     qty = int(float(qty_raw)) if qty_raw else 1
                 except:
@@ -409,14 +380,12 @@ def main():
             with col_left:
                 st.text_input("수량", key="quantity_input")
 
-            # 로컬 변수: 세션 상태를 안전하게 숫자로 변환
             sell_price = safe_int(st.session_state.sell_price_input)
             fee_rate = safe_float(st.session_state.fee_rate_input)
             inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
             purchase_cost = safe_int(st.session_state.purchase_cost_input)
             quantity = safe_int(st.session_state.quantity_input)
             
-            # 매입단가 계산 시 안전한 수량 (0 또는 빈칸이면 1로 간주)
             quantity_for_calc = quantity if quantity > 0 else 1 
             
             with col_right:
@@ -432,19 +401,17 @@ def main():
 
             st.text_input("기타", key="etc_cost_input")
 
-            # 로컬 변수: 나머지 필드도 안전하게 숫자로 변환
             logistics_cost = safe_int(st.session_state.logistics_cost_input)
             customs_duty = safe_int(st.session_state.customs_duty_input)
             etc_cost = safe_int(st.session_state.etc_cost_input)
             
-            # DB 저장 시에는 quantity가 0이면 0으로 저장
             quantity_to_save = quantity
 
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
-                        if validate_inputs(): # 검증 로직 호출
+                        if validate_inputs():
                             try:
                                 data_to_update = {
                                     "sell_price": sell_price,
@@ -459,7 +426,6 @@ def main():
                                 }
                                 supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
                                 st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
-                                # 수정 후에는 재실행하지 않고 상태 유지
                             except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
@@ -467,18 +433,13 @@ def main():
                         try:
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
                             st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
-                            
-                            # 🚫 [수정된 로직]: 오류 발생 가능성 있는 모든 리셋/재실행 코드를 제거함
-                            # 사용자가 수동으로 새로고침(F5)해야 화면이 초기화됩니다.
-                            
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
             else:
                 if st.button("상품 저장하기"):
-                    if validate_inputs(): # 검증 로직 호출
+                    if validate_inputs():
                         product_name_to_save = st.session_state.product_name_input
                         
-                        # 판매가 0 검증
                         if sell_price == 0:
                             st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
                         else:
@@ -501,7 +462,6 @@ def main():
                                 else:
                                     supabase.table("products").insert(data_to_save).execute()
                                     st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
-                                    # 저장 후에는 재실행하지 않고 상태 유지
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
@@ -530,7 +490,6 @@ def main():
                 if selected_product_name == "상품을 선택해주세요":
                     st.info("먼저 상품을 선택해주세요.")
                 elif product_data:
-                    # DB에서 불러온 수량이 None이면 0으로 표시되도록 처리
                     display_qty = product_data.get('quantity')
                     if display_qty is None:
                         display_qty = 0
@@ -618,6 +577,5 @@ def main():
             except Exception as e:
                 st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
-# 메인 함수 호출
 if __name__ == "__main__":
     main()
