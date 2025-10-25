@@ -1,54 +1,73 @@
 import streamlit as st
 
-# 🚨 초기값 설정
-INITIAL_ITEM_NAME = "상품 이름을 여기에 입력하세요"
+# 🚨 초기값 설정: 리셋되었을 때 보여줄 가시적인 기본값
+INITIAL_ITEM_NAME = "--- 새 상품 이름을 입력해주세요 (필수) ---"
 INITIAL_PRICE = 10000
 
-# 1. 세션 상태 초기화 블록 (반드시 모든 키를 여기서 정의해야 합니다)
-# 'item_name'이나 'item_price' 중 하나라도 없으면 모두 초기화합니다.
-if 'item_name' not in st.session_state or 'item_price' not in st.session_state:
-    st.session_state.item_name = INITIAL_ITEM_NAME
-    st.session_state.item_price = INITIAL_PRICE
-    # 상태 메시지 초기화
-    if 'status' not in st.session_state:
-        st.session_state.status = "➡️ 현재: 새로운 상품 입력 모드"
+st.title("상품 입력 모드 리셋 테스트 (최종 해결)")
+st.info("✅ 저장 버튼 클릭 시 모든 필드가 초기값으로 자동 리셋됩니다.")
+
+# 1. '저장하기' 기능을 st.form으로 구현
+# clear_on_submit=True 설정이 핵심입니다!
+with st.form(key="new_product_form", clear_on_submit=True):
+    st.header("💾 새로운 상품 등록")
+
+    # 입력 필드 (초기값 설정)
+    product_name = st.text_input(
+        "상품 이름",
+        value=INITIAL_ITEM_NAME, # 폼이 리셋될 때 이 값으로 돌아갑니다.
+        key="form_name_input"
+    )
+
+    product_price = st.number_input(
+        "가격",
+        min_value=0,
+        value=INITIAL_PRICE, # 폼이 리셋될 때 이 값으로 돌아갑니다.
+        key="form_price_input"
+    )
+
+    # 폼 제출 버튼
+    submitted = st.form_submit_button("저장하기")
+
+    if submitted:
+        # 여기에 저장 로직을 넣습니다. (예: DB에 데이터 삽입)
+        if product_name == INITIAL_ITEM_NAME or product_name.strip() == "":
+            st.error("상품 이름을 입력해주세요.")
+        else:
+            st.success(f"상품 '{product_name}'이(가) 저장되었습니다. (필드 자동 리셋 완료)")
+            # 폼 제출 후 clear_on_submit=True에 의해 모든 입력 필드가 INITIAL_VALUE로 리셋됨
 
 
-# 2. 콜백 함수 정의: 필드 값을 초기값으로 리셋 및 상태 변경
-def reset_mode_and_field():
-    """버튼 클릭 시 실행되어 입력 상태와 필드 값을 '가시적인 초기값'으로 리셋"""
+# 2. '수정/삭제' 후 '새 상품 입력 모드'로 전환하는 함수
+# 이 기능은 st.form 밖의 일반 버튼에 필요합니다.
+def reset_for_edit_delete():
+    """수정/삭제 후 입력 필드를 비우고 새 모드로 전환"""
     
-    # 세션 상태 값을 INITIAL_VALUE로 초기화
-    st.session_state.item_name = INITIAL_ITEM_NAME
-    st.session_state.item_price = INITIAL_PRICE
+    # st.session_state를 사용하여 폼 필드 키의 값을 명시적으로 초기화합니다.
+    # st.session_state['[form_key]-[widget_key]'] 패턴으로 접근해야 합니다.
+    # st.session_state['new_product_form-form_name_input'] = INITIAL_ITEM_NAME # Streamlit 버전 및 설정에 따라 이 패턴이 필요할 수 있습니다.
     
-    # 상태 메시지 변경
-    st.session_state.status = "✅ 리셋 성공! 새로운 상품 입력 모드로 전환됨"
-    
+    # st.rerun()을 사용하여 전체 앱을 재실행합니다.
+    # 이렇게 하면 폼 자체가 처음부터 다시 그려지며 리셋됩니다.
+    st.session_state['reset_flag'] = True
+    st.experimental_rerun()
 
-# 3. UI 구성
-st.title("상품 입력 모드 리셋 테스트 (수정됨)")
-st.info(st.session_state.status) # 초기화가 보장된 status 사용
 
-# --- 입력 필드 ---
+if 'reset_flag' in st.session_state and st.session_state['reset_flag']:
+    del st.session_state['reset_flag'] # 플래그 제거
+    # st.success("수정/삭제 후 새로운 입력 모드로 돌아왔습니다.") # 필요시 메시지 표시
 
-# 상품 이름 (텍스트 입력)
-# 'value' 파라미터가 초기화된 세션 상태 변수에 안전하게 접근합니다.
-product_name = st.text_input(
-    "상품 이름",
-    value=st.session_state.item_name,
-    key='product_name_input'
-)
+st.markdown("---")
+st.header("✏️ 기존 상품 관리 (수동 리셋 필요)")
 
-# 가격 (숫자 입력)
-# 'value' 파라미터가 초기화된 세션 상태 변수에 안전하게 접근합니다.
-product_price = st.number_input(
-    "가격",
-    min_value=0,
-    value=st.session_state.item_price,
-    key='product_price_input'
-)
+col1, col2 = st.columns(2)
 
-# 4. 테스트 버튼
-if st.button("💾 저장하기 (리셋 테스트)", on_click=reset_mode_and_field):
-    st.success(f"상품 '{product_name}'이(가) 저장되었습니다. 이제 필드가 초기값으로 돌아갑니다.")
+with col1:
+    if st.button("✏️ 수정하기", use_container_width=True, on_click=reset_for_edit_delete):
+        # 수정 로직 실행
+        st.warning("수정 완료! 새로운 상품 입력 모드로 돌아갑니다.")
+
+with col2:
+    if st.button("🗑️ 삭제하기", use_container_width=True, on_click=reset_for_edit_delete):
+        # 삭제 로직 실행
+        st.error("삭제 완료! 새로운 상품 입력 모드로 돌아갑니다.")
