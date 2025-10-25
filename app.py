@@ -468,8 +468,8 @@ def main():
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
                             st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다! 페이지를 다시 로드합니다.")
                             
-                            # ✨ [수정된 로직] 위젯 상태 초기화 오류 방지를 위해 페이지 강제 재실행
-                            st.experimental_rerun() 
+                            # ✨ [수정된 로직] st.experimental_rerun() 대신 st.rerun() 사용
+                            st.rerun() 
                             
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
