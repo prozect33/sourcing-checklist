@@ -11,10 +11,10 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 st.markdown("""
     <style>
-      [data-testid="stSidebarHeader"] { display: none !important; }
-      [data-testid="stSidebarContent"] { padding-top: 15px !important; }
-      [data-testid="stHeading"] { margin-bottom: 15px !important; }
-      [data-testid="stNumberInput"] button { display: none !important; }
+     [data-testid="stSidebarHeader"] { display: none !important; }
+     [data-testid="stSidebarContent"] { padding-top: 15px !important; }
+     [data-testid="stHeading"] { margin-bottom: 15px !important; }
+     [data-testid="stNumberInput"] button { display: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -65,12 +65,12 @@ def format_number(val):
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
-    """입력 필드를 초기화합니다."""
+    """간단 마진 계산기 탭의 입력 필드를 초기화합니다."""
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = "1"
-    st.session_state["show_result"] = False  # 결과도 초기화
+    st.session_state["show_result"] = False # 결과도 초기화
 
 def load_supabase_credentials():
     """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
@@ -115,7 +115,7 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화
+# 세션 상태 초기화 (세부 마진 계산기)
 if "product_name_edit" not in st.session_state:
     st.session_state.product_name_edit = ""
 if "sell_price_edit" not in st.session_state:
@@ -136,6 +136,31 @@ if "etc_cost_edit" not in st.session_state:
     st.session_state.etc_cost_edit = 0
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
+if 'product_loader' not in st.session_state:
+    st.session_state.product_loader = "새로운 상품 입력" # 선택 박스 기본값 설정
+
+## 💡 새로운 초기화 함수 추가
+def reset_detail_inputs():
+    """세부 마진 계산기 탭의 입력 필드와 선택 박스 상태를 초기화하고 페이지를 재실행합니다."""
+    # 모든 입력 필드 관련 세션 상태를 초기값으로 리셋
+    st.session_state.product_name_edit = ""
+    st.session_state.sell_price_edit = 0
+    st.session_state.fee_rate_edit = 0.0
+    st.session_state.inout_shipping_cost_edit = 0
+    st.session_state.purchase_cost_edit = 0
+    st.session_state.quantity_edit = 1
+    st.session_state.logistics_cost_edit = 0
+    st.session_state.customs_duty_edit = 0
+    st.session_state.etc_cost_edit = 0
+    st.session_state.is_edit_mode = False
+    
+    # 상품 선택 박스 초기화를 위해 key 값을 "새로운 상품 입력"으로 강제 설정
+    # 이로 인해 selectbox가 '새로운 상품 입력'을 선택한 상태로 재렌더링됩니다.
+    st.session_state.product_loader = "새로운 상품 입력"
+    
+    # 페이지 재실행을 위해 Streamlit 재실행을 트리거 (상품 목록 업데이트 포함)
+    st.rerun()
+
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
@@ -180,6 +205,7 @@ def main():
     tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
     with tab1:
+        # ... (tab1 로직은 변경 없음) ...
         left, right = st.columns(2)
         with left:
             st.subheader("판매정보 입력")
@@ -316,6 +342,7 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
             
+            # selectbox의 key를 st.session_state.product_loader와 연결
             selected_product_name = st.selectbox(
                 "저장된 상품 선택 또는 새로 입력",
                 product_list,
@@ -380,6 +407,8 @@ def main():
                             }
                             supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
+                            # 💡 수정 후 초기화
+                            reset_detail_inputs()
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
@@ -387,8 +416,8 @@ def main():
                         try:
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_edit).execute()
                             st.success(f"'{st.session_state.product_name_edit}' 상품이 삭제되었습니다!")
-                            st.session_state.is_edit_mode = False
-                            st.session_state.product_name_edit = ""
+                            # 💡 삭제 후 초기화
+                            reset_detail_inputs()
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
             else:
@@ -415,6 +444,8 @@ def main():
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
                                 st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
+                                # 💡 저장 후 초기화
+                                reset_detail_inputs()
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
