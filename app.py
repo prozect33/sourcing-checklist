@@ -115,25 +115,26 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 세션 상태 초기화
-if "product_name_edit" not in st.session_state:
-    st.session_state.product_name_edit = ""
-if "sell_price_edit" not in st.session_state:
-    st.session_state.sell_price_edit = 0
-if "fee_rate_edit" not in st.session_state:
-    st.session_state.fee_rate_edit = 0.0
-if "inout_shipping_cost_edit" not in st.session_state:
-    st.session_state.inout_shipping_cost_edit = 0
-if "purchase_cost_edit" not in st.session_state:
-    st.session_state.purchase_cost_edit = 0
-if "quantity_edit" not in st.session_state:
-    st.session_state.quantity_edit = 1
-if "logistics_cost_edit" not in st.session_state:
-    st.session_state.logistics_cost_edit = 0
-if "customs_duty_edit" not in st.session_state:
-    st.session_state.customs_duty_edit = 0
-if "etc_cost_edit" not in st.session_state:
-    st.session_state.etc_cost_edit = 0
+# 세션 상태 초기화 (위젯 KEY와 동일하게 사용)
+# 기존의 _edit 변수들을 사용하지 않고 위젯 key에 해당하는 값들을 초기화합니다.
+if "product_name_input" not in st.session_state:
+    st.session_state.product_name_input = ""
+if "sell_price_input" not in st.session_state:
+    st.session_state.sell_price_input = 0
+if "fee_rate_input" not in st.session_state:
+    st.session_state.fee_rate_input = 0.0
+if "inout_shipping_cost_input" not in st.session_state:
+    st.session_state.inout_shipping_cost_input = 0
+if "purchase_cost_input" not in st.session_state:
+    st.session_state.purchase_cost_input = 0
+if "quantity_input" not in st.session_state:
+    st.session_state.quantity_input = 1
+if "logistics_cost_input" not in st.session_state:
+    st.session_state.logistics_cost_input = 0
+if "customs_duty_input" not in st.session_state:
+    st.session_state.customs_duty_input = 0
+if "etc_cost_input" not in st.session_state:
+    st.session_state.etc_cost_input = 0
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
 
@@ -142,33 +143,35 @@ def load_product_data(selected_product_name):
     """선택된 상품의 정보를 불러와 세션 상태를 업데이트합니다."""
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
-        st.session_state.product_name_edit = ""
-        st.session_state.sell_price_edit = 0
-        st.session_state.fee_rate_edit = 0.0
-        st.session_state.inout_shipping_cost_edit = 0
-        st.session_state.purchase_cost_edit = 0
-        st.session_state.quantity_edit = 1
-        st.session_state.logistics_cost_edit = 0
-        st.session_state.customs_duty_edit = 0
-        st.session_state.etc_cost_edit = 0
+        st.session_state.product_name_input = ""
+        st.session_state.sell_price_input = 0
+        st.session_state.fee_rate_input = 0.0
+        st.session_state.inout_shipping_cost_input = 0
+        st.session_state.purchase_cost_input = 0
+        st.session_state.quantity_input = 1
+        st.session_state.logistics_cost_input = 0
+        st.session_state.customs_duty_input = 0
+        st.session_state.etc_cost_input = 0
     else:
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
             if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
-                st.session_state.product_name_edit = product_data.get("product_name", "")
-                st.session_state.sell_price_edit = int(product_data.get("sell_price", 0))
-                st.session_state.fee_rate_edit = float(product_data.get("fee", 0.0))
-                st.session_state.inout_shipping_cost_edit = int(product_data.get("inout_shipping_cost", 0))
-                st.session_state.purchase_cost_edit = int(product_data.get("purchase_cost", 0))
+                
+                # 위젯 key에 해당하는 세션 상태 변수에 값을 직접 할당
+                st.session_state.product_name_input = product_data.get("product_name", "")
+                st.session_state.sell_price_input = int(product_data.get("sell_price", 0))
+                st.session_state.fee_rate_input = float(product_data.get("fee", 0.0))
+                st.session_state.inout_shipping_cost_input = int(product_data.get("inout_shipping_cost", 0))
+                st.session_state.purchase_cost_input = int(product_data.get("purchase_cost", 0))
 
-                # quantity_edit에 대해 min_value를 강제하지 않음 (0이나 음수도 허용)
-                st.session_state.quantity_edit = int(product_data.get("quantity", 0)) if "quantity" in product_data and product_data.get("quantity") is not None else 0
+                # quantity_input 처리
+                st.session_state.quantity_input = int(product_data.get("quantity", 1)) if "quantity" in product_data and product_data.get("quantity") is not None else 1
 
-                st.session_state.logistics_cost_edit = int(product_data.get("logistics_cost", 0))
-                st.session_state.customs_duty_edit = int(product_data.get("customs_duty", 0))
-                st.session_state.etc_cost_edit = int(product_data.get("etc_cost", 0))
+                st.session_state.logistics_cost_input = int(product_data.get("logistics_cost", 0))
+                st.session_state.customs_duty_input = int(product_data.get("customs_duty", 0))
+                st.session_state.etc_cost_input = int(product_data.get("etc_cost", 0))
         except Exception as e:
             st.error(f"상품 정보를 불러오는 중 오류가 발생했습니다: {e}")
 
@@ -316,6 +319,7 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
+            # selectbox가 변경되면 load_product_data 함수 호출
             selected_product_name = st.selectbox(
                 "저장된 상품 선택 또는 새로 입력",
                 product_list,
@@ -323,50 +327,69 @@ def main():
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
 
+            # --- 입력 필드 수정: value 인자 제거 (key로 세션 상태 유지) 및 로컬 변수 대신 세션 상태 사용 ---
+            
+            # product_name_input은 현재 selected_product_name이 "새로운 상품 입력"일 때만 사용
             product_name = st.text_input(
                 "상품명",
-                value=st.session_state.product_name_edit,
+                value=st.session_state.product_name_input, # load_product_data에서 설정된 값 사용
+                key="product_name_input",
                 placeholder="예: 무선 이어폰"
             )
 
             col_left, col_right = st.columns(2)
             with col_left:
-                # min_value 제거
-                sell_price = st.number_input("판매가", step=1000, value=st.session_state.sell_price_edit, key="sell_price_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("판매가", step=1000, key="sell_price_input")
             with col_right:
-                # min_value 제거 (max_value는 그대로 유지)
-                fee_rate = st.number_input("수수료율 (%)", max_value=100.0, step=0.1, format="%.2f", value=st.session_state.fee_rate_edit, key="fee_rate_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("수수료율 (%)", max_value=100.0, step=0.1, format="%.2f", key="fee_rate_input")
             with col_left:
-                # min_value 제거
-                inout_shipping_cost = st.number_input("입출고/배송비", step=100, value=st.session_state.inout_shipping_cost_edit, key="inout_shipping_cost_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("입출고/배송비", step=100, key="inout_shipping_cost_input")
             with col_right:
-                # min_value 제거
-                purchase_cost = st.number_input("매입비", step=100, value=st.session_state.purchase_cost_edit, key="purchase_cost_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("매입비", step=100, key="purchase_cost_input")
             with col_left:
-                # min_value 제거 (원래 1이었음)
-                quantity = st.number_input("수량", step=1, value=st.session_state.quantity_edit, key="quantity_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("수량", step=1, key="quantity_input")
 
+            # 수량과 매입비는 세션 상태에서 직접 가져와서 계산
+            quantity = st.session_state.quantity_input
+            purchase_cost = st.session_state.purchase_cost_input
+            
             with col_right:
                 try:
+                    # 세션 상태 값으로 계산
                     unit_purchase_cost = purchase_cost / quantity
                 except (ZeroDivisionError, TypeError):
                     unit_purchase_cost = 0
                 st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
             with col_left:
-                # min_value 제거
-                logistics_cost = st.number_input("물류비", step=100, value=st.session_state.logistics_cost_edit, key="logistics_cost_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("물류비", step=100, key="logistics_cost_input")
             with col_right:
-                # min_value 제거
-                customs_duty = st.number_input("관세", step=100, value=st.session_state.customs_duty_edit, key="customs_duty_input")
+                # key에 값이 저장/불러와짐
+                st.number_input("관세", step=100, key="customs_duty_input")
 
-            # min_value 제거
-            etc_cost = st.number_input("기타", step=100, value=st.session_state.etc_cost_edit, key="etc_cost_input")
+            # key에 값이 저장/불러와짐
+            st.number_input("기타", step=100, key="etc_cost_input")
 
+            # 로컬 변수로 위젯의 현재 값 가져오기 (세션 상태에서 가져옴)
+            sell_price = st.session_state.sell_price_input
+            fee_rate = st.session_state.fee_rate_input
+            inout_shipping_cost = st.session_state.inout_shipping_cost_input
+            logistics_cost = st.session_state.logistics_cost_input
+            customs_duty = st.session_state.customs_duty_input
+            etc_cost = st.session_state.etc_cost_input
+            # --- 입력 필드 수정 끝 ---
+            
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
                         try:
+                            # 위에서 정의한 로컬 변수를 사용하여 데이터베이스에 업데이트
                             data_to_update = {
                                 "sell_price": sell_price,
                                 "fee": fee_rate,
@@ -378,27 +401,31 @@ def main():
                                 "customs_duty": customs_duty,
                                 "etc_cost": etc_cost,
                             }
-                            supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_edit).execute()
-                            st.success(f"'{st.session_state.product_name_edit}' 상품 정보가 업데이트되었습니다!")
+                            supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
+                            st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
                         except Exception as e:
                             st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
                     if st.button("삭제하기"):
                         try:
-                            supabase.table("products").delete().eq("product_name", st.session_state.product_name_edit).execute()
-                            st.success(f"'{st.session_state.product_name_edit}' 상품이 삭제되었습니다!")
+                            supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
+                            st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
                             st.session_state.is_edit_mode = False
-                            st.session_state.product_name_edit = ""
+                            st.session_state.product_name_input = ""
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
             else:
                 if st.button("상품 저장하기"):
-                    if not product_name or sell_price == 0:
+                    # product_name은 text_input의 key를 통해 세션 상태에서 가져옴
+                    product_name_to_save = st.session_state.product_name_input
+                    
+                    if not product_name_to_save or sell_price == 0:
                         st.warning("상품명과 판매가를 입력해 주세요.")
                     else:
                         try:
+                            # 위에서 정의한 로컬 변수를 사용하여 데이터베이스에 저장
                             data_to_save = {
-                                "product_name": product_name,
+                                "product_name": product_name_to_save,
                                 "sell_price": sell_price,
                                 "fee": fee_rate,
                                 "inout_shipping_cost": inout_shipping_cost,
@@ -409,12 +436,12 @@ def main():
                                 "customs_duty": customs_duty,
                                 "etc_cost": etc_cost,
                             }
-                            response = supabase.table("products").select("product_name").eq("product_name", product_name).execute()
+                            response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
                             if response.data:
                                 st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                             else:
                                 supabase.table("products").insert(data_to_save).execute()
-                                st.success(f"'{product_name}' 상품이 성공적으로 저장되었습니다!")
+                                st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
                         except Exception as e:
                             st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
@@ -479,7 +506,7 @@ def main():
             # min_value 제거
             organic_sales_qty = st.number_input(
                 "자연 판매 수량",
-                value=total_sales_qty - ad_sales_qty if total_sales_qty >= ad_sales_qty else 0,
+                value=st.session_state.total_sales_qty - st.session_state.ad_sales_qty if st.session_state.total_sales_qty >= st.session_state.ad_sales_qty else 0,
                 disabled=True,
                 key="organic_sales_qty"
             )
@@ -487,7 +514,7 @@ def main():
             # min_value 제거
             organic_revenue = st.number_input(
                 "자연 판매 매출액",
-                value=total_revenue - ad_revenue if total_revenue >= ad_revenue else 0,
+                value=st.session_state.total_revenue - st.session_state.ad_revenue if st.session_state.total_revenue >= st.session_state.ad_revenue else 0,
                 disabled=True,
                 key="organic_revenue"
             )
