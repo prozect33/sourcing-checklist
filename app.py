@@ -517,19 +517,28 @@ def main():
             st.markdown("---")
             st.markdown("#### 자연 판매")
 
-            organic_sales_qty = st.number_input(
+            # 🔹 자동 계산
+            organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
+            organic_revenue_calc = max(total_revenue - ad_revenue, 0)
+
+            st.session_state["organic_sales_qty"] = organic_sales_qty_calc
+            st.session_state["organic_revenue"] = organic_revenue_calc
+
+            # UI 그대로 유지, disabled
+            st.number_input(
                 "자연 판매 수량",
-                value=st.session_state.total_sales_qty - st.session_state.ad_sales_qty if st.session_state.total_sales_qty >= st.session_state.ad_sales_qty else 0,
+                value=st.session_state["organic_sales_qty"],
                 disabled=True,
                 key="organic_sales_qty"
             )
 
-            organic_revenue = st.number_input(
+            st.number_input(
                 "자연 판매 매출액",
-                value=st.session_state.total_revenue - st.session_state.ad_revenue if st.session_state.total_revenue >= st.session_state.ad_revenue else 0,
+                value=st.session_state["organic_revenue"],
                 disabled=True,
                 key="organic_revenue"
             )
+
 
             st.metric(label="일일 순이익금", value="0")
 
