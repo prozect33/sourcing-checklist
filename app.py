@@ -1,6 +1,3 @@
-내가 코드를 하나 줄건데 
-내 설명 듣고 수정해줘
-
 import streamlit as st
 import json
 import os
