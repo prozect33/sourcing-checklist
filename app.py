@@ -75,6 +75,8 @@ def reset_inputs():
 def load_supabase_credentials():
     """credentials.json 파일에서 Supabase 인증 정보를 불러옵니다."""
     try:
+        # 이 부분은 실제로 파일을 만들었을 때 작동합니다.
+        # 파일이 없다면 에러가 나도록 유지합니다.
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
@@ -136,10 +138,12 @@ if "etc_cost_edit" not in st.session_state:
     st.session_state.etc_cost_edit = 0
 if "is_edit_mode" not in st.session_state:
     st.session_state.is_edit_mode = False
+# 💡 상품 선택 박스 초기화를 위한 key 값 초기화 (전역)
 if 'product_loader' not in st.session_state:
-    st.session_state.product_loader = "새로운 상품 입력" # 선택 박스 기본값 설정
+    st.session_state.product_loader = "새로운 상품 입력"
 
-## 💡 새로운 초기화 함수 추가
+
+## 💡 수정된 초기화 함수: st.session_state.product_loader를 직접 수정하지 않음
 def reset_detail_inputs():
     """세부 마진 계산기 탭의 입력 필드와 선택 박스 상태를 초기화하고 페이지를 재실행합니다."""
     # 모든 입력 필드 관련 세션 상태를 초기값으로 리셋
@@ -154,17 +158,16 @@ def reset_detail_inputs():
     st.session_state.etc_cost_edit = 0
     st.session_state.is_edit_mode = False
     
-    # 상품 선택 박스 초기화를 위해 key 값을 "새로운 상품 입력"으로 강제 설정
-    # 이로 인해 selectbox가 '새로운 상품 입력'을 선택한 상태로 재렌더링됩니다.
-    st.session_state.product_loader = "새로운 상품 입력"
-    
-    # 페이지 재실행을 위해 Streamlit 재실행을 트리거 (상품 목록 업데이트 포함)
-    st.rerun()
+    # 🚨 product_loader를 직접 수정하는 대신, st.rerun()을 통해
+    # 전역 초기화 코드(위의 if 'product_loader' not in st.session_state: ...)가
+    # 실행되어 '새로운 상품 입력'으로 돌아가도록 유도합니다.
+    st.rerun() 
 
 
 # 상품 정보 불러오기/리셋 함수
 def load_product_data(selected_product_name):
     """선택된 상품의 정보를 불러와 세션 상태를 업데이트합니다."""
+    # 이 함수는 selectbox의 on_change 이벤트에서만 실행됩니다.
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
         st.session_state.product_name_edit = ""
@@ -188,7 +191,7 @@ def load_product_data(selected_product_name):
                 st.session_state.inout_shipping_cost_edit = int(product_data.get("inout_shipping_cost", 0))
                 st.session_state.purchase_cost_edit = int(product_data.get("purchase_cost", 0))
                 
-                # quantity_edit에 대해 min_value를 강제하지 않음 (0이나 음수도 허용)
+                # quantity_edit에 대해 min_value를 강제하지 않음
                 st.session_state.quantity_edit = int(product_data.get("quantity", 0)) if "quantity" in product_data and product_data.get("quantity") is not None else 0
                 
                 st.session_state.logistics_cost_edit = int(product_data.get("logistics_cost", 0))
@@ -370,7 +373,7 @@ def main():
                 # min_value 제거
                 purchase_cost = st.number_input("매입비", step=100, value=st.session_state.purchase_cost_edit, key="purchase_cost_input")
             with col_left:
-                # min_value 제거 (원래 1이었음)
+                # min_value 제거
                 quantity = st.number_input("수량", step=1, value=st.session_state.quantity_edit, key="quantity_input")
             
             with col_right:
