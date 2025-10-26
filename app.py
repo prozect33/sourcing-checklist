@@ -558,31 +558,43 @@ def main():
                 unit_etc = etc_cost_val / quantity_val if quantity_val else 0
 
                 # 일일 순이익금 계산
-                daily_profit = 0  # ✅ 기본값을 먼저 선언해서 UnboundLocalError 방지
+                daily_profit = 0  # 기본값
 
                 if selected_product_name != "상품을 선택해주세요" and product_data:
-                    sell_price_val = product_data.get("sell_price", 0)
-                    fee_rate_val = product_data.get("fee", 0.0)
-                    purchase_unit_price_val = product_data.get("purchase_unit_price", 0)
-                    total_sales_qty_val = product_data.get("total_sales_qty", 0)
-                    inout_shipping_cost_val = product_data.get("inout_shipping_cost", 0)
-                    unit_logistics_val = product_data.get("unit_logistics", 0)
-                    unit_customs_val = product_data.get("unit_customs", 0)
-                    unit_etc_val = product_data.get("unit_etc", 0)
-                    ad_cost_val = product_data.get("ad_cost", 0)
+                    # 상품 데이터 안전하게 가져오기
+                    sell_price_val = safe_int(product_data.get("sell_price", 0))
+                    fee_rate_val = safe_float(product_data.get("fee", 0.0))
+                   purchase_cost_val = safe_int(product_data.get("purchase_cost", 0))
+                    quantity_val = safe_int(product_data.get("quantity", 1))
+                    inout_shipping_cost_val = safe_int(product_data.get("inout_shipping_cost", 0))
+                    logistics_cost_val = safe_int(product_data.get("logistics_cost", 0))
+                    customs_duty_val = safe_int(product_data.get("customs_duty", 0))
+                    etc_cost_val = safe_int(product_data.get("etc_cost", 0))
+                    ad_cost_val = safe_int(ad_cost)  # 사용자 입력 광고비
 
-                    # ✅ 일일 순이익금 계산식 (대표님 지정 버전)
+                    # 단가 계산 (0 나눗셈 방지)
+                    unit_purchase_cost = purchase_cost_val / quantity_val if quantity_val else 0
+                    unit_logistics = logistics_cost_val / quantity_val if quantity_val else 0
+                    unit_customs = customs_duty_val / quantity_val if quantity_val else 0
+                    unit_etc = etc_cost_val / quantity_val if quantity_val else 0
+
+                    # 전체 판매 수량 가져오기 (0 기본값)
+                    total_sales_qty_val = safe_int(total_sales_qty)
+
+                    # 일일 순이익금 계산
                     daily_profit = (
                         (sell_price_val * total_sales_qty_val)
                         - (sell_price_val * total_sales_qty_val * fee_rate_val / 100 * 1.1)
-                        - (purchase_unit_price_val * total_sales_qty_val)
+                        - (unit_purchase_cost * total_sales_qty_val)
                         - (inout_shipping_cost_val * total_sales_qty_val * 1.1)
-                        - (unit_logistics_val * total_sales_qty_val)
-                        - (unit_customs_val * total_sales_qty_val)
-                        - (unit_etc_val * total_sales_qty_val)
+                        - (unit_logistics * total_sales_qty_val)
+                        - (unit_customs * total_sales_qty_val)
+                        - (unit_etc * total_sales_qty_val)
                         - (ad_cost_val * 1.1)
                     )
-            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
+
+                # 출력
+                st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
 
             if st.button("일일 정산 저장하기"):
                 st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
