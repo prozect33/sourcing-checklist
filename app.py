@@ -557,19 +557,8 @@ def main():
                 unit_customs = customs_duty_val / quantity_val if quantity_val else 0
                 unit_etc = etc_cost_val / quantity_val if quantity_val else 0
 
-                # 일일 순이익금 계산
-                daily_profit = (
-                    sell_price_val
-                    - (sell_price_val * fee_rate_val / 100 * 1.1)
-                    - (inout_shipping_cost_val * 1.1)
-                    - unit_purchase_cost
-                    - unit_logistics
-                    - unit_customs
-                    - unit_etc
-                    - ad_cost_val
-                )
-            else:
-                daily_profit = 0
+# 일일 순이익금 계산
+
 
             st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
 
