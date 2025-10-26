@@ -557,34 +557,34 @@ def main():
                 unit_customs = customs_duty_val / quantity_val if quantity_val else 0
                 unit_etc = etc_cost_val / quantity_val if quantity_val else 0
 
-# 일일 순이익금 계산
-if selected_product_name != "상품을 선택해주세요" and product_data:
-    sell_price_val = product_data.get("sell_price", 0)  # 판매가
-    fee_rate_val = product_data.get("fee", 0.0)  # 수수료율(%)
-    unit_purchase_cost = product_data.get("purchase_cost", 0)  # 매입단가
-    total_sales_qty = product_data.get("daily_sales_qty", 0)  # 전체 판매 수량
-    inout_shipping_cost_val = product_data.get("inout_shipping", 0)  # 입출고 배송비
-    unit_logistics = product_data.get("unit_logistics", 0)  # 단위 물류비
-    unit_customs = product_data.get("unit_customs", 0)  # 단위 관세
-    unit_etc = product_data.get("unit_etc", 0)  # 단위 기타비용
-    ad_cost_val = product_data.get("ad_cost", 0)  # 총 광고비
+                # 일일 순이익금 계산
+                if selected_product_name != "상품을 선택해주세요" and product_data:
+                    sell_price_val = product_data.get("sell_price", 0)  # 판매가
+                    fee_rate_val = product_data.get("fee", 0.0)  # 수수료율(%)
+                    unit_purchase_cost = product_data.get("purchase_cost", 0)  # 매입단가
+                    total_sales_qty = product_data.get("daily_sales_qty", 0)  # 전체 판매 수량
+                    inout_shipping_cost_val = product_data.get("inout_shipping", 0)  # 입출고 배송비
+                    unit_logistics = product_data.get("unit_logistics", 0)  # 단위 물류비
+                    unit_customs = product_data.get("unit_customs", 0)  # 단위 관세
+                    unit_etc = product_data.get("unit_etc", 0)  # 단위 기타비용
+                    ad_cost_val = product_data.get("ad_cost", 0)  # 총 광고비
 
-    # 전체 매출액
-    total_sales = sell_price_val * total_sales_qty
+                    # 전체 매출액
+                    total_sales = sell_price_val * total_sales_qty
 
-    # 일일 순이익 계산식
-    daily_profit = (
-        total_sales
-        - (total_sales * fee_rate_val / 100 * 1.1)
-        - (unit_purchase_cost * total_sales_qty)
-        - (inout_shipping_cost_val * total_sales_qty * 1.1)
-        - (unit_logistics * total_sales_qty)
-        - (unit_customs * total_sales_qty)
-        - (unit_etc * total_sales_qty)
-        - (ad_cost_val * 1.1)
-    )
-else:
-    daily_profit = 0
+                    # 일일 순이익 계산식
+                    daily_profit = (
+                        total_sales
+                        - (total_sales * fee_rate_val / 100 * 1.1)
+                        - (unit_purchase_cost * total_sales_qty)
+                        - (inout_shipping_cost_val * total_sales_qty * 1.1)
+                        - (unit_logistics * total_sales_qty)
+                        - (unit_customs * total_sales_qty)
+                        - (unit_etc * total_sales_qty)
+                        - (ad_cost_val * 1.1)
+                    )
+                else:
+                    daily_profit = 0
 
 
             st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
