@@ -613,11 +613,11 @@ def main():
                     f"""
                     <small>
                     - 판매 수수료 (VAT 포함): {fee_cost:,}원 (매출액 기준)<br>
-                    - 매입비: {purchase_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                    - 입출고/배송비 (VAT 포함): {inout_shipping_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                    - 물류비: {logistics_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                    - 관세: {customs_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                    - 기타 비용: {etc_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
+                    - 매입비: {purchase_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 입출고/배송비 (VAT 포함): {inout_shipping_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 물류비: {logistics_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 관세: {customs_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 기타 비용: {etc_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
                     - 광고비 (VAT 포함): {ad_cost_total:,}원 (입력값 기준)
                     </small>
                     """,
