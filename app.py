@@ -532,19 +532,27 @@ def main():
             ad_cost = st.number_input("광고비", step=1000, key="ad_cost")  # 광고비는 계산에는 제외
 
             # 자연 판매 표시
+            # --- 자연 판매 (자동 계산)
+            st.markdown("---")
+            st.markdown("#### 자연 판매")
+
+            # 세션 스테이트에 값 저장 (자동 계산)
+            st.session_state["organic_sales_qty_display"] = max(total_sales_qty - ad_sales_qty, 0)
+            st.session_state["organic_revenue_display"] = max(total_revenue - ad_revenue, 0)
+
+            # 단순 보여주기
             st.number_input(
                 "자연 판매 수량",
-                value=st.session_state.get("organic_sales_qty_display", 0),
+                value=st.session_state["organic_sales_qty_display"],
                 disabled=True,
                 key="organic_sales_qty_display"
             )
             st.number_input(
                 "자연 판매 매출액",
-                value=st.session_state.get("organic_revenue_display", 0),
+                value=st.session_state["organic_revenue_display"],
                 disabled=True,
                 key="organic_revenue_display"
             )
-
 
 
             # 💡 UnboundLocalError 방지를 위해 초기화 (이전 로직은 else로 처리되었지만, 안정성을 위해 초기화)
