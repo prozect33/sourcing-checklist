@@ -62,11 +62,22 @@ def format_number(val):
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
+    # 탭1 리셋
     st.session_state["sell_price_raw"] = ""
     st.session_state["unit_yuan"] = ""
     st.session_state["unit_won"] = ""
     st.session_state["qty_raw"] = ""
     st.session_state["show_result"] = False
+    
+    # 탭2 일일 정산 리셋
+    st.session_state["total_sales_qty"] = 0
+    st.session_state["total_revenue"] = 0
+    st.session_state["ad_sales_qty"] = 0
+    st.session_state["ad_revenue"] = 0
+    st.session_state["ad_cost"] = 0
+    st.session_state["organic_sales_qty_calc"] = 0
+    st.session_state["organic_revenue_calc"] = 0
+
 
 def load_supabase_credentials():
     try:
@@ -107,26 +118,17 @@ except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-if "product_name_input" not in st.session_state:
-    st.session_state.product_name_input = ""
-if "sell_price_input" not in st.session_state:
-    st.session_state.sell_price_input = ""
-if "fee_rate_input" not in st.session_state:
-    st.session_state.fee_rate_input = ""
-if "inout_shipping_cost_input" not in st.session_state:
-    st.session_state.inout_shipping_cost_input = ""
-if "purchase_cost_input" not in st.session_state:
-    st.session_state.purchase_cost_input = ""
-if "quantity_input" not in st.session_state:
-    st.session_state.quantity_input = ""
-if "logistics_cost_input" not in st.session_state:
-    st.session_state.logistics_cost_input = ""
-if "customs_duty_input" not in st.session_state:
-    st.session_state.customs_duty_input = ""
-if "etc_cost_input" not in st.session_state:
-    st.session_state.etc_cost_input = ""
-if "is_edit_mode" not in st.session_state:
-    st.session_state.is_edit_mode = False
+# 상품 정보 입력 상태 초기화 (탭2)
+if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
+if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
+if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
+if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = ""
+if "purchase_cost_input" not in st.session_state: st.session_state.purchase_cost_input = ""
+if "quantity_input" not in st.session_state: st.session_state.quantity_input = ""
+if "logistics_cost_input" not in st.session_state: st.session_state.logistics_cost_input = ""
+if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_input = ""
+if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = ""
+if "is_edit_mode" not in st.session_state: st.session_state.is_edit_mode = False
 
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
@@ -204,13 +206,13 @@ def main():
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
     
-    # 💡 Streamlit Number Input의 초기값 설정 (None 방지)
+    # 💡 Streamlit Number Input의 초기값 설정 및 값 유지
     if "total_sales_qty" not in st.session_state: st.session_state["total_sales_qty"] = 0
     if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 0
     if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
     if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
     if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
-    # 자연 판매 계산 결과 초기값도 설정
+    # 자연 판매 계산 결과 초기값
     if "organic_sales_qty_calc" not in st.session_state: st.session_state["organic_sales_qty_calc"] = 0
     if "organic_revenue_calc" not in st.session_state: st.session_state["organic_revenue_calc"] = 0
 
@@ -516,33 +518,33 @@ def main():
 
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            # st.session_state를 value로 사용: 입력 값 변경 시 세션 상태에 저장됨
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty", value=st.session_state["total_sales_qty"])
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue", value=st.session_state["total_revenue"])
+            # 입력 위젯: key를 st.session_state의 이름으로 사용
+            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
+            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            # st.session_state를 value로 사용
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty", value=st.session_state["ad_sales_qty"])
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue", value=st.session_state["ad_revenue"])
-            ad_cost = st.number_input("광고비", step=1000, key="ad_cost", value=st.session_state["ad_cost"])
+            # 입력 위젯: key를 st.session_state의 이름으로 사용
+            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
+            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
+            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
 
             st.markdown("---")
             st.markdown("#### 자연 판매")
 
             # 🔹 자동 계산
-            organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
-            organic_revenue_calc = max(total_revenue - ad_revenue, 0)
+            # 입력 위젯의 최신 값(st.session_state에 저장됨)을 사용하여 계산
+            organic_sales_qty_calc = max(st.session_state["total_sales_qty"] - st.session_state["ad_sales_qty"], 0)
+            organic_revenue_calc = max(st.session_state["total_revenue"] - st.session_state["ad_revenue"], 0)
 
-            # ✅ 수정된 핵심 로직: 계산 결과를 st.session_state에 저장
-            # 다른 입력 위젯 (total_sales_qty 등)이 변경될 때마다 이 부분이 다시 실행되며 최신 계산 결과를 세션 상태에 반영
+            # ✅ 핵심 수정: 계산 결과를 st.session_state에 저장
             st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
             st.session_state["organic_revenue_calc"] = organic_revenue_calc
 
             # UI 그대로 유지, disabled
             st.number_input(
                 "자연 판매 수량",
-                # ✅ 수정: value에 st.session_state의 최신 계산 결과를 할당
+                # ✅ 최종: value에 st.session_state의 최신 계산 결과를 할당
                 value=st.session_state["organic_sales_qty_calc"], 
                 disabled=True,
                 key="organic_sales_qty_display" 
@@ -550,7 +552,7 @@ def main():
 
             st.number_input(
                 "자연 판매 매출액",
-                # ✅ 수정: value에 st.session_state의 최신 계산 결과를 할당
+                # ✅ 최종: value에 st.session_state의 최신 계산 결과를 할당
                 value=st.session_state["organic_revenue_calc"], 
                 disabled=True,
                 key="organic_revenue_display" 
@@ -568,7 +570,7 @@ def main():
                 logistics_cost_val = product_data.get("logistics_cost", 0)
                 customs_duty_val = product_data.get("customs_duty", 0)
                 etc_cost_val = product_data.get("etc_cost", 0)
-                ad_cost_val = ad_cost  # 사용자가 입력한 광고비
+                ad_cost_val = st.session_state["ad_cost"]  # 세션 상태에서 광고비 가져오기
 
                 # 단위 계산
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
@@ -579,13 +581,13 @@ def main():
 
                 # ✅ 일일 정산 계산식
                 daily_profit = (
-                    total_revenue
-                    - (total_revenue * fee_rate_val / 100 * 1.1)
-                    - (unit_purchase_cost * total_sales_qty * 1.1)
-                    - (inout_shipping_cost_val * total_sales_qty * 1.1)
-                    - (unit_logistics * total_sales_qty * 1.1)
-                    - (unit_customs * total_sales_qty * 1.1)
-                    - (unit_etc * total_sales_qty * 1.1)
+                    st.session_state["total_revenue"] # 세션 상태에서 전체 매출액 가져오기
+                    - (st.session_state["total_revenue"] * fee_rate_val / 100 * 1.1)
+                    - (unit_purchase_cost * st.session_state["total_sales_qty"] * 1.1)
+                    - (inout_shipping_cost_val * st.session_state["total_sales_qty"] * 1.1)
+                    - (unit_logistics * st.session_state["total_sales_qty"] * 1.1)
+                    - (unit_customs * st.session_state["total_sales_qty"] * 1.1)
+                    - (unit_etc * st.session_state["total_sales_qty"] * 1.1)
                     - (ad_cost_val * 1.1)
                 )
                 daily_profit = round(daily_profit)
