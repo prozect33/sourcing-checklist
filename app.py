@@ -61,7 +61,7 @@ def format_number(val):
         return ""
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
-# 🚀 수정된 부분: 탭 2의 number_input 키를 정확히 사용하여 리셋
+# 🚀 수정된 부분: 리셋 함수 보강 및 정확한 키 사용
 def reset_inputs():
     # 탭1 리셋
     st.session_state["sell_price_raw"] = ""
@@ -70,20 +70,19 @@ def reset_inputs():
     st.session_state["qty_raw"] = ""
     st.session_state["show_result"] = False
     
-    # 탭2 일일 정산 리셋 (number_input의 key를 사용해야 함)
-    # st.number_input에 key로 설정된 세션 상태만 직접 업데이트합니다.
+    # 탭2 일일 정산 리셋
     if "total_sales_qty" in st.session_state: st.session_state["total_sales_qty"] = 0
     if "total_revenue" in st.session_state: st.session_state["total_revenue"] = 0
     if "ad_sales_qty" in st.session_state: st.session_state["ad_sales_qty"] = 0
     if "ad_revenue" in st.session_state: st.session_state["ad_revenue"] = 0
     if "ad_cost" in st.session_state: st.session_state["ad_cost"] = 0
-    
-    # 계산된 값은 입력값이 0으로 리셋되면 자동으로 0이 됩니다.
-    # display 키는 수동으로 리셋할 필요 없습니다.
+    # 상품 선택도 초기화 (선택 리스트가 로드된 후)
+    if "product_select_daily" in st.session_state:
+        st.session_state["product_select_daily"] = "상품을 선택해주세요"
+
 
 def load_supabase_credentials():
     try:
-        # 환경 변수 사용을 권장하지만, 파일 방식 유지를 위해 기존 코드 유지
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
@@ -133,7 +132,7 @@ if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_i
 if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = ""
 if "is_edit_mode" not in st.session_state: st.session_state.is_edit_mode = False
 
-# 💡 일일 정산 입력 상태 초기화 (number_input의 초기값을 0으로 설정했으므로, 세션 상태도 0으로 초기화)
+# 💡 일일 정산 입력 상태 초기화 (탭 2 number_input의 key를 사용)
 if "total_sales_qty" not in st.session_state: st.session_state["total_sales_qty"] = 0
 if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 0
 if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
@@ -213,9 +212,6 @@ def validate_inputs():
 
     return True
 
-# --- 💡 일일 정산 계산 함수는 제거하고 로직을 직접 배치 ---
-# (기존 코드에서 삭제)
-
 def main():
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
@@ -226,10 +222,10 @@ def main():
         left, right = st.columns(2)
         with left:
             st.subheader("판매정보 입력")
-            # 탭 1 로직: 기존 작동 방식 유지
             sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
             margin_display = st.empty()
 
+            # 탭 1 마진 계산 로직 (기존 유지)
             if sell_price_raw.strip():
                 try:
                     target_margin = 50.0
@@ -277,27 +273,30 @@ def main():
             reset_col.button("리셋", on_click=reset_inputs)
 
         with right:
+            # 탭 1 결과 출력 로직 (기존 유지)
             if st.session_state["show_result"]:
                 try:
-                    sell_price = int(float(sell_price_raw))
-                    qty = int(float(qty_raw)) if qty_raw else 1
+                    sell_price = int(float(st.session_state.get("sell_price_raw", 0)))
+                    qty = int(float(st.session_state.get("qty_raw", 1))) if st.session_state.get("qty_raw") else 1
                 except:
                     st.warning("판매가와 수량을 정확히 입력해주세요.")
-                    # 계산에 필요한 값을 얻지 못했으므로 st.stop() 대신 return
                     return
-                if unit_won.strip() != "":
-                    unit_cost_val = round(float(unit_won))
+                
+                # 원가 계산
+                unit_won_val = st.session_state.get("unit_won")
+                unit_yuan_val = st.session_state.get("unit_yuan")
+
+                if unit_won_val and unit_won_val.strip() != "":
+                    unit_cost_val = round(float(unit_won_val))
                     cost_display = ""
-                elif unit_yuan.strip() != "":
-                    unit_cost_val = round(
-                        float(unit_yuan)
-                        * config['EXCHANGE_RATE']
-                    )
-                    cost_display = f"{unit_yuan}위안"
+                elif unit_yuan_val and unit_yuan_val.strip() != "":
+                    unit_cost_val = round(float(unit_yuan_val) * config['EXCHANGE_RATE'])
+                    cost_display = f"{unit_yuan_val}위안"
                 else:
                     unit_cost_val = 0
                     cost_display = ""
-
+                
+                # 비용 계산
                 vat = 1.1
                 unit_cost = round(unit_cost_val * qty)
                 fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
@@ -316,14 +315,12 @@ def main():
                 margin_ratio = round((margin_profit / supply_price2) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
-                # ROAS 계산 수정: ROAS = 매출액 / 광고비
                 roas = round((sell_price / ad) * 100, 2) if ad else 0
 
                 col_title, col_button = st.columns([4,1])
                 with col_title:
                     st.markdown("### 📊 계산 결과")
                 with col_button:
-                    # 탭 1에 대한 저장 로직이 없으므로 비활성화 상태 유지
                     st.button("저장하기", key="save_button_tab1", disabled=True) 
 
                 if cost_display:
@@ -360,6 +357,7 @@ def main():
         st.subheader("세부 마진 계산기")
 
         with st.expander("상품 정보 입력"):
+            # 상품 목록 로드 (기존 유지)
             product_list = ["새로운 상품 입력"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
@@ -383,6 +381,7 @@ def main():
                 placeholder="예: 무선 이어폰"
             )
 
+            # 상품 세부 정보 입력 (기존 유지)
             col_left, col_right = st.columns(2)
             with col_left:
                 st.text_input("판매가", key="sell_price_input")
@@ -421,7 +420,8 @@ def main():
             etc_cost = safe_int(st.session_state.etc_cost_input)
 
             quantity_to_save = quantity
-
+            
+            # 저장/수정/삭제 버튼 로직 (기존 유지)
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
                 with col_mod:
@@ -481,6 +481,7 @@ def main():
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
         with st.expander("일일 정산"):
+            # 상품 선택 로직 (기존 유지)
             product_list = ["상품을 선택해주세요"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
@@ -490,6 +491,7 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
+            # selectbox key를 사용하여 세션 상태 초기화에 활용
             selected_product_name = st.selectbox("상품 선택", product_list, key="product_select_daily")
 
             product_data = {}
@@ -522,13 +524,13 @@ def main():
 
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            # st.session_state에 값이 저장되도록 key를 사용
+            # 1. 입력 필드: key를 통해 st.session_state에 값을 저장
             total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
             total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            # st.session_state에 값이 저장되도록 key를 사용
+            # 1. 입력 필드: key를 통해 st.session_state에 값을 저장
             ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
             ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
             ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
@@ -536,68 +538,73 @@ def main():
             st.markdown("---")
             st.markdown("#### 자연 판매 (자동 계산)")
 
-            # 🚀 수정된 부분: 입력값 변동 시 즉시 계산
-            organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
-            organic_revenue_calc = max(total_revenue - ad_revenue, 0)
+            # 2. 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
+            # st.number_input에 key를 사용하면, 스크립트 재실행 시 해당 key의 세션 상태 값이 변수에 바인딩됩니다.
+            organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
+            organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
             
-            # 계산된 값을 value에 직접 할당하여 실시간으로 반영
+            # 3. 출력 필드: 계산된 값을 value로 설정하고 key를 사용하지 않음 (disabled이므로 값 고정)
             st.number_input(
                 "자연 판매 수량",
                 value=organic_sales_qty_calc,
-                disabled=True,
-                key="organic_sales_qty_display"
+                disabled=True
             )
             st.number_input(
                 "자연 판매 매출액",
                 value=organic_revenue_calc,
-                disabled=True,
-                key="organic_revenue_display"
+                disabled=True
             )
 
-            # ✅ 일일 순이익 계산 (계산 로직은 그대로 유지)
+            # ✅ 일일 순이익 계산 (기존 유지)
             daily_profit = 0
             if selected_product_name != "상품을 선택해주세요" and product_data:
+                # 안전하게 세션 상태의 최신 입력값 사용
+                current_total_sales_qty = st.session_state.total_sales_qty
+                current_total_revenue = st.session_state.total_revenue
+                current_ad_cost = st.session_state.ad_cost
+                
                 quantity_val = product_data.get("quantity", 1)
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
                 unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
                 unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
                 unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
                 unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
+                fee_rate_db = product_data.get("fee", 0.0)
 
                 daily_profit = (
-                    total_revenue
-                    - (total_revenue * product_data.get("fee", 0.0) / 100 * 1.1)
-                    - (unit_purchase_cost * total_sales_qty)
-                    - (product_data.get("inout_shipping_cost", 0) * total_sales_qty * 1.1)
-                    - (unit_logistics * total_sales_qty)
-                    - (unit_customs * total_sales_qty)
-                    - (unit_etc * total_sales_qty)
-                    - (ad_cost * 1.1)
+                    current_total_revenue
+                    - (current_total_revenue * fee_rate_db / 100 * 1.1)
+                    - (unit_purchase_cost * current_total_sales_qty)
+                    - (product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * 1.1)
+                    - (unit_logistics * current_total_sales_qty)
+                    - (unit_customs * current_total_sales_qty)
+                    - (unit_etc * current_total_sales_qty)
+                    - (current_ad_cost * 1.1)
                 )
                 daily_profit = round(daily_profit)
 
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
 
             if st.button("일일 정산 저장하기"):
-                # 저장 로직 구현 (현재는 경고 메시지)
+                # 저장 로직 (기존 유지)
                 if selected_product_name == "상품을 선택해주세요":
                     st.warning("상품을 먼저 선택해야 저장할 수 있습니다.")
                 elif not product_data:
                     st.warning("선택된 상품의 상세 정보가 없습니다.")
-                elif total_sales_qty == 0 and total_revenue == 0:
+                elif st.session_state.total_sales_qty == 0 and st.session_state.total_revenue == 0:
                     st.warning("판매 수량 또는 매출액을 입력해야 저장할 수 있습니다.")
                 else:
                     try:
                         data_to_save = {
                             "date": report_date.isoformat(),
                             "product_name": selected_product_name,
-                            "daily_sales_qty": total_sales_qty,
-                            "daily_revenue": total_revenue,
-                            "ad_sales_qty": ad_sales_qty,
-                            "ad_revenue": ad_revenue,
-                            "organic_sales_qty": organic_sales_qty_calc,
-                            "organic_revenue": organic_revenue_calc,
-                            "daily_ad_cost": ad_cost,
+                            "daily_sales_qty": st.session_state.total_sales_qty,
+                            "daily_revenue": st.session_state.total_revenue,
+                            "ad_sales_qty": st.session_state.ad_sales_qty,
+                            "ad_revenue": st.session_state.ad_revenue,
+                            "organic_sales_qty": organic_sales_qty_calc, # 계산된 값 사용
+                            "organic_revenue": organic_revenue_calc,     # 계산된 값 사용
+                            "daily_ad_cost": st.session_state.ad_cost,
                             "daily_profit": daily_profit,
                             "created_at": datetime.datetime.now().isoformat()
                         }
@@ -608,12 +615,12 @@ def main():
 
 
         with st.expander("판매 현황"):
+            # 판매 현황 로직 (기존 유지)
             try:
                 response = supabase.table("daily_sales").select("*").order("date", desc=True).execute()
                 df = pd.DataFrame(response.data)
 
                 if not df.empty:
-                    # 'date' 열을 datetime으로 변환
                     df['date'] = pd.to_datetime(df['date'])
                     
                     st.markdown("#### 일일 판매 기록")
@@ -629,9 +636,7 @@ def main():
                         "daily_ad_cost": "일일 광고비",
                         "daily_profit": "일일 순이익금",
                     })
-                    # 날짜 형식 포맷팅
                     df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-                    # 필요한 열만 선택하여 표시
                     display_cols = ['날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                     st.dataframe(df_display[display_cols], use_container_width=True)
 
@@ -646,7 +651,7 @@ def main():
                 st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
 if __name__ == "__main__":
-    # 탭 1의 리셋 버튼이 작동하도록, 필요한 세션 상태 키 초기화
+    # 메인 실행 전에 탭 1의 세션 상태 키 초기화 보장
     if "sell_price_raw" not in st.session_state: st.session_state["sell_price_raw"] = ""
     if "unit_yuan" not in st.session_state: st.session_state["unit_yuan"] = ""
     if "unit_won" not in st.session_state: st.session_state["unit_won"] = ""
