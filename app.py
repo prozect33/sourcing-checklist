@@ -553,30 +553,27 @@ def main():
                 etc_cost_val = product_data.get("etc_cost", 0)
                 ad_cost_val = ad_cost  # 사용자가 입력한 광고비
 
-                # 단가 계산
-                quantity_for_calc_daily = quantity_val if quantity_val > 0 else 1
-                unit_purchase_cost = purchase_cost_val / quantity_for_calc_daily
-                unit_logistics = logistics_cost_val / quantity_for_calc_daily
-                unit_customs = customs_duty_val / quantity_for_calc_daily
-                unit_etc = etc_cost_val / quantity_for_calc_daily
+                # 단위 계산
+                quantity_for_calc = quantity_val if quantity_val > 0 else 1
+                unit_purchase_cost = purchase_cost_val / quantity_for_calc
+                unit_logistics = logistics_cost_val / quantity_for_calc
+                unit_customs = customs_duty_val / quantity_for_calc
+                unit_etc = etc_cost_val / quantity_for_calc
 
-                # 상품 하나당 순이익 단가 계산 (VAT 1.1 적용)
-                daily_profit_per_unit = (
-                    sell_price_val # 판매가
-                    - (sell_price_val * fee_rate_val / 100 * 1.1) # 수수료
-                    - (inout_shipping_cost_val * 1.1) # 입출고/배송비
-                    - unit_purchase_cost
-                    - unit_logistics
-                    - unit_customs
-                    - unit_etc
+                # ✅ 새로운 일일 정산 계산식 (상품 상세 정보 기반)
+                daily_profit = (
+                    total_revenue
+                    - (total_revenue * fee_rate_val / 100 * 1.1)
+                    - (unit_purchase_cost * total_sales_qty)
+                    - (inout_shipping_cost_val * total_sales_qty * 1.1)
+                    - (unit_logistics * total_sales_qty)
+                    - (unit_customs * total_sales_qty)
+                    - (unit_etc * total_sales_qty)
+                    - (ad_cost_val * 1.1)
                 )
-                
-                # 일일 순이익금 = (상품당 순이익 단가 * 총 판매 수량) - 광고비
-                daily_profit = (daily_profit_per_unit * total_sales_qty) - ad_cost_val
-                daily_profit = round(daily_profit) # 정수 변환
+                daily_profit = round(daily_profit)
 
-            # 💡 daily_profit이 항상 할당되므로 오류 발생하지 않음
-            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
+            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원"):,}원")
 
             if st.button("일일 정산 저장하기"):
                 st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
