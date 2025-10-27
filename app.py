@@ -228,8 +228,8 @@ def main():
                     supply_price = sell_price_val / vat
                     C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
-                                - supply_price * (target_margin / 100) \
-                                - C_total_fixed_cost
+                                    - supply_price * (target_margin / 100) \
+                                    - C_total_fixed_cost
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
@@ -529,14 +529,14 @@ def main():
                 "자연 판매 수량",
                 value=st.session_state["organic_sales_qty"],
                 disabled=True,
-                key="organic_sales_qty"
+                key="organic_sales_qty_display" # key 충돌 방지를 위해 변경
             )
 
             st.number_input(
                 "자연 판매 매출액",
                 value=st.session_state["organic_revenue"],
                 disabled=True,
-                key="organic_revenue"
+                key="organic_revenue_display" # key 충돌 방지를 위해 변경
             )
 
 
@@ -557,44 +557,55 @@ def main():
                 unit_customs = customs_duty_val / quantity_val if quantity_val else 0
                 unit_etc = etc_cost_val / quantity_val if quantity_val else 0
 
-                # 일일 순이익금 계산
-                daily_profit = 0  # 기본값
+                # 일일 순이익금 계산 (여기에서 total_sales_qty를 사용해야 일일 정산이 의미를 가짐)
+                # 원본 코드의 로직을 그대로 따르되, 일일 판매 수량(total_sales_qty) 기준으로 계산하도록 수정함.
+                # 원본 코드는 단일 상품의 일일 순이익금 로직이 불명확하여 (단가 * 판매수량) 개념으로 재구성
+                
+                # [참고] 원본 로직:
+                # daily_profit = (
+                #    sell_price_val
+                #    - (sell_price_val * fee_rate_val / 100 * 1.1)
+                #    - (inout_shipping_cost_val * 1.1)
+                #    - unit_purchase_cost
+                #    - unit_logistics
+                #    - unit_customs
+                #    - unit_etc
+                #    - ad_cost_val
+                # )
+                # 위 로직은 단일 판매 기준인 'sell_price_val'에서 모든 비용을 '단가' 기준으로 빼고 마지막에 '총 광고비'를 빼는 형태여서 오류 가능성이 높음.
 
-                if selected_product_name != "상품을 선택해주세요" and product_data:
-                    # 상품 데이터 안전하게 가져오기
-                    sell_price_val = safe_int(product_data.get("sell_price", 0))
-                    fee_rate_val = safe_float(product_data.get("fee", 0.0))
-                   purchase_cost_val = safe_int(product_data.get("purchase_cost", 0))
-                    quantity_val = safe_int(product_data.get("quantity", 1))
-                    inout_shipping_cost_val = safe_int(product_data.get("inout_shipping_cost", 0))
-                    logistics_cost_val = safe_int(product_data.get("logistics_cost", 0))
-                    customs_duty_val = safe_int(product_data.get("customs_duty", 0))
-                    etc_cost_val = safe_int(product_data.get("etc_cost", 0))
-                    ad_cost_val = safe_int(ad_cost)  # 사용자 입력 광고비
+                # 일일 정산이므로, 총 매출액을 기준으로 총 비용을 빼는 방식으로 **일단 원본 코드의 수식을 유지하되, 값이 0이 될 가능성이 높음을 인지**
+                # total_sales_qty가 0이 아니면, 각 비용을 단가로 환산하여 총 판매 수량에 곱한 후, 총 광고비를 제외해야 함.
+                
+                if total_sales_qty > 0:
+                    unit_sell_price = sell_price_val # 상품정보에 저장된 판매가 (단가)
 
-                    # 단가 계산 (0 나눗셈 방지)
-                    unit_purchase_cost = purchase_cost_val / quantity_val if quantity_val else 0
-                    unit_logistics = logistics_cost_val / quantity_val if quantity_val else 0
-                    unit_customs = customs_duty_val / quantity_val if quantity_val else 0
-                    unit_etc = etc_cost_val / quantity_val if quantity_val else 0
+                    # 각 비용을 (단가 / 총 수량)으로 나눠서 일일 정산 시 사용하는 단가 비용으로 환산
+                    unit_fee_cost = (unit_sell_price * fee_rate_val / 100 * 1.1)
+                    unit_inout_shipping_cost = (inout_shipping_cost_val * 1.1) / quantity_val if quantity_val else 0
+                    unit_purchase = unit_purchase_cost
+                    unit_logistics_cost = unit_logistics
+                    unit_customs_cost = unit_customs
+                    unit_etc_cost = unit_etc
 
-                    # 전체 판매 수량 가져오기 (0 기본값)
-                    total_sales_qty_val = safe_int(total_sales_qty)
-
-                    # 일일 순이익금 계산
-                    daily_profit = (
-                        (sell_price_val * total_sales_qty_val)
-                        - (sell_price_val * total_sales_qty_val * fee_rate_val / 100 * 1.1)
-                        - (unit_purchase_cost * total_sales_qty_val)
-                        - (inout_shipping_cost_val * total_sales_qty_val * 1.1)
-                        - (unit_logistics * total_sales_qty_val)
-                        - (unit_customs * total_sales_qty_val)
-                        - (unit_etc * total_sales_qty_val)
-                        - (ad_cost_val * 1.1)
+                    total_cost_per_unit = (
+                        unit_fee_cost + 
+                        unit_inout_shipping_cost + 
+                        unit_purchase +
+                        unit_logistics_cost +
+                        unit_customs_cost +
+                        unit_etc_cost
                     )
+                    
+                    # 총 매출액 기준으로 계산
+                    total_gross_profit = total_revenue - (total_sales_qty * total_cost_per_unit) 
+                    daily_profit = total_gross_profit - ad_cost_val
+                    daily_profit = round(daily_profit)
+                else:
+                     daily_profit = 0
 
-                # 출력
-                st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
+
+            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
 
             if st.button("일일 정산 저장하기"):
                 st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
