@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import os
-import math
 import pandas as pd
 import datetime
 from supabase import create_client, Client
@@ -61,7 +60,6 @@ def format_number(val):
         return ""
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
-# 🚀 수정된 부분: 리셋 함수 보강 및 정확한 키 사용
 def reset_inputs():
     # 탭1 리셋
     st.session_state["sell_price_raw"] = ""
@@ -76,7 +74,6 @@ def reset_inputs():
     if "ad_sales_qty" in st.session_state: st.session_state["ad_sales_qty"] = 0
     if "ad_revenue" in st.session_state: st.session_state["ad_revenue"] = 0
     if "ad_cost" in st.session_state: st.session_state["ad_cost"] = 0
-    # 상품 선택도 초기화 (선택 리스트가 로드된 후)
     if "product_select_daily" in st.session_state:
         st.session_state["product_select_daily"] = "상품을 선택해주세요"
 
@@ -132,7 +129,7 @@ if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_i
 if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = ""
 if "is_edit_mode" not in st.session_state: st.session_state.is_edit_mode = False
 
-# 💡 일일 정산 입력 상태 초기화 (탭 2 number_input의 key를 사용)
+# 일일 정산 입력 상태 초기화 (탭 2 number_input의 key를 사용)
 if "total_sales_qty" not in st.session_state: st.session_state["total_sales_qty"] = 0
 if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 0
 if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
@@ -225,7 +222,7 @@ def main():
             sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
             margin_display = st.empty()
 
-            # 탭 1 마진 계산 로직 (기존 유지)
+            # 탭 1 마진 계산 로직
             if sell_price_raw.strip():
                 try:
                     target_margin = 50.0
@@ -258,12 +255,13 @@ def main():
                     margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             else:
                 margin_display.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            
             col1, col2 = st.columns(2)
             with col1:
-                unit_yuan = st.text_input("위안화 (¥)", key="unit_yuan")
+                st.text_input("위안화 (¥)", key="unit_yuan")
             with col2:
-                unit_won = st.text_input("원화 (₩)", key="unit_won")
-            qty_raw = st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", ""))
+                st.text_input("원화 (₩)", key="unit_won")
+            st.text_input("수량", key="qty_raw", value=st.session_state.get("qty_raw", ""))
 
             calc_col, reset_col = st.columns(2)
             if calc_col.button("계산하기"):
@@ -273,7 +271,7 @@ def main():
             reset_col.button("리셋", on_click=reset_inputs)
 
         with right:
-            # 탭 1 결과 출력 로직 (기존 유지)
+            # 탭 1 결과 출력 로직
             if st.session_state["show_result"]:
                 try:
                     sell_price = int(float(st.session_state.get("sell_price_raw", 0)))
@@ -324,14 +322,14 @@ def main():
                     st.button("저장하기", key="save_button_tab1", disabled=True) 
 
                 if cost_display:
-                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ 원가: {format_number(unit_cost)}원")
+                    st.markdown(f"- 🏷️ **원가:** {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ **원가:** {format_number(unit_cost)}원")
                 else:
-                    st.markdown(f"- 🏷️ 원가: {format_number(unit_cost)}원")
-                st.markdown(f"- 💰 마진: {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
-                st.markdown(f"- 📈 마진율: {margin_ratio:.2f}%")
-                st.markdown(f"- 🧾 최소 이익: {format_number(profit2)}원 / ROI: {roi:.2f}%")
-                st.markdown(f"- 📉 최소마진율: {(profit2/supply_price2*100):.2f}%")
-                st.markdown(f"- 📊 ROAS: {roas:.2f}%")
+                    st.markdown(f"- 🏷️ **원가:** {format_number(unit_cost)}원")
+                st.markdown(f"- 💰 **마진:** {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
+                st.markdown(f"- 📈 **마진율:** {margin_ratio:.2f}%")
+                st.markdown(f"- 🧾 **최소 이익:** {format_number(profit2)}원 / ROI: {roi:.2f}%")
+                st.markdown(f"- 📉 **최소마진율:** {(profit2/supply_price2*100):.2f}%")
+                st.markdown(f"- 📊 **ROAS:** {roas:.2f}%")
 
                 with st.expander("📦 상세 비용 항목 보기", expanded=False):
                     def styled_line(label, value):
@@ -357,7 +355,7 @@ def main():
         st.subheader("세부 마진 계산기")
 
         with st.expander("상품 정보 입력"):
-            # 상품 목록 로드 (기존 유지)
+            # 상품 목록 로드
             product_list = ["새로운 상품 입력"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
@@ -367,21 +365,21 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
-            selected_product_name = st.selectbox(
+            st.selectbox(
                 "저장된 상품 선택 또는 새로 입력",
                 product_list,
                 key="product_loader",
                 on_change=lambda: load_product_data(st.session_state.product_loader)
             )
 
-            product_name = st.text_input(
+            st.text_input(
                 "상품명",
                 value=st.session_state.product_name_input,
                 key="product_name_input",
                 placeholder="예: 무선 이어폰"
             )
 
-            # 상품 세부 정보 입력 (기존 유지)
+            # 상품 세부 정보 입력
             col_left, col_right = st.columns(2)
             with col_left:
                 st.text_input("판매가", key="sell_price_input")
@@ -421,7 +419,7 @@ def main():
 
             quantity_to_save = quantity
             
-            # 저장/수정/삭제 버튼 로직 (기존 유지)
+            # 저장/수정/삭제 버튼 로직
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
                 with col_mod:
@@ -481,7 +479,7 @@ def main():
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
         with st.expander("일일 정산"):
-            # 상품 선택 로직 (기존 유지)
+            # 상품 선택 로직
             product_list = ["상품을 선택해주세요"]
             try:
                 response = supabase.table("products").select("product_name").order("product_name").execute()
@@ -491,7 +489,6 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
-            # selectbox key를 사용하여 세션 상태 초기화에 활용
             selected_product_name = st.selectbox("상품 선택", product_list, key="product_select_daily")
 
             product_data = {}
@@ -524,26 +521,25 @@ def main():
 
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            # 1. 입력 필드: key를 통해 st.session_state에 값을 저장
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
+            # 입력 필드: key를 통해 st.session_state에 값을 저장
+            st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
+            st.number_input("전체 매출액", step=1000, key="total_revenue")
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            # 1. 입력 필드: key를 통해 st.session_state에 값을 저장
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
-            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
+            # 입력 필드: key를 통해 st.session_state에 값을 저장
+            st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
+            st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
+            st.number_input("광고비", step=1000, key="ad_cost")
 
             st.markdown("---")
             st.markdown("#### 자연 판매 (자동 계산)")
 
-            # 2. 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
-            # st.number_input에 key를 사용하면, 스크립트 재실행 시 해당 key의 세션 상태 값이 변수에 바인딩됩니다.
+            # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
             organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
             organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
             
-            # 3. 출력 필드: 계산된 값을 value로 설정하고 key를 사용하지 않음 (disabled이므로 값 고정)
+            # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
             st.number_input(
                 "자연 판매 수량",
                 value=organic_sales_qty_calc,
@@ -555,7 +551,7 @@ def main():
                 disabled=True
             )
 
-            # ✅ 일일 순이익 계산 (기존 유지)
+            # 일일 순이익 계산
             daily_profit = 0
             if selected_product_name != "상품을 선택해주세요" and product_data:
                 # 안전하게 세션 상태의 최신 입력값 사용
@@ -586,7 +582,7 @@ def main():
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
 
             if st.button("일일 정산 저장하기"):
-                # 저장 로직 (기존 유지)
+                # 저장 로직
                 if selected_product_name == "상품을 선택해주세요":
                     st.warning("상품을 먼저 선택해야 저장할 수 있습니다.")
                 elif not product_data:
@@ -602,8 +598,8 @@ def main():
                             "daily_revenue": st.session_state.total_revenue,
                             "ad_sales_qty": st.session_state.ad_sales_qty,
                             "ad_revenue": st.session_state.ad_revenue,
-                            "organic_sales_qty": organic_sales_qty_calc, # 계산된 값 사용
-                            "organic_revenue": organic_revenue_calc,     # 계산된 값 사용
+                            "organic_sales_qty": organic_sales_qty_calc,
+                            "organic_revenue": organic_revenue_calc,
                             "daily_ad_cost": st.session_state.ad_cost,
                             "daily_profit": daily_profit,
                             "created_at": datetime.datetime.now().isoformat()
@@ -615,7 +611,7 @@ def main():
 
 
         with st.expander("판매 현황"):
-            # 판매 현황 로직 (기존 유지)
+            # 판매 현황 로직
             try:
                 response = supabase.table("daily_sales").select("*").order("date", desc=True).execute()
                 df = pd.DataFrame(response.data)
