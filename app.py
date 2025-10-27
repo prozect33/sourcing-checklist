@@ -618,7 +618,7 @@ def main():
                     - 물류비: {logistics_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
                     - 관세: {customs_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
                     - 기타 비용: {etc_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
-                    - 광고비 (VAT 포함): {ad_cost_total:,}원 (입력값 기준)
+                    - 광고비 (VAT 포함): {ad_cost_total:,}원 (입력값 기준)<br>
                     </small>
                     """,
                     unsafe_allow_html=True
