@@ -210,6 +210,7 @@ def main():
     if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
     if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
     if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
+    # 자연 판매 계산 결과 초기값도 설정
     if "organic_sales_qty_calc" not in st.session_state: st.session_state["organic_sales_qty_calc"] = 0
     if "organic_revenue_calc" not in st.session_state: st.session_state["organic_revenue_calc"] = 0
 
@@ -515,13 +516,13 @@ def main():
 
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            # 💡 수정: value=st.session_state[...]를 사용하여 초기화 및 값 유지
+            # st.session_state를 value로 사용: 입력 값 변경 시 세션 상태에 저장됨
             total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty", value=st.session_state["total_sales_qty"])
             total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue", value=st.session_state["total_revenue"])
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            # 💡 수정: value=st.session_state[...]를 사용하여 초기화 및 값 유지
+            # st.session_state를 value로 사용
             ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty", value=st.session_state["ad_sales_qty"])
             ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue", value=st.session_state["ad_revenue"])
             ad_cost = st.number_input("광고비", step=1000, key="ad_cost", value=st.session_state["ad_cost"])
@@ -533,21 +534,24 @@ def main():
             organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
             organic_revenue_calc = max(total_revenue - ad_revenue, 0)
 
-            # ❌ 이 두 줄을 삭제했습니다.
-            # st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
-            # st.session_state["organic_revenue_calc"] = organic_revenue_calc
+            # ✅ 수정된 핵심 로직: 계산 결과를 st.session_state에 저장
+            # 다른 입력 위젯 (total_sales_qty 등)이 변경될 때마다 이 부분이 다시 실행되며 최신 계산 결과를 세션 상태에 반영
+            st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
+            st.session_state["organic_revenue_calc"] = organic_revenue_calc
 
             # UI 그대로 유지, disabled
             st.number_input(
                 "자연 판매 수량",
-                value=organic_sales_qty_calc, # ✅ 변수를 직접 사용하도록 수정
+                # ✅ 수정: value에 st.session_state의 최신 계산 결과를 할당
+                value=st.session_state["organic_sales_qty_calc"], 
                 disabled=True,
                 key="organic_sales_qty_display" 
             )
 
             st.number_input(
                 "자연 판매 매출액",
-                value=organic_revenue_calc, # ✅ 변수를 직접 사용하도록 수정
+                # ✅ 수정: value에 st.session_state의 최신 계산 결과를 할당
+                value=st.session_state["organic_revenue_calc"], 
                 disabled=True,
                 key="organic_revenue_display" 
             )
@@ -573,13 +577,11 @@ def main():
                 unit_customs = customs_duty_val / quantity_for_calc
                 unit_etc = etc_cost_val / quantity_for_calc
 
-                # ✅ 새로운 일일 정산 계산식 (상품 상세 정보 기반)
-                # 참고: total_revenue는 부가세 포함 금액, 나머지 비용은 부가세 포함 혹은 미포함 처리 필요
-                # 현재 로직: total_revenue에서 부가세 포함 비용들을 차감
+                # ✅ 일일 정산 계산식
                 daily_profit = (
                     total_revenue
                     - (total_revenue * fee_rate_val / 100 * 1.1)
-                    - (unit_purchase_cost * total_sales_qty * 1.1) # 매입원가에 부가세 1.1을 곱하여 처리
+                    - (unit_purchase_cost * total_sales_qty * 1.1)
                     - (inout_shipping_cost_val * total_sales_qty * 1.1)
                     - (unit_logistics * total_sales_qty * 1.1)
                     - (unit_customs * total_sales_qty * 1.1)
