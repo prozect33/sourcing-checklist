@@ -514,46 +514,30 @@ def main():
             ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
             ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
 
-            # 🔹 자연 판매 자동 계산 함수
-            def update_organic_sales():
-                st.session_state["organic_sales_qty_display"] = max(
-                    st.session_state.get("total_sales_qty", 0) - st.session_state.get("ad_sales_qty", 0), 0
-                )
-                st.session_state["organic_revenue_display"] = max(
-                    st.session_state.get("total_revenue", 0) - st.session_state.get("ad_revenue", 0), 0
-                )
-
-            # 전체/광고 판매 입력창과 연결
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty", on_change=update_organic_sales)
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue", on_change=update_organic_sales)
-
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty", on_change=update_organic_sales)
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue", on_change=update_organic_sales)
-            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")  # 광고비는 계산에는 제외
-
-            # 자연 판매 표시
-            # --- 자연 판매 (자동 계산)
             st.markdown("---")
             st.markdown("#### 자연 판매")
 
-            # 세션 스테이트에 값 저장 (자동 계산)
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty_daily")
-            st.session_state["organic_revenue_display"] = max(total_revenue - ad_revenue, 0)
+            # 🔹 자동 계산
+            organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
+            organic_revenue_calc = max(total_revenue - ad_revenue, 0)
 
-            # 단순 보여주기
+            st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
+            st.session_state["organic_revenue_calc"] = organic_revenue_calc
+
+            # UI 그대로 유지, disabled
             st.number_input(
                 "자연 판매 수량",
-                value=st.session_state["organic_sales_qty_display"],
+                value=st.session_state["organic_sales_qty_calc"],
                 disabled=True,
-                key="organic_sales_qty_display"
-            )
-            st.number_input(
-                "자연 판매 매출액",
-                value=st.session_state["organic_revenue_display"],
-                disabled=True,
-                key="organic_revenue_display"
+                key="organic_sales_qty_display" # key 중복 방지를 위해 수정
             )
 
+            st.number_input(
+                "자연 판매 매출액",
+                value=st.session_state["organic_revenue_calc"],
+                disabled=True,
+                key="organic_revenue_display" # key 중복 방지를 위해 수정
+            )
 
             # 💡 UnboundLocalError 방지를 위해 초기화 (이전 로직은 else로 처리되었지만, 안정성을 위해 초기화)
             daily_profit = 0
@@ -589,7 +573,7 @@ def main():
                 )
                 daily_profit = round(daily_profit)
 
-            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
+            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원"):,}원")
 
             if st.button("일일 정산 저장하기"):
                 st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
