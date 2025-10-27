@@ -573,7 +573,7 @@ def main():
                 )
                 daily_profit = round(daily_profit)
 
-            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원"):,}원")
+            st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
 
             if st.button("일일 정산 저장하기"):
                 st.warning("계산 로직이 비활성화되어 있습니다. 순이익 계산 로직을 추가한 후 저장할 수 있습니다.")
