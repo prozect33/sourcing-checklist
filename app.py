@@ -227,8 +227,15 @@ def tab2_content():
         st.markdown("---")
         st.subheader("💰 일일 순이익 계산 결과")
 
-        # 💡 UnboundLocalError 방지를 위해 초기화
+        # 💡 UnboundLocalError 방지를 위해 초기화 (계산에 필요한 변수도 0으로 초기화)
         daily_profit = 0
+        fee_total = 0
+        purchase_total = 0
+        inout_shipping_total = 0
+        logistics_total = 0
+        customs_total = 0
+        etc_total = 0
+        ad_cost_with_vat = 0
         
         if selected_product_name != "상품을 선택해주세요" and product_data:
             # 1. 상품 상세 정보 불러오기 (단위 원가는 이미 tab1에서 계산되어 저장된 값 사용)
