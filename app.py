@@ -582,51 +582,50 @@ def main():
 
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
             
-            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨, Expandable) ---
+            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) ---
             if selected_product_name != "상품을 선택해주세요" and product_data:
-                # Expander를 사용하여 내용을 접거나 펼칠 수 있도록 함
-                with st.expander("세부 비용 내역 보기"):
-                    # 1. 계산에 필요한 변수 설정
-                    vat = 1.1
-                    fee_rate_db = product_data.get("fee", 0.0) 
-                    current_total_sales_qty = st.session_state.total_sales_qty
-                    current_total_revenue = st.session_state.total_revenue
-                    current_ad_cost = st.session_state.ad_cost 
-                    
-                    # 2. 단위 비용 재계산
-                    quantity_val = product_data.get("quantity", 1)
-                    quantity_for_calc = quantity_val if quantity_val > 0 else 1
-                    unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
-                    unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
-                    unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
-                    unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
-
-                    # 3. 총 비용 항목 계산
-                    fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
-                    purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
-                    inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
-                    logistics_cost_total = round(unit_logistics * current_total_sales_qty)
-                    customs_cost_total = round(unit_customs * current_total_sales_qty)
-                    etc_cost_total = round(unit_etc * current_total_sales_qty)
-                    ad_cost_total = round(current_ad_cost * vat) 
-
-                    # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력
-                    st.markdown(
-                        f"""
-                        <small>
-                        - 판매 수수료 (VAT 포함): {fee_cost:,}원 (매출액 기준)<br>
-                        - 매입비: {purchase_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                        - 입출고/배송비 (VAT 포함): {inout_shipping_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                        - 물류비: {logistics_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                        - 관세: {customs_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                        - 기타 비용: {etc_cost_total:,}원 (**{current_total_sales_qty:,}개**)<br>
-                        - 광고비 (VAT 포함): {ad_cost_total:,}원 (입력값 기준)
-                        </small>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                # 1. 계산에 필요한 변수 설정 (daily_profit 계산에 사용된 변수 재사용)
+                vat = 1.1
+                fee_rate_db = product_data.get("fee", 0.0) 
+                current_total_sales_qty = st.session_state.total_sales_qty
+                current_total_revenue = st.session_state.total_revenue
+                current_ad_cost = st.session_state.ad_cost 
                 
-            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨, Expandable) 끝 ---
+                # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
+                quantity_val = product_data.get("quantity", 1)
+                quantity_for_calc = quantity_val if quantity_val > 0 else 1
+                unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
+                unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
+                unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
+
+                # 3. 총 비용 항목 계산 (daily_profit 계산의 개별 비용 항목)
+                fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
+                purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
+                inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
+                logistics_cost_total = round(unit_logistics * current_total_sales_qty)
+                customs_cost_total = round(unit_customs * current_total_sales_qty)
+                etc_cost_total = round(unit_etc * current_total_sales_qty)
+                ad_cost_total = round(current_ad_cost * vat) 
+
+                # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
+                st.markdown(
+                    f"""                    
+                    <small>
+                    - 판매 수수료 (VAT 포함): {fee_cost:,}원 (매출액 기준)<br>
+                    - 매입비: {purchase_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 입출고/배송비 (VAT 포함): {inout_shipping_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 물류비: {logistics_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 관세: {customs_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 기타 비용: {etc_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
+                    - 광고비 (VAT 포함): {ad_cost_total:,}원 (입력값 기준)<br>
+                    <br>
+                    </small>
+                    """,
+                    unsafe_allow_html=True
+                )
+                
+            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) 끝 ---
 
             if st.button("일일 정산 저장하기"):
                 # 저장 로직
