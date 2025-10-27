@@ -623,6 +623,7 @@ def main():
                     """,
                     unsafe_allow_html=True
                 )
+                
             # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) 끝 ---
 
             if st.button("일일 정산 저장하기"):
