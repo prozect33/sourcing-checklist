@@ -223,6 +223,7 @@ def main():
         left, right = st.columns(2)
         with left:
             st.subheader("판매정보 입력")
+            # 탭 1 로직: 기존 작동 방식 유지
             sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
             margin_display = st.empty()
 
@@ -519,32 +520,34 @@ def main():
             st.markdown("---")
             st.markdown("#### 전체 판매")
             # 입력 위젯: key를 st.session_state의 이름으로 사용
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
+            st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
+            st.number_input("전체 매출액", step=1000, key="total_revenue")
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
             # 입력 위젯: key를 st.session_state의 이름으로 사용
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
-            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
+            st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
+            st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
+            st.number_input("광고비", step=1000, key="ad_cost")
 
             st.markdown("---")
             st.markdown("#### 자연 판매")
 
-            # 🔹 자동 계산
+            # 🔹 실시간 자동 계산 로직 (수정된 핵심 부분)
             # 입력 위젯의 최신 값(st.session_state에 저장됨)을 사용하여 계산
+            # Streamlit은 입력값 변경 시 페이지를 Rerun하고, 이 때 아래 코드가 실행됨
             organic_sales_qty_calc = max(st.session_state["total_sales_qty"] - st.session_state["ad_sales_qty"], 0)
             organic_revenue_calc = max(st.session_state["total_revenue"] - st.session_state["ad_revenue"], 0)
 
-            # ✅ 핵심 수정: 계산 결과를 st.session_state에 저장
+            # ✅ 계산 결과를 st.session_state에 즉시 저장
+            # 이것이 disabled된 위젯의 value를 업데이트하는 열쇠임
             st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
             st.session_state["organic_revenue_calc"] = organic_revenue_calc
 
-            # UI 그대로 유지, disabled
+            # UI (Disabled 출력 위젯)
             st.number_input(
                 "자연 판매 수량",
-                # ✅ 최종: value에 st.session_state의 최신 계산 결과를 할당
+                # ✅ value에 st.session_state의 최신 계산 결과를 할당
                 value=st.session_state["organic_sales_qty_calc"], 
                 disabled=True,
                 key="organic_sales_qty_display" 
@@ -552,17 +555,16 @@ def main():
 
             st.number_input(
                 "자연 판매 매출액",
-                # ✅ 최종: value에 st.session_state의 최신 계산 결과를 할당
+                # ✅ value에 st.session_state의 최신 계산 결과를 할당
                 value=st.session_state["organic_revenue_calc"], 
                 disabled=True,
                 key="organic_revenue_display" 
             )
 
-            # 💡 UnboundLocalError 방지를 위해 초기화
+            # 💡 일일 순이익 계산 (수정 필요할 경우 대비하여 st.session_state 참조하도록 수정)
             daily_profit = 0
             
             if selected_product_name != "상품을 선택해주세요" and product_data:
-                sell_price_val = product_data.get("sell_price", 0)
                 fee_rate_val = product_data.get("fee", 0.0)
                 inout_shipping_cost_val = product_data.get("inout_shipping_cost", 0)
                 purchase_cost_val = product_data.get("purchase_cost", 0)
@@ -570,7 +572,11 @@ def main():
                 logistics_cost_val = product_data.get("logistics_cost", 0)
                 customs_duty_val = product_data.get("customs_duty", 0)
                 etc_cost_val = product_data.get("etc_cost", 0)
-                ad_cost_val = st.session_state["ad_cost"]  # 세션 상태에서 광고비 가져오기
+                
+                # 세션 상태에서 최신 입력값을 가져와 계산
+                total_revenue_input = st.session_state["total_revenue"]
+                total_sales_qty_input = st.session_state["total_sales_qty"]
+                ad_cost_val = st.session_state["ad_cost"] 
 
                 # 단위 계산
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
@@ -579,15 +585,15 @@ def main():
                 unit_customs = customs_duty_val / quantity_for_calc
                 unit_etc = etc_cost_val / quantity_for_calc
 
-                # ✅ 일일 정산 계산식
+                # ✅ 일일 정산 계산식 (최신 세션 상태 값 사용)
                 daily_profit = (
-                    st.session_state["total_revenue"] # 세션 상태에서 전체 매출액 가져오기
-                    - (st.session_state["total_revenue"] * fee_rate_val / 100 * 1.1)
-                    - (unit_purchase_cost * st.session_state["total_sales_qty"] * 1.1)
-                    - (inout_shipping_cost_val * st.session_state["total_sales_qty"] * 1.1)
-                    - (unit_logistics * st.session_state["total_sales_qty"] * 1.1)
-                    - (unit_customs * st.session_state["total_sales_qty"] * 1.1)
-                    - (unit_etc * st.session_state["total_sales_qty"] * 1.1)
+                    total_revenue_input
+                    - (total_revenue_input * fee_rate_val / 100 * 1.1)
+                    - (unit_purchase_cost * total_sales_qty_input * 1.1)
+                    - (inout_shipping_cost_val * total_sales_qty_input * 1.1)
+                    - (unit_logistics * total_sales_qty_input * 1.1)
+                    - (unit_customs * total_sales_qty_input * 1.1)
+                    - (unit_etc * total_sales_qty_input * 1.1)
                     - (ad_cost_val * 1.1)
                 )
                 daily_profit = round(daily_profit)
