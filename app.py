@@ -58,7 +58,6 @@ def save_config(config):
 def format_number(val):
     if val is None:
         return ""
-    # 음수/양수 상관없이 콤마 포맷팅
     return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
 
 def reset_inputs():
@@ -293,8 +292,7 @@ def main():
                     cost_display = f"{unit_yuan_val}위안"
                 else:
                     unit_cost_val = 0
-                
-                cost_display = ""
+                    cost_display = ""
                 
                 # 비용 계산
                 vat = 1.1
@@ -555,8 +553,6 @@ def main():
 
             # 일일 순이익 계산
             daily_profit = 0
-            detail_markup = "" # 상세 내역을 저장할 변수 초기화
-            
             if selected_product_name != "상품을 선택해주세요" and product_data:
                 # 안전하게 세션 상태의 최신 입력값 사용
                 current_total_sales_qty = st.session_state.total_sales_qty
@@ -571,58 +567,20 @@ def main():
                 unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
                 fee_rate_db = product_data.get("fee", 0.0)
 
-                # --- 일별 비용 항목 상세 계산 (VAT 1.1 적용) ---
-                # 주의: 상품별 수수료율(fee_rate_db)을 사용하고, 설정값의 수수료율(config['FEE_RATE'])을 사용하지 않음.
-                fee_cost = round(current_total_revenue * fee_rate_db / 100 * 1.1)
-                purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
-                inout_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * 1.1)
-                logistics_cost_total = round(unit_logistics * current_total_sales_qty)
-                customs_cost_total = round(unit_customs * current_total_sales_qty)
-                etc_cost_total = round(unit_etc * current_total_sales_qty)
-                ad_cost_total = round(current_ad_cost * 1.1)
-                # --- 비용 계산 종료 ---
-
-                # 일일 순이익금 계산
-                total_cost = fee_cost + purchase_cost_total + inout_cost_total + logistics_cost_total + customs_cost_total + etc_cost_total + ad_cost_total
-                daily_profit = current_total_revenue - total_cost
+                daily_profit = (
+                    current_total_revenue
+                    - (current_total_revenue * fee_rate_db / 100 * 1.1)
+                    - (unit_purchase_cost * current_total_sales_qty)
+                    - (product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * 1.1)
+                    - (unit_logistics * current_total_sales_qty)
+                    - (unit_customs * current_total_sales_qty)
+                    - (unit_etc * current_total_sales_qty)
+                    - (current_ad_cost * 1.1)
+                )
                 daily_profit = round(daily_profit)
 
-                # --- 계산 내역 (상세 비용 리스트) 마크업 생성 ---
-                # H4 (####) 크기와 유사한 폰트 사이즈 (약 18px)를 사용하여 "일일 순이익금" 텍스트 크기와 시각적으로 통일
-                detail_markup = f"""
-<div style='margin-top: -10px;'>
-    <div style='font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #4b89e8;'>
-        📊 계산 내역 (총 수량 {current_total_sales_qty:,}개)
-    </div>
-    <ul style='list-style-type: none; padding-left: 0; margin-top: 5px; font-size: 18px; line-height: 1.5;'>
-        <li>- 총 수수료 (VAT 포함): {format_number(fee_cost)}원</li>
-        <li>- 총 매입비: {format_number(purchase_cost_total)}원</li>
-        <li>- 총 입출고/배송비 (VAT 포함): {format_number(inout_cost_total)}원</li>
-        <li>- 총 물류비: {format_number(logistics_cost_total)}원</li>
-        <li>- 총 관세: {format_number(customs_cost_total)}원</li>
-        <li>- 총 기타비용: {format_number(etc_cost_total)}원</li>
-        <li>- 총 광고비 (VAT 포함): {format_number(ad_cost_total)}원</li>
-    </ul>
-</div>
-                """
-            
-            # --- 일일 순이익금 결과 출력 (st.metric 대체) ---
-            # '일일 순이익금' 라벨과 동일한 크기 (H4)로 출력하고 금액은 굵게 표시
-            # 금액은 Streamlit metric의 값과 유사하게 보이도록 폰트 크기를 키움 (28px)
-            st.markdown(f"""
-                <div style='font-size: 18px; font-weight: bold;'>
-                    일일 순이익금 계산 결과 금액:
-                </div>
-                <div style='font-size: 28px; font-weight: bold; color: #008000; margin-top: 5px; margin-bottom: 5px;'>
-                    {format_number(daily_profit)}원
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
 
-            # 계산 내역을 그 바로 밑에 동일한 크기로 출력
-            if detail_markup:
-                st.markdown(detail_markup, unsafe_allow_html=True)
-
-            # --- 저장 버튼 ---
             if st.button("일일 정산 저장하기"):
                 # 저장 로직
                 if selected_product_name == "상품을 선택해주세요":
