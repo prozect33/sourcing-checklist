@@ -517,27 +517,19 @@ def main():
             st.markdown("---")
             st.markdown("#### 자연 판매")
 
-            # 🔹 자동 계산
-            organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
-            organic_revenue_calc = max(total_revenue - ad_revenue, 0)
-
-            st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
-            st.session_state["organic_revenue_calc"] = organic_revenue_calc
-
-            # UI 그대로 유지, disabled
             st.number_input(
                 "자연 판매 수량",
-                value=st.session_state["organic_sales_qty_calc"],
+                value=max(total_sales_qty - ad_sales_qty, 0),
                 disabled=True,
-                key="organic_sales_qty_display" # key 중복 방지를 위해 수정
+                key="organic_sales_qty_display"
             )
-
             st.number_input(
                 "자연 판매 매출액",
-                value=st.session_state["organic_revenue_calc"],
+                value=max(total_revenue - ad_revenue, 0),
                 disabled=True,
-                key="organic_revenue_display" # key 중복 방지를 위해 수정
+                key="organic_revenue_display"
             )
+
 
             # 💡 UnboundLocalError 방지를 위해 초기화 (이전 로직은 else로 처리되었지만, 안정성을 위해 초기화)
             daily_profit = 0
