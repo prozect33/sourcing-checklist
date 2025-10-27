@@ -537,7 +537,7 @@ def main():
             st.markdown("#### 자연 판매")
 
             # 세션 스테이트에 값 저장 (자동 계산)
-            st.session_state["organic_sales_qty_display"] = max(total_sales_qty - ad_sales_qty, 0)
+            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty_daily")
             st.session_state["organic_revenue_display"] = max(total_revenue - ad_revenue, 0)
 
             # 단순 보여주기
