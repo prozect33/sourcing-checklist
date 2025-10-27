@@ -203,6 +203,16 @@ def validate_inputs():
 def main():
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
+    
+    # 💡 Streamlit Number Input의 초기값 설정 (None 방지)
+    if "total_sales_qty" not in st.session_state: st.session_state["total_sales_qty"] = 0
+    if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 0
+    if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
+    if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
+    if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
+    if "organic_sales_qty_calc" not in st.session_state: st.session_state["organic_sales_qty_calc"] = 0
+    if "organic_revenue_calc" not in st.session_state: st.session_state["organic_revenue_calc"] = 0
+
 
     tab1, tab2 = st.tabs(["간단 마진 계산기", "세부 마진 계산기"])
 
@@ -505,14 +515,16 @@ def main():
 
             st.markdown("---")
             st.markdown("#### 전체 판매")
-            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
-            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue")
+            # 💡 수정: value=st.session_state[...]를 사용하여 초기화 및 값 유지
+            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty", value=st.session_state["total_sales_qty"])
+            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue", value=st.session_state["total_revenue"])
 
             st.markdown("---")
             st.markdown("#### 광고 판매")
-            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
-            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
-            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
+            # 💡 수정: value=st.session_state[...]를 사용하여 초기화 및 값 유지
+            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty", value=st.session_state["ad_sales_qty"])
+            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue", value=st.session_state["ad_revenue"])
+            ad_cost = st.number_input("광고비", step=1000, key="ad_cost", value=st.session_state["ad_cost"])
 
             st.markdown("---")
             st.markdown("#### 자연 판매")
@@ -521,25 +533,26 @@ def main():
             organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
             organic_revenue_calc = max(total_revenue - ad_revenue, 0)
 
-            st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
-            st.session_state["organic_revenue_calc"] = organic_revenue_calc
+            # ❌ 이 두 줄을 삭제했습니다.
+            # st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
+            # st.session_state["organic_revenue_calc"] = organic_revenue_calc
 
             # UI 그대로 유지, disabled
             st.number_input(
                 "자연 판매 수량",
-                value=st.session_state["organic_sales_qty_calc"],
+                value=organic_sales_qty_calc, # ✅ 변수를 직접 사용하도록 수정
                 disabled=True,
-                key="organic_sales_qty_display" # key 중복 방지를 위해 수정
+                key="organic_sales_qty_display" 
             )
 
             st.number_input(
                 "자연 판매 매출액",
-                value=st.session_state["organic_revenue_calc"],
+                value=organic_revenue_calc, # ✅ 변수를 직접 사용하도록 수정
                 disabled=True,
-                key="organic_revenue_display" # key 중복 방지를 위해 수정
+                key="organic_revenue_display" 
             )
 
-            # 💡 UnboundLocalError 방지를 위해 초기화 (이전 로직은 else로 처리되었지만, 안정성을 위해 초기화)
+            # 💡 UnboundLocalError 방지를 위해 초기화
             daily_profit = 0
             
             if selected_product_name != "상품을 선택해주세요" and product_data:
@@ -561,14 +574,16 @@ def main():
                 unit_etc = etc_cost_val / quantity_for_calc
 
                 # ✅ 새로운 일일 정산 계산식 (상품 상세 정보 기반)
+                # 참고: total_revenue는 부가세 포함 금액, 나머지 비용은 부가세 포함 혹은 미포함 처리 필요
+                # 현재 로직: total_revenue에서 부가세 포함 비용들을 차감
                 daily_profit = (
                     total_revenue
                     - (total_revenue * fee_rate_val / 100 * 1.1)
-                    - (unit_purchase_cost * total_sales_qty)
+                    - (unit_purchase_cost * total_sales_qty * 1.1) # 매입원가에 부가세 1.1을 곱하여 처리
                     - (inout_shipping_cost_val * total_sales_qty * 1.1)
-                    - (unit_logistics * total_sales_qty)
-                    - (unit_customs * total_sales_qty)
-                    - (unit_etc * total_sales_qty)
+                    - (unit_logistics * total_sales_qty * 1.1)
+                    - (unit_customs * total_sales_qty * 1.1)
+                    - (unit_etc * total_sales_qty * 1.1)
                     - (ad_cost_val * 1.1)
                 )
                 daily_profit = round(daily_profit)
