@@ -69,13 +69,12 @@ def reset_inputs():
     st.session_state["show_result"] = False
     
     # 탭2 일일 정산 리셋
-    if "total_sales_qty" in st.session_state: st.session_state["total_sales_qty"] = 0
-    if "total_revenue" in st.session_state: st.session_state["total_revenue"] = 0
-    if "ad_sales_qty" in st.session_state: st.session_state["ad_sales_qty"] = 0
-    if "ad_revenue" in st.session_state: st.session_state["ad_revenue"] = 0
-    if "ad_cost" in st.session_state: st.session_state["ad_cost"] = 0
-    if "product_select_daily" in st.session_state:
-        st.session_state["product_select_daily"] = "상품을 선택해주세요"
+    st.session_state["total_sales_qty"] = 0
+    st.session_state["total_revenue"] = 0
+    st.session_state["ad_sales_qty"] = 0
+    st.session_state["ad_revenue"] = 0
+    st.session_state["ad_cost"] = 0
+    st.session_state["product_select_daily"] = "상품을 선택해주세요"
 
 
 def load_supabase_credentials():
@@ -551,14 +550,16 @@ def main():
                 disabled=True
             )
 
-            # 일일 순이익 계산
+            # 일일 순이익 계산 및 상세 내역 준비
             daily_profit = 0
+            detail_markup = ""
+            
             if selected_product_name != "상품을 선택해주세요" and product_data:
-                # 안전하게 세션 상태의 최신 입력값 사용
                 current_total_sales_qty = st.session_state.total_sales_qty
                 current_total_revenue = st.session_state.total_revenue
                 current_ad_cost = st.session_state.ad_cost
                 
+                # 단가 계산 (0 방지)
                 quantity_val = product_data.get("quantity", 1)
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
                 unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
@@ -567,20 +568,50 @@ def main():
                 unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
                 fee_rate_db = product_data.get("fee", 0.0)
 
+                # 일일 총 비용 항목 계산 (VAT 포함된 항목은 1.1 적용)
+                cost_fee = round(current_total_revenue * fee_rate_db / 100 * 1.1)
+                cost_purchase = round(unit_purchase_cost * current_total_sales_qty)
+                cost_inout = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * 1.1)
+                cost_logistics = round(unit_logistics * current_total_sales_qty)
+                cost_customs = round(unit_customs * current_total_sales_qty)
+                cost_etc = round(unit_etc * current_total_sales_qty)
+                cost_ad = round(current_ad_cost * 1.1)
+                
+                # 순이익 계산
                 daily_profit = (
                     current_total_revenue
-                    - (current_total_revenue * fee_rate_db / 100 * 1.1)
-                    - (unit_purchase_cost * current_total_sales_qty)
-                    - (product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * 1.1)
-                    - (unit_logistics * current_total_sales_qty)
-                    - (unit_customs * current_total_sales_qty)
-                    - (unit_etc * current_total_sales_qty)
-                    - (current_ad_cost * 1.1)
+                    - cost_fee
+                    - cost_purchase
+                    - cost_inout
+                    - cost_logistics
+                    - cost_customs
+                    - cost_etc
+                    - cost_ad
                 )
                 daily_profit = round(daily_profit)
+                
+                # 상세 내역 HTML 생성
+                detail_markup = f"""
+                <div style='font-size: 11px; color: #888888; margin-top: -10px; margin-bottom: 20px; line-height: 1.5;'>
+                    총 매출액: {format_number(current_total_revenue)}원<br>
+                    총 비용: {format_number(cost_fee + cost_purchase + cost_inout + cost_logistics + cost_customs + cost_etc + cost_ad)}원<br>
+                    &nbsp;&nbsp; - 수수료(VAT포함): {format_number(cost_fee)}원<br>
+                    &nbsp;&nbsp; - 매입원가: {format_number(cost_purchase)}원<br>
+                    &nbsp;&nbsp; - 입출고/배송비(VAT포함): {format_number(cost_inout)}원<br>
+                    &nbsp;&nbsp; - 물류비: {format_number(cost_logistics)}원<br>
+                    &nbsp;&nbsp; - 관세: {format_number(cost_customs)}원<br>
+                    &nbsp;&nbsp; - 기타비용: {format_number(cost_etc)}원<br>
+                    &nbsp;&nbsp; - 광고비(VAT포함): {format_number(cost_ad)}원
+                </div>
+                """
+
+            # 일일 순이익금 출력 (metric과 상세 내역)
+            if detail_markup:
+                st.markdown(detail_markup, unsafe_allow_html=True)
 
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
-
+            
+            # --- 기존 버튼 로직 유지 ---
             if st.button("일일 정산 저장하기"):
                 # 저장 로직
                 if selected_product_name == "상품을 선택해주세요":
