@@ -610,6 +610,7 @@ def main():
 
                 # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
                 st.markdown(
+                    f"""                    
                     <small>
                     - 판매 수수료 (VAT 포함): {fee_cost:,}원 (매출액 기준)<br>
                     - 매입비: {purchase_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
