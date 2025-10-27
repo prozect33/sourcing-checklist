@@ -514,21 +514,37 @@ def main():
             ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
             ad_cost = st.number_input("광고비", step=1000, key="ad_cost")
 
-            st.markdown("---")
-            st.markdown("#### 자연 판매")
+            # 🔹 자연 판매 자동 계산 함수
+            def update_organic_sales():
+                st.session_state["organic_sales_qty_display"] = max(
+                    st.session_state.get("total_sales_qty", 0) - st.session_state.get("ad_sales_qty", 0), 0
+                )
+                st.session_state["organic_revenue_display"] = max(
+                    st.session_state.get("total_revenue", 0) - st.session_state.get("ad_revenue", 0), 0
+                )
 
+            # 전체/광고 판매 입력창과 연결
+            total_sales_qty = st.number_input("전체 판매 수량", step=1, key="total_sales_qty", on_change=update_organic_sales)
+            total_revenue = st.number_input("전체 매출액", step=1000, key="total_revenue", on_change=update_organic_sales)
+
+            ad_sales_qty = st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty", on_change=update_organic_sales)
+            ad_revenue = st.number_input("광고 전환 매출액", step=1000, key="ad_revenue", on_change=update_organic_sales)
+            ad_cost = st.number_input("광고비", step=1000, key="ad_cost")  # 광고비는 계산에는 제외
+
+            # 자연 판매 표시
             st.number_input(
                 "자연 판매 수량",
-                value=max(total_sales_qty - ad_sales_qty, 0),
+                value=st.session_state.get("organic_sales_qty_display", 0),
                 disabled=True,
                 key="organic_sales_qty_display"
             )
             st.number_input(
                 "자연 판매 매출액",
-                value=max(total_revenue - ad_revenue, 0),
+                value=st.session_state.get("organic_revenue_display", 0),
                 disabled=True,
                 key="organic_revenue_display"
             )
+
 
 
             # 💡 UnboundLocalError 방지를 위해 초기화 (이전 로직은 else로 처리되었지만, 안정성을 위해 초기화)
