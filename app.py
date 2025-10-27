@@ -10,10 +10,10 @@ st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
 st.markdown("""
     <style>
-      [data-testid="stSidebarHeader"] { display: none !important; }
-      [data-testid="stSidebarContent"] { padding-top: 15px !important; }
-      [data-testid="stHeading"] { margin-bottom: 15px !important; }
-      [data-testid="stNumberInput"] button { display: none !important; }
+     [data-testid="stSidebarHeader"] { display: none !important; }
+     [data-testid="stSidebarContent"] { padding-top: 15px !important; }
+     [data-testid="stHeading"] { margin-bottom: 15px !important; }
+     [data-testid="stNumberInput"] button { display: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -228,8 +228,8 @@ def main():
                     supply_price = sell_price_val / vat
                     C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                     raw_cost2 = sell_price_val \
-                                    - supply_price * (target_margin / 100) \
-                                    - C_total_fixed_cost
+                                - supply_price * (target_margin / 100) \
+                                - C_total_fixed_cost
                     target_cost = max(0, int(raw_cost2))
                     yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / vat, 2)
                     profit = sell_price_val - (
@@ -521,25 +521,27 @@ def main():
             organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
             organic_revenue_calc = max(total_revenue - ad_revenue, 0)
 
-            st.session_state["organic_sales_qty"] = organic_sales_qty_calc
-            st.session_state["organic_revenue"] = organic_revenue_calc
+            st.session_state["organic_sales_qty_calc"] = organic_sales_qty_calc
+            st.session_state["organic_revenue_calc"] = organic_revenue_calc
 
             # UI 그대로 유지, disabled
             st.number_input(
                 "자연 판매 수량",
-                value=st.session_state["organic_sales_qty"],
+                value=st.session_state["organic_sales_qty_calc"],
                 disabled=True,
-                key="organic_sales_qty_display" # key 충돌 방지를 위해 변경
+                key="organic_sales_qty_display" # key 중복 방지를 위해 수정
             )
 
             st.number_input(
                 "자연 판매 매출액",
-                value=st.session_state["organic_revenue"],
+                value=st.session_state["organic_revenue_calc"],
                 disabled=True,
-                key="organic_revenue_display" # key 충돌 방지를 위해 변경
+                key="organic_revenue_display" # key 중복 방지를 위해 수정
             )
 
-
+            # 💡 UnboundLocalError 방지를 위해 초기화 (이전 로직은 else로 처리되었지만, 안정성을 위해 초기화)
+            daily_profit = 0
+            
             if selected_product_name != "상품을 선택해주세요" and product_data:
                 sell_price_val = product_data.get("sell_price", 0)
                 fee_rate_val = product_data.get("fee", 0.0)
@@ -552,59 +554,28 @@ def main():
                 ad_cost_val = ad_cost  # 사용자가 입력한 광고비
 
                 # 단가 계산
-                unit_purchase_cost = purchase_cost_val / quantity_val if quantity_val else 0
-                unit_logistics = logistics_cost_val / quantity_val if quantity_val else 0
-                unit_customs = customs_duty_val / quantity_val if quantity_val else 0
-                unit_etc = etc_cost_val / quantity_val if quantity_val else 0
+                quantity_for_calc_daily = quantity_val if quantity_val > 0 else 1
+                unit_purchase_cost = purchase_cost_val / quantity_for_calc_daily
+                unit_logistics = logistics_cost_val / quantity_for_calc_daily
+                unit_customs = customs_duty_val / quantity_for_calc_daily
+                unit_etc = etc_cost_val / quantity_for_calc_daily
 
-                # 일일 순이익금 계산 (여기에서 total_sales_qty를 사용해야 일일 정산이 의미를 가짐)
-                # 원본 코드의 로직을 그대로 따르되, 일일 판매 수량(total_sales_qty) 기준으로 계산하도록 수정함.
-                # 원본 코드는 단일 상품의 일일 순이익금 로직이 불명확하여 (단가 * 판매수량) 개념으로 재구성
+                # 상품 하나당 순이익 단가 계산 (VAT 1.1 적용)
+                daily_profit_per_unit = (
+                    sell_price_val # 판매가
+                    - (sell_price_val * fee_rate_val / 100 * 1.1) # 수수료
+                    - (inout_shipping_cost_val * 1.1) # 입출고/배송비
+                    - unit_purchase_cost
+                    - unit_logistics
+                    - unit_customs
+                    - unit_etc
+                )
                 
-                # [참고] 원본 로직:
-                # daily_profit = (
-                #    sell_price_val
-                #    - (sell_price_val * fee_rate_val / 100 * 1.1)
-                #    - (inout_shipping_cost_val * 1.1)
-                #    - unit_purchase_cost
-                #    - unit_logistics
-                #    - unit_customs
-                #    - unit_etc
-                #    - ad_cost_val
-                # )
-                # 위 로직은 단일 판매 기준인 'sell_price_val'에서 모든 비용을 '단가' 기준으로 빼고 마지막에 '총 광고비'를 빼는 형태여서 오류 가능성이 높음.
+                # 일일 순이익금 = (상품당 순이익 단가 * 총 판매 수량) - 광고비
+                daily_profit = (daily_profit_per_unit * total_sales_qty) - ad_cost_val
+                daily_profit = round(daily_profit) # 정수 변환
 
-                # 일일 정산이므로, 총 매출액을 기준으로 총 비용을 빼는 방식으로 **일단 원본 코드의 수식을 유지하되, 값이 0이 될 가능성이 높음을 인지**
-                # total_sales_qty가 0이 아니면, 각 비용을 단가로 환산하여 총 판매 수량에 곱한 후, 총 광고비를 제외해야 함.
-                
-                if total_sales_qty > 0:
-                    unit_sell_price = sell_price_val # 상품정보에 저장된 판매가 (단가)
-
-                    # 각 비용을 (단가 / 총 수량)으로 나눠서 일일 정산 시 사용하는 단가 비용으로 환산
-                    unit_fee_cost = (unit_sell_price * fee_rate_val / 100 * 1.1)
-                    unit_inout_shipping_cost = (inout_shipping_cost_val * 1.1) / quantity_val if quantity_val else 0
-                    unit_purchase = unit_purchase_cost
-                    unit_logistics_cost = unit_logistics
-                    unit_customs_cost = unit_customs
-                    unit_etc_cost = unit_etc
-
-                    total_cost_per_unit = (
-                        unit_fee_cost + 
-                        unit_inout_shipping_cost + 
-                        unit_purchase +
-                        unit_logistics_cost +
-                        unit_customs_cost +
-                        unit_etc_cost
-                    )
-                    
-                    # 총 매출액 기준으로 계산
-                    total_gross_profit = total_revenue - (total_sales_qty * total_cost_per_unit) 
-                    daily_profit = total_gross_profit - ad_cost_val
-                    daily_profit = round(daily_profit)
-                else:
-                     daily_profit = 0
-
-
+            # 💡 daily_profit이 항상 할당되므로 오류 발생하지 않음
             st.metric(label="일일 순이익금", value=f"{int(daily_profit):,}원")
 
             if st.button("일일 정산 저장하기"):
