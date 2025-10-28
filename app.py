@@ -746,10 +746,11 @@ def main():
                             "daily_profit": "일일 순이익금",
                         })
                         df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-                        # '번호' 컬럼 추가
+                        # '번호' 컬럼 추가 (display_cols 재정의)
                         display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                         
-                        # --- 1단계: 좌측 정렬을 위한 숫자 컬럼 문자열 변환 및 포맷 적용 ---
+                        # --- 숫자 컬럼 포맷팅 및 문자열 변환 ---
+                        # (이 코드는 콤마와 '원'을 추가하여 다른 컬럼의 좌측 정렬 효과를 유지합니다.)
                         format_cols = ['전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
 
                         for col in format_cols:
@@ -758,28 +759,10 @@ def main():
                             else:
                                 df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
                         
-                        # --- 2단계: CSS를 직접 삽입하여 '번호' 헤더 강제 정렬 ---
-                        # Streamlit의 column-header 클래스를 직접 타겟팅하고 !important를 적용
-                        st.markdown(
-                            """
-                            <style>
-                            /* 모든 데이터 셀 (td) 좌측 정렬 */
-                            .stDataFrame td {
-                                text-align: left !important;
-                            }
-                            /* '번호' 컬럼 헤더 (두 번째 컬럼) 좌측 정렬 강제 적용 */
-                            .stDataFrame .column-header:nth-child(2) {
-                                text-align: left !important;
-                            }
-                            </style>
-                            """, 
-                            unsafe_allow_html=True
-                        )
-
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
                         df_display.reset_index(drop=True, inplace=True) 
                         
-                        # CSS가 적용되므로 .style 없이 일반 st.dataframe 호출
+                        # 깔끔한 st.dataframe 호출 (hide_index=True는 유지)
                         st.dataframe(
                             df_display[display_cols],
                             use_container_width=True, 
