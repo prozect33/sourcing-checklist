@@ -745,7 +745,7 @@ def main():
                             "daily_ad_cost": "일일 광고비",
                             "daily_profit": "일일 순이익금",
                         })
-df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
+                        df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
                         # '번호' 컬럼 추가
                         display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                         
