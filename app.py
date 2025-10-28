@@ -629,7 +629,7 @@ def main():
                 
             # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) 끝 ---
 
-                if st.button("일일 정산 저장하기"):
+            if st.button("일일 정산 저장하기"):
                 # 저장 로직
                 if selected_product_name == "상품을 선택해주세요":
                     st.warning("상품을 먼저 선택해야 저장할 수 있습니다.")
