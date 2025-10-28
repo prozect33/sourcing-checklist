@@ -293,6 +293,7 @@ def main():
                 else:
                     unit_cost_val = 0
                 
+                
                 cost_display = ""
                 
                 # 비용 계산
@@ -419,7 +420,7 @@ def main():
             etc_cost = safe_int(st.session_state.etc_cost_input)
 
             quantity_to_save = quantity
-            
+           
             # 저장/수정/삭제 버튼 로직
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
@@ -475,7 +476,7 @@ def main():
                                     st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                                 else:
                                     supabase.table("products").insert(data_to_save).execute()
-                                    st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
@@ -657,16 +658,75 @@ def main():
 
 
         with st.expander("판매 현황"):
-            # 판매 현황 로직
+            
+            # --- 페이지네이션 초기화 및 설정 ---
+            # 상품 필터 변경 시 현재 페이지를 1로 리셋하는 함수
+            def reset_page():
+                st.session_state.daily_sales_page = 1
+            
+            if 'daily_sales_page' not in st.session_state:
+                st.session_state.daily_sales_page = 1
+            PAGE_SIZE = 10 # 한 페이지에 표시할 일수 (10일치)
+            
+            # --- 상품 목록 로드 ---
+            product_list = ["(전체 상품)"]
             try:
-                response = supabase.table("daily_sales").select("*").order("date", desc=True).execute()
+                # 'products' 테이블에서 상품명 목록 로드
+                # 'product_select_daily'의 목록이 아닌, 'products' 테이블에서 새로 가져와야 함 (상품 정보 입력에서 업데이트될 수 있기 때문)
+                response_prods = supabase.table("products").select("product_name").order("product_name").execute()
+                if response_prods.data:
+                    product_list.extend([item['product_name'] for item in response_prods.data])
+            except Exception as e:
+                # 만약 'products' 테이블이 없거나 오류 발생 시, 경고 표시 (상품 정보 입력 선행 요청)
+                st.warning("상품 목록을 불러올 수 없습니다. 상품 정보를 먼저 저장해주세요.")
+
+
+            # --- 상품 필터 셀렉트 박스 ---
+            # on_change=reset_page: 필터를 변경하면 페이지를 1로 리셋
+            selected_product_filter = st.selectbox(
+                "조회할 상품 선택", 
+                product_list, 
+                key="sales_status_product_filter",
+                on_change=reset_page
+            )
+
+            # 판매 현황 로직 시작
+            try:
+                # 1. 데이터 로드 및 선택된 상품으로 필터링
+                query = supabase.table("daily_sales").select("*").order("date", desc=True)
+                
+                # '전체 상품'이 아닌 경우에만 쿼리에 필터 조건 추가
+                if selected_product_filter != "(전체 상품)":
+                    query = query.eq("product_name", selected_product_filter)
+
+                response = query.execute() 
                 df = pd.DataFrame(response.data)
 
                 if not df.empty:
                     df['date'] = pd.to_datetime(df['date'])
                     
+                    st.markdown("---")
                     st.markdown("#### 일일 판매 기록")
-                    df_display = df.rename(columns={
+
+                    # 2. 페이지네이션 적용 로직
+                    total_rows = len(df)
+                    # 총 페이지 수 계산 (나눗셈 후 올림)
+                    total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE 
+                    
+                    # 현재 페이지 유효성 검사 및 조정
+                    if st.session_state.daily_sales_page > total_pages:
+                        st.session_state.daily_sales_page = total_pages
+                    if st.session_state.daily_sales_page < 1:
+                        st.session_state.daily_sales_page = 1
+                        
+                    start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
+                    end_index = start_index + PAGE_SIZE
+                    
+                    # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
+                    df_paged = df.iloc[start_index:end_index].copy() 
+
+                    # 3. 데이터프레임 표시 (기존 컬럼명 변경 로직 재사용)
+                    df_display = df_paged.rename(columns={
                         "date": "날짜",
                         "product_name": "상품명",
                         "daily_sales_qty": "전체 수량",
@@ -682,7 +742,28 @@ def main():
                     display_cols = ['날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                     st.dataframe(df_display[display_cols], use_container_width=True)
 
+                    # 4. 페이지네이션 컨트롤러 (이전/다음 버튼)
+                    page_cols = st.columns([1, 4, 1])
+                    
+                    # '이전' 버튼
+                    if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
+                        st.session_state.daily_sales_page -= 1
+                        st.rerun() # 페이지 상태 변경 후 Streamlit 재실행
+
+                    # 페이지 정보 표시
+                    page_cols[1].markdown(
+                        f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
+                        unsafe_allow_html=True
+                    )
+
+                    # '다음' 버튼
+                    if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
+                        st.session_state.daily_sales_page += 1
+                        st.rerun() # 페이지 상태 변경 후 Streamlit 재실행
+
                     st.markdown("---")
+                    
+                    # 5. 상품별 총 순이익금 (필터링된 전체 데이터(df)로 계산, 페이지네이션 미적용)
                     st.markdown("#### 상품별 총 순이익금")
                     df_grouped = df.groupby("product_name").agg(total_profit=('daily_profit', 'sum')).reset_index()
                     df_grouped = df_grouped.rename(columns={"product_name": "상품명", "total_profit": "총 순이익금"})
