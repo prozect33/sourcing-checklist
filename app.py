@@ -658,10 +658,9 @@ def main():
                         # --- INSERT 대신 UPSERT(덮어쓰기) 적용 ---
                         # 수정된 코드 (이전 Supabase 버전과 호환)
                         # on_conflict 대신 upsert를 사용하고 conflict_target 인자를 추가합니다.
-                        supabase.table("daily_sales").upsert(
-                            data_to_save, 
-                            conflict_target=["date", "product_name"] # 충돌 시 덮어쓸 기준 컬럼 지정
-                        ).execute()
+                        # 수정된 코드 (가장 오래된 Supabase 버전과 호환 가능성 높음)
+                        # Primary Key 또는 Unique Constraint를 자동으로 사용하도록 유도합니다.
+                        supabase.table("daily_sales").upsert(data_to_save).execute()
                         
                         st.success(f"'{selected_product_name}'의 {report_date} 판매 기록이 **성공적으로 저장/수정**되었습니다!")
                     
