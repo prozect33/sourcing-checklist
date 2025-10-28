@@ -760,19 +760,29 @@ def main():
                             else:
                                 df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
                         
-                        # --- [2단계] Styler 적용 (좌측 정렬) ---
-                        # [최종 수정] 모든 셀(td)과 헤더(th)의 텍스트를 좌측 정렬하기 위한 CSS 스타일을 정의 (!important 추가)
-                        left_align_style = [
-                            {'selector': 'td', 'props': [('text-align', 'left !important')]},
-                            {'selector': 'th', 'props': [('text-align', 'left !important')]} # <-- !important로 정렬 강제 적용
-                        ]
+# ... (중략: 1단계 숫자 포맷팅 코드는 그대로 둡니다) ...
+
+                        # --- [2단계] CSS를 직접 삽입하여 '번호' 헤더 강제 정렬 ---
+                        # (1) 번호 컬럼과 모든 셀을 좌측 정렬하는 CSS 삽입
+                        st.markdown("""
+                            <style>
+                            /* 데이터 셀 (td) 좌측 정렬 (숫자 포맷팅으로 이미 문자열이므로 td만으로 충분) */
+                            .stDataFrame td {
+                                text-align: left !important;
+                            }
+                            /* 번호 컬럼 헤더 (th) 좌측 정렬을 강제 적용 */
+                            .stDataFrame th:nth-child(2) { /* 두 번째 헤더 (index 1) = '번호' */
+                                text-align: left !important;
+                            }
+                            </style>
+                        """, unsafe_allow_html=True)
 
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
                         df_display.reset_index(drop=True, inplace=True) 
                         
-                        # .style.set_table_styles(left_align_style)을 사용하여 스타일 적용 (st.dataframe 호출부 수정)
+                        # 스타일러 없이 일반 st.dataframe 호출 (hide_index=True는 유지)
                         st.dataframe(
-                            df_display[display_cols].style.set_table_styles(left_align_style),
+                            df_display[display_cols],
                             use_container_width=True, 
                             hide_index=True
                         )
