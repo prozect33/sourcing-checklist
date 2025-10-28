@@ -745,42 +745,41 @@ def main():
                             "daily_ad_cost": "일일 광고비",
                             "daily_profit": "일일 순이익금",
                         })
-                        df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
+df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
                         # '번호' 컬럼 추가
                         display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                         
-                      # --- [1단계] 새로 추가할 코드: 주요 숫자 컬럼을 문자열로 변환 및 포맷 적용 ---
-                        # 좌측 정렬이 확실하게 적용되도록 숫자 데이터를 문자열로 변환합니다.
+                        # --- 1단계: 좌측 정렬을 위한 숫자 컬럼 문자열 변환 및 포맷 적용 ---
                         format_cols = ['전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
 
                         for col in format_cols:
-                            # 숫자에 콤마를 붙이고 문자열로 변환 (수량/금액 구분)
                             if '수량' in col:
                                 df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}")
                             else:
                                 df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
                         
-# ... (중략: 1단계 숫자 포맷팅 코드는 그대로 둡니다) ...
-
-                        # --- [2단계] CSS를 직접 삽입하여 '번호' 헤더 강제 정렬 ---
-                        # (1) 번호 컬럼과 모든 셀을 좌측 정렬하는 CSS 삽입
-                        st.markdown("""
+                        # --- 2단계: CSS를 직접 삽입하여 '번호' 헤더 강제 정렬 ---
+                        # Streamlit의 column-header 클래스를 직접 타겟팅하고 !important를 적용
+                        st.markdown(
+                            """
                             <style>
-                            /* 데이터 셀 (td) 좌측 정렬 (숫자 포맷팅으로 이미 문자열이므로 td만으로 충분) */
+                            /* 모든 데이터 셀 (td) 좌측 정렬 */
                             .stDataFrame td {
                                 text-align: left !important;
                             }
-                            /* 번호 컬럼 헤더 (th) 좌측 정렬을 강제 적용 */
-                            .stDataFrame th:nth-child(2) { /* 두 번째 헤더 (index 1) = '번호' */
+                            /* '번호' 컬럼 헤더 (두 번째 컬럼) 좌측 정렬 강제 적용 */
+                            .stDataFrame .column-header:nth-child(2) {
                                 text-align: left !important;
                             }
                             </style>
-                        """, unsafe_allow_html=True)
+                            """, 
+                            unsafe_allow_html=True
+                        )
 
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
                         df_display.reset_index(drop=True, inplace=True) 
                         
-                        # 스타일러 없이 일반 st.dataframe 호출 (hide_index=True는 유지)
+                        # CSS가 적용되므로 .style 없이 일반 st.dataframe 호출
                         st.dataframe(
                             df_display[display_cols],
                             use_container_width=True, 
