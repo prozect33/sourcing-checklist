@@ -686,7 +686,7 @@ def main():
             PAGE_SIZE = 10 # 한 페이지에 표시할 일수 (10일치)
             
             # --- 상품 목록 로드 ---
-            product_list = ["(전체 상품)"]
+            product_list = ["(상품을 선택해주세요)"]
             try:
                 response_prods = supabase.table("products").select("product_name").order("product_name").execute()
                 if response_prods.data:
@@ -708,8 +708,8 @@ def main():
                 # 1. 데이터 로드 및 선택된 상품으로 필터링
                 query = supabase.table("daily_sales").select("*").order("date", desc=True)
                 
-                # '전체 상품'이 아닌 경우에만 쿼리에 필터 조건 추가
-                if selected_product_filter != "(전체 상품)":
+                # '상품을 선택해주세요'이 아닌 경우에만 쿼리에 필터 조건 추가
+                if selected_product_filter != "(상품을 선택해주세요)":
                     query = query.eq("product_name", selected_product_filter)
 
                 response = query.execute() 
@@ -719,7 +719,7 @@ def main():
                     df['date'] = pd.to_datetime(df['date'])
                     
                     # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
-                    if selected_product_filter != "(전체 상품)":
+                    if selected_product_filter != "(상품을 선택해주세요)":
                         
                         # [요청 2. 반영: 총 순이익금 섹션을 일일 판매 기록 위에 표시]
                         total_profit_sum = df['daily_profit'].sum()
@@ -804,7 +804,7 @@ def main():
 
                         st.markdown("---") 
 
-                    else: # selected_product_filter == "(전체 상품)" 일 때
+                    else: # selected_product_filter == "(상품을 선택해주세요)" 일 때
                         # [요청 1. 반영: 안내 메시지 제거, 아무것도 표시하지 않음]
                         pass
 
