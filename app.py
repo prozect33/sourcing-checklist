@@ -752,7 +752,7 @@ def main():
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
                         df_display.reset_index(drop=True, inplace=True) 
                         
-                        st.dataframe(df_display[display_cols], use_container_width=True)
+                        st.dataframe(df_display[display_cols], use_container_width=True, hide_index=True)
 
                         # 4. 페이지네이션 컨트롤러 (이전/다음 버튼)
                         page_cols = st.columns([1, 4, 1])
