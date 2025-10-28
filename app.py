@@ -662,8 +662,10 @@ def main():
                         # Primary Key 또는 Unique Constraint를 자동으로 사용하도록 유도합니다.
                         # 이 코드를 위의 지운 코드 자리에 붙여넣습니다.
                         # --- 최종 UPSERT(덮어쓰기) 적용: 최신 .insert().on_conflict() 문법 ---
-                        supabase.table("daily_sales").insert(data_to_save).on_conflict(
-                            "date, product_name"  # 충돌 시 덮어쓸 기준 컬럼 지정
+                        # --- 최종 UPSERT(덮어쓰기) 적용: 서버 함수(RPC) 호출 ---
+                        supabase.rpc(
+                            'upsert_daily_sales', 
+                            {'p_data': data_to_save} # 데이터를 'p_data'라는 이름으로 함수에 전달
                         ).execute()
                         
                         st.success(f"'{selected_product_name}'의 {report_date} 판매 기록이 **성공적으로 저장/수정**되었습니다!")
