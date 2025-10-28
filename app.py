@@ -704,9 +704,14 @@ def main():
                     # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
                     if selected_product_filter != "(전체 상품)":
                         
-                        st.markdown("---")
-                        st.markdown("#### 일일 판매 기록")
+                        # [요청 2. 반영: 총 순이익금 섹션을 일일 판매 기록 위에 표시]
+                        total_profit_sum = df['daily_profit'].sum()
+                        st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원") 
+                        
+                        st.markdown("---") # 순이익금과 기록 섹션 구분
 
+                        st.markdown("#### 일일 판매 기록")
+                        
                         # 2. 페이지네이션 적용 로직
                         total_rows = len(df)
                         total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE 
@@ -765,14 +770,11 @@ def main():
                             st.session_state.daily_sales_page += 1
                             st.rerun() 
 
-                        st.markdown("---")
-                        
-                        # 5. 선택 상품 총 순이익금 표시 (st.metric 사용)
-                        total_profit_sum = df['daily_profit'].sum()
-                        st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
+                        st.markdown("---") 
 
                     else: # selected_product_filter == "(전체 상품)" 일 때
-                        st.info("일일 판매 기록 및 총 순이익금을 조회하려면, 상단 **'조회할 상품 선택'**에서 **특정 상품을 선택**해주세요.")
+                        # [요청 1. 반영: 안내 메시지 제거, 아무것도 표시하지 않음]
+                        pass
 
 
                 else:
