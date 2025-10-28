@@ -761,10 +761,10 @@ def main():
                                 df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
                         
                         # --- [2단계] Styler 적용 (좌측 정렬) ---
-                        # [수정] 모든 셀(td)과 헤더(th)의 텍스트를 좌측 정렬하기 위한 CSS 스타일을 정의
+                        # [최종 수정] 모든 셀(td)과 헤더(th)의 텍스트를 좌측 정렬하기 위한 CSS 스타일을 정의 (!important 추가)
                         left_align_style = [
-                            {'selector': 'td', 'props': [('text-align', 'left')]},
-                            {'selector': 'th', 'props': [('text-align', 'left')]} # <-- 헤더(th) 좌측 정렬 추가
+                            {'selector': 'td', 'props': [('text-align', 'left !important')]},
+                            {'selector': 'th', 'props': [('text-align', 'left !important')]} # <-- !important로 정렬 강제 적용
                         ]
 
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
