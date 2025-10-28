@@ -480,6 +480,7 @@ def main():
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
+
         with st.expander("일일 정산"):
             # 상품 선택 로직
             product_list = ["상품을 선택해주세요"]
@@ -660,7 +661,6 @@ def main():
         with st.expander("판매 현황"):
             
             # --- 페이지네이션 초기화 및 설정 ---
-            # 상품 필터 변경 시 현재 페이지를 1로 리셋하는 함수
             def reset_page():
                 st.session_state.daily_sales_page = 1
             
@@ -671,23 +671,19 @@ def main():
             # --- 상품 목록 로드 ---
             product_list = ["(전체 상품)"]
             try:
-                # 'products' 테이블에서 상품명 목록 로드
-                # 'product_select_daily'의 목록이 아닌, 'products' 테이블에서 새로 가져와야 함 (상품 정보 입력에서 업데이트될 수 있기 때문)
                 response_prods = supabase.table("products").select("product_name").order("product_name").execute()
                 if response_prods.data:
                     product_list.extend([item['product_name'] for item in response_prods.data])
             except Exception as e:
-                # 만약 'products' 테이블이 없거나 오류 발생 시, 경고 표시 (상품 정보 입력 선행 요청)
                 st.warning("상품 목록을 불러올 수 없습니다. 상품 정보를 먼저 저장해주세요.")
 
 
             # --- 상품 필터 셀렉트 박스 ---
-            # on_change=reset_page: 필터를 변경하면 페이지를 1로 리셋
             selected_product_filter = st.selectbox(
                 "조회할 상품 선택", 
                 product_list, 
                 key="sales_status_product_filter",
-                on_change=reset_page
+                on_change=reset_page  # 필터 변경 시 페이지 1로 리셋
             )
 
             # 판매 현황 로직 시작
@@ -705,69 +701,80 @@ def main():
                 if not df.empty:
                     df['date'] = pd.to_datetime(df['date'])
                     
-                    st.markdown("---")
-                    st.markdown("#### 일일 판매 기록")
-
-                    # 2. 페이지네이션 적용 로직
-                    total_rows = len(df)
-                    # 총 페이지 수 계산 (나눗셈 후 올림)
-                    total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE 
-                    
-                    # 현재 페이지 유효성 검사 및 조정
-                    if st.session_state.daily_sales_page > total_pages:
-                        st.session_state.daily_sales_page = total_pages
-                    if st.session_state.daily_sales_page < 1:
-                        st.session_state.daily_sales_page = 1
+                    # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
+                    if selected_product_filter != "(전체 상품)":
                         
-                    start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
-                    end_index = start_index + PAGE_SIZE
-                    
-                    # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
-                    df_paged = df.iloc[start_index:end_index].copy() 
+                        st.markdown("---")
+                        st.markdown("#### 일일 판매 기록")
 
-                    # 3. 데이터프레임 표시 (기존 컬럼명 변경 로직 재사용)
-                    df_display = df_paged.rename(columns={
-                        "date": "날짜",
-                        "product_name": "상품명",
-                        "daily_sales_qty": "전체 수량",
-                        "daily_revenue": "전체 매출액",
-                        "ad_sales_qty": "광고 수량",
-                        "ad_revenue": "광고 매출액",
-                        "organic_sales_qty": "자연 수량",
-                        "organic_revenue": "자연 매출액",
-                        "daily_ad_cost": "일일 광고비",
-                        "daily_profit": "일일 순이익금",
-                    })
-                    df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-                    display_cols = ['날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
-                    st.dataframe(df_display[display_cols], use_container_width=True)
+                        # 2. 페이지네이션 적용 로직
+                        total_rows = len(df)
+                        total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE 
+                        
+                        if st.session_state.daily_sales_page > total_pages:
+                            st.session_state.daily_sales_page = total_pages
+                        if st.session_state.daily_sales_page < 1:
+                            st.session_state.daily_sales_page = 1
+                            
+                        start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
+                        end_index = start_index + PAGE_SIZE
+                        
+                        # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
+                        df_paged = df.iloc[start_index:end_index].copy() 
 
-                    # 4. 페이지네이션 컨트롤러 (이전/다음 버튼)
-                    page_cols = st.columns([1, 4, 1])
-                    
-                    # '이전' 버튼
-                    if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
-                        st.session_state.daily_sales_page -= 1
-                        st.rerun() # 페이지 상태 변경 후 Streamlit 재실행
+                        # --- 1부터 시작하는 번호 추가 ---
+                        df_display = df_paged.copy()
+                        # 1부터 시작하는 번호 컬럼을 맨 앞에 추가
+                        df_display.insert(0, '번호', range(start_index + 1, start_index + len(df_display) + 1))
+                        
+                        # 3. 데이터프레임 표시 (기존 컬럼명 변경 로직 재사용)
+                        df_display = df_display.rename(columns={
+                            "date": "날짜",
+                            "product_name": "상품명",
+                            "daily_sales_qty": "전체 수량",
+                            "daily_revenue": "전체 매출액",
+                            "ad_sales_qty": "광고 수량",
+                            "ad_revenue": "광고 매출액",
+                            "organic_sales_qty": "자연 수량",
+                            "organic_revenue": "자연 매출액",
+                            "daily_ad_cost": "일일 광고비",
+                            "daily_profit": "일일 순이익금",
+                        })
+                        df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
+                        # '번호' 컬럼 추가
+                        display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+                        
+                        # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
+                        df_display.reset_index(drop=True, inplace=True) 
+                        
+                        st.dataframe(df_display[display_cols], use_container_width=True)
 
-                    # 페이지 정보 표시
-                    page_cols[1].markdown(
-                        f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
-                        unsafe_allow_html=True
-                    )
+                        # 4. 페이지네이션 컨트롤러 (이전/다음 버튼)
+                        page_cols = st.columns([1, 4, 1])
+                        
+                        if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
+                            st.session_state.daily_sales_page -= 1
+                            st.rerun() 
 
-                    # '다음' 버튼
-                    if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
-                        st.session_state.daily_sales_page += 1
-                        st.rerun() # 페이지 상태 변경 후 Streamlit 재실행
+                        page_cols[1].markdown(
+                            f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
+                            unsafe_allow_html=True
+                        )
 
-                    st.markdown("---")
-                    
-                    # 5. 상품별 총 순이익금 (필터링된 전체 데이터(df)로 계산, 페이지네이션 미적용)
-                    st.markdown("#### 상품별 총 순이익금")
-                    df_grouped = df.groupby("product_name").agg(total_profit=('daily_profit', 'sum')).reset_index()
-                    df_grouped = df_grouped.rename(columns={"product_name": "상품명", "total_profit": "총 순이익금"})
-                    st.dataframe(df_grouped, use_container_width=True)
+                        if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
+                            st.session_state.daily_sales_page += 1
+                            st.rerun() 
+
+                        st.markdown("---")
+                        
+                        # 5. 선택 상품 총 순이익금 표시 (st.metric 사용)
+                        total_profit_sum = df['daily_profit'].sum()
+                        st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
+
+                    else: # selected_product_filter == "(전체 상품)" 일 때
+                        st.info("일일 판매 기록 및 총 순이익금을 조회하려면, 상단 **'조회할 상품 선택'**에서 **특정 상품을 선택**해주세요.")
+
+
                 else:
                     st.info("아직 저장된 판매 기록이 없습니다.")
             except Exception as e:
