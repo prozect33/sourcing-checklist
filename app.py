@@ -749,10 +749,18 @@ def main():
                         # '번호' 컬럼 추가
                         display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                         
+                        # [새로 추가] 모든 셀의 텍스트를 좌측 정렬하기 위한 CSS 스타일
+                        left_align_style = [{'selector': 'td', 'props': [('text-align', 'left')]}] # 새로 추가
+
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
                         df_display.reset_index(drop=True, inplace=True) 
                         
-                        st.dataframe(df_display[display_cols], use_container_width=True, hide_index=True)
+                        # .style.set_table_styles(left_align_style)을 사용하여 스타일 적용 (st.dataframe 호출부 수정)
+                        st.dataframe(
+                            df_display[display_cols].style.set_table_styles(left_align_style), # 이 부분을 수정
+                            use_container_width=True, 
+                            hide_index=True
+                        )
 
                         # 4. 페이지네이션 컨트롤러 (이전/다음 버튼)
                         page_cols = st.columns([1, 4, 1])
