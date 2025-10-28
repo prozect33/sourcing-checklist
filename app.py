@@ -630,31 +630,38 @@ def main():
             # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) 끝 ---
 
             if st.button("일일 정산 저장하기"):
-                # 저장 로직
-                if selected_product_name == "상품을 선택해주세요":
-                    st.warning("상품을 먼저 선택해야 저장할 수 있습니다.")
-                elif not product_data:
-                    st.warning("선택된 상품의 상세 정보가 없습니다.")
-                elif st.session_state.total_sales_qty == 0 and st.session_state.total_revenue == 0:
-                    st.warning("판매 수량 또는 매출액을 입력해야 저장할 수 있습니다.")
-                else:
-                    try:
-                        data_to_save = {
-                            "date": report_date.isoformat(),
-                            "product_name": selected_product_name,
-                            "daily_sales_qty": st.session_state.total_sales_qty,
-                            "daily_revenue": st.session_state.total_revenue,
-                            "ad_sales_qty": st.session_state.ad_sales_qty,
-                            "ad_revenue": st.session_state.ad_revenue,
-                            "organic_sales_qty": organic_sales_qty_calc,
-                            "organic_revenue": organic_revenue_calc,
-                            "daily_ad_cost": st.session_state.ad_cost,
-                            "daily_profit": daily_profit,
-                            "created_at": datetime.datetime.now().isoformat()
-                        }
-                        supabase.table("daily_sales").insert(data_to_save).execute()
-                        st.success(f"{report_date} 날짜의 일일 정산이 저장되었습니다!\n(순이익: {daily_profit:,}원)")
-                    except Exception as e:
+            # 저장 로직
+            if selected_product_name == "상품을 선택해주세요":
+                st.warning("상품을 먼저 선택해야 저장할 수 있습니다.")
+            elif not product_data:
+                st.warning("선택된 상품의 상세 정보가 없습니다.")
+            elif st.session_state.total_sales_qty == 0 and st.session_state.total_revenue == 0:
+                st.warning("판매 수량 또는 매출액을 입력해야 저장할 수 있습니다.")
+            else:
+                try:
+                    data_to_save = {
+                        "date": report_date.isoformat(),
+                        "product_name": selected_product_name,
+                        "daily_sales_qty": st.session_state.total_sales_qty,
+                        "daily_revenue": st.session_state.total_revenue,
+                        "ad_sales_qty": st.session_state.ad_sales_qty,
+                        "ad_revenue": st.session_state.ad_revenue,
+                        "organic_sales_qty": organic_sales_qty_calc,
+                        "organic_revenue": organic_revenue_calc,
+                        "daily_ad_cost": st.session_state.ad_cost,
+                        "daily_profit": daily_profit,
+                        "created_at": datetime.datetime.now().isoformat()
+                    }
+                    
+                    # --- INSERT 대신 UPSERT(덮어쓰기) 적용 ---
+                    supabase.table("daily_sales").insert(data_to_save).on_conflict(
+                        "date, product_name"  # 날짜와 상품명이 동일하면 덮어씁니다.
+                    ).execute()
+                    
+                    st.success(f"'{selected_product_name}'의 {report_date} 판매 기록이 **성공적으로 저장/수정**되었습니다!")
+                
+                except Exception as e:
+                    st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
                         st.error(f"일일 정산 저장 중 오류가 발생했습니다: {e}")
 
 
