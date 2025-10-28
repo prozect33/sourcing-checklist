@@ -749,15 +749,27 @@ def main():
                         # '번호' 컬럼 추가
                         display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
                         
+                      # --- [1단계] 새로 추가할 코드: 주요 숫자 컬럼을 문자열로 변환 및 포맷 적용 ---
+                        # 좌측 정렬이 확실하게 적용되도록 숫자 데이터를 문자열로 변환합니다.
+                        format_cols = ['전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+
+                        for col in format_cols:
+                            # 숫자에 콤마를 붙이고 문자열로 변환 (수량/금액 구분)
+                            if '수량' in col:
+                                df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}")
+                            else:
+                                df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
+                        
+                        # --- [2단계] Styler 적용 (좌측 정렬) ---
                         # [새로 추가] 모든 셀의 텍스트를 좌측 정렬하기 위한 CSS 스타일
-                        left_align_style = [{'selector': 'td', 'props': [('text-align', 'left')]}] # 새로 추가
+                        left_align_style = [{'selector': 'td', 'props': [('text-align', 'left')]}]
 
                         # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
                         df_display.reset_index(drop=True, inplace=True) 
                         
                         # .style.set_table_styles(left_align_style)을 사용하여 스타일 적용 (st.dataframe 호출부 수정)
                         st.dataframe(
-                            df_display[display_cols].style.set_table_styles(left_align_style), # 이 부분을 수정
+                            df_display[display_cols].style.set_table_styles(left_align_style),
                             use_container_width=True, 
                             hide_index=True
                         )
