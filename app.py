@@ -449,7 +449,7 @@ def main():
                                 supabase.table("products").update(data_to_update).eq("id", st.session_state.product_id_to_edit).execute() 
                                 
                                 st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
-                                st.experimental_rerun() # <-- 수정 후 즉시 화면 새로고침
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
@@ -487,7 +487,7 @@ def main():
                                     supabase.table("products").insert(data_to_save).execute() 
                           
                                     st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
-                                    st.experimental_rerun() # <-- 저장 후 즉시 화면 새로고침
+                                    st.rerun()
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
