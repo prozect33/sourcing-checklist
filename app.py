@@ -165,6 +165,7 @@ def load_product_data(selected_product_name):
                 st.session_state.original_product_name = product_data.get("product_name", "") # <-- 원래 상품명 저장
                 st.session_state.product_name_input = product_data.get("product_name", "")
 
+                
                 def get_display_value(key, default=""):
                     val = product_data.get(key)
                     if val is None or val == 0:
@@ -301,7 +302,7 @@ def main():
                     unit_cost_val = 0
                 
                 
-                cost_display = ""
+                cost_display = cost_display if unit_cost_val > 0 else ""
                 
                 # 비용 계산
                 vat = 1.1
@@ -450,19 +451,19 @@ def main():
                                 supabase.table("products").update(data_to_update).eq("id", st.session_state.product_id_to_edit).execute() 
 
                                 # 2. daily_sales 테이블 업데이트 (상품명이 변경되었을 경우)
-                                            if st.session_state.product_name_input != st.session_state.original_product_name:
-                
-                                                # --- [디버그 코드 추가 시작] ---
-                                                st.info(f"""
-                                                    **[디버그] daily_sales 업데이트 시도:**
-                                                    - **이전 상품명 (필터):** '{st.session_state.original_product_name}'
-                                                    - **새 상품명 (업데이트):** '{st.session_state.product_name_input}'
-                                                """)
-                                                # --- [디버그 코드 추가 끝] ---
-                
-                                                sales_data_to_update = {
-                                                    "product_name": st.session_state.product_name_input
-                                                }
+                                if st.session_state.product_name_input != st.session_state.original_product_name:
+                                    
+                                    # --- [디버그 코드] ---
+                                    st.info(f"""
+                                        **[디버그] daily_sales 업데이트 시도:**
+                                        - **이전 상품명 (필터):** '{st.session_state.original_product_name}'
+                                        - **새 상품명 (업데이트):** '{st.session_state.product_name_input}'
+                                    """)
+                                    # --------------------
+                                    
+                                    sales_data_to_update = {
+                                        "product_name": st.session_state.product_name_input
+                                    }
                                     # daily_sales 테이블에서 이전 상품명으로 된 모든 기록을 새로운 상품명으로 업데이트
                                     supabase.table("daily_sales").update(sales_data_to_update).eq("product_name", st.session_state.original_product_name).execute()
                                 
@@ -504,14 +505,11 @@ def main():
                                 if response.data:
                                     st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                                 else:
-                                    supabase.table("products").insert(data_to_save).execute() 
-                          
+                                    supabase.table("products").insert(data_to_save).execute()
                                     st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
                                     st.rerun()
-                            
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
-
 
         with st.expander("일일 정산"):
             # 상품 선택 로직
@@ -523,9 +521,7 @@ def main():
                     product_list.extend(saved_products)
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
-
             selected_product_name = st.selectbox("상품 선택", product_list, key="product_select_daily")
-
             product_data = {}
             if selected_product_name and selected_product_name != "상품을 선택해주세요":
                 try:
@@ -553,27 +549,22 @@ def main():
                     st.info("선택된 상품의 상세 정보가 없습니다.")
 
             report_date = st.date_input("날짜 선택", datetime.date.today())
-
             st.markdown("---")
             st.markdown("#### 전체 판매")
             # 입력 필드: key를 통해 st.session_state에 값을 저장
             st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
             st.number_input("전체 매출액", step=1000, key="total_revenue")
-
             st.markdown("---")
             st.markdown("#### 광고 판매")
             # 입력 필드: key를 통해 st.session_state에 값을 저장
             st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
             st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
             st.number_input("광고비", step=1000, key="ad_cost")
-
             st.markdown("---")
             st.markdown("#### 자연 판매 (자동 계산)")
-
             # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
             organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
             organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
-          
             # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
             st.number_input(
                 "자연 판매 수량",
@@ -585,7 +576,7 @@ def main():
                 value=organic_revenue_calc,
                 disabled=True
             )
-
+            
             # 일일 순이익 계산
             daily_profit = 0
             if selected_product_name != "상품을 선택해주세요" and product_data:
@@ -593,9 +584,10 @@ def main():
                 current_total_sales_qty = st.session_state.total_sales_qty
                 current_total_revenue = st.session_state.total_revenue
                 current_ad_cost = st.session_state.ad_cost
-            
+
                 quantity_val = product_data.get("quantity", 1)
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
+
                 unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
                 unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
                 unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
@@ -613,225 +605,167 @@ def main():
                     - (current_ad_cost * 1.1)
                 )
                 daily_profit = round(daily_profit)
-
                 st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
+
+                # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) ---
+                if selected_product_name != "상품을 선택해주세요" and product_data:
+                    # 1. 계산에 필요한 변수 설정 (daily_profit 계산에 사용된 변수 재사용)
+                    vat = 1.1
+                    fee_rate_db = product_data.get("fee", 0.0)
+                    current_total_sales_qty = st.session_state.total_sales_qty
+                    current_total_revenue = st.session_state.total_revenue
+                    current_ad_cost = st.session_state.ad_cost
+
+                    # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
+                    quantity_val = product_data.get("quantity", 1)
+                    quantity_for_calc = quantity_val if quantity_val > 0 else 1
+                    unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                    unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
+                    unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
+                    unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
+
+                    # 3. 총 비용 항목 계산 (daily_profit 계산의 개별 비용 항목)
+                    fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
+                    purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
+                    inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
+                    logistics_cost_total = round(unit_logistics * current_total_sales_qty)
+                    customs_cost_total = round(unit_customs * current_total_sales_qty)
+                    etc_cost_total = round(unit_etc * current_total_sales_qty)
+                    ad_cost_total = round(current_ad_cost * vat)
+
+                    # 4. 출력
+                    st.markdown("##### 🔍 상세 비용 (VAT 포함)")
+                    st.markdown(f"- **총 매출액:** {current_total_revenue:,}원")
+                    st.markdown(f"- **총 수수료:** {fee_cost:,}원")
+                    st.markdown(f"- **총 매입비:** {purchase_cost_total:,}원")
+                    st.markdown(f"- **총 입출고/배송비:** {inout_shipping_cost_total:,}원")
+                    st.markdown(f"- **총 물류비:** {logistics_cost_total:,}원")
+                    st.markdown(f"- **총 관세:** {customs_cost_total:,}원")
+                    st.markdown(f"- **총 기타비용:** {etc_cost_total:,}원")
+                    st.markdown(f"- **총 광고비:** {ad_cost_total:,}원")
+                    st.markdown(f"- **일일 순이익 (매출 - 총 비용):** {daily_profit:,}원")
             
-            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) ---
-            if selected_product_name != "상품을 선택해주세요" and product_data:
-                # 1. 계산에 필요한 변수 설정 (daily_profit 계산에 사용된 변수 재사용)
-                vat = 1.1
-                fee_rate_db = product_data.get("fee", 0.0) 
-                current_total_sales_qty = st.session_state.total_sales_qty
-                current_total_revenue = st.session_state.total_revenue
-                current_ad_cost = st.session_state.ad_cost 
-                
-                # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
-                quantity_val = product_data.get("quantity", 1)
-                quantity_for_calc = quantity_val if quantity_val > 0 else 1
-                unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
-                unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
-                unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
-                unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
-
-                # 3. 총 비용 항목 계산 (daily_profit 계산의 개별 비용 항목)
-                fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
-                purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
-                inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
-                logistics_cost_total = round(unit_logistics * current_total_sales_qty)
-                customs_cost_total = round(unit_customs * current_total_sales_qty)
-                etc_cost_total = round(unit_etc * current_total_sales_qty)
-                ad_cost_total = round(current_ad_cost * vat) 
-
-                # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
-                st.markdown(
-                    f"""
-                    <small>
-                    - 판매 수수료 (VAT 포함): {fee_cost:,}원 (매출액 기준)<br>
-                    - 매입비: {purchase_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
-                    - 입출고/배송비 (VAT 포함): {inout_shipping_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
-                    - 물류비: {logistics_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
-                    - 관세: {customs_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
-                    - 기타 비용: {etc_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
-                    - 광고비 (VAT 포함): {ad_cost_total:,}원 (입력값 기준)<br>
-                    <br>
-                    </small>
-                    """,
-                    unsafe_allow_html=True
-                )
-                
-            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) 끝 ---
-
-            if st.button("일일 정산 저장하기"):
-                # 저장 로직
+            # 저장 버튼
+            if st.button("일일 정산 기록 저장"):
                 if selected_product_name == "상품을 선택해주세요":
-                    st.warning("상품을 먼저 선택해야 저장할 수 있습니다.")
-                elif not product_data:
-                    st.warning("선택된 상품의 상세 정보가 없습니다.")
+                    st.warning("먼저 상품을 선택해주세요.")
                 elif st.session_state.total_sales_qty == 0 and st.session_state.total_revenue == 0:
-                    st.warning("판매 수량 또는 매출액을 입력해야 저장할 수 있습니다.")
+                    st.warning("판매 수량과 매출액을 입력해주세요.")
                 else:
                     try:
-                        # organic_sales_qty_calc, organic_revenue_calc, daily_profit 등의 변수는 
-                        # 이 코드가 실행되는 시점에 상위 코드에서 계산되어 있어야 합니다.
                         data_to_save = {
-                            "date": report_date.isoformat(),
                             "product_name": selected_product_name,
-                            "daily_sales_qty": st.session_state.total_sales_qty,
-                            "daily_revenue": st.session_state.total_revenue,
+                            "date": report_date.isoformat(),
+                            "total_sales_qty": st.session_state.total_sales_qty,
+                            "total_revenue": st.session_state.total_revenue,
                             "ad_sales_qty": st.session_state.ad_sales_qty,
                             "ad_revenue": st.session_state.ad_revenue,
-                            "organic_sales_qty": organic_sales_qty_calc,
-                            "organic_revenue": organic_revenue_calc,
-                            "daily_ad_cost": st.session_state.ad_cost,
+                            "ad_cost": st.session_state.ad_cost,
                             "daily_profit": daily_profit,
-                            "created_at": datetime.datetime.now().isoformat()
                         }
                         
-                        # --- 최종 UPSERT(덮어쓰기) 적용: 서버 함수(RPC) 호출 ---
-                        supabase.rpc(
-                            'upsert_daily_sales', 
-                            {'p_data': data_to_save} # 데이터를 'p_data'라는 이름으로 함수에 전달
-                        ).execute()
+                        # 중복 기록 확인 (같은 상품, 같은 날짜)
+                        response = supabase.table("daily_sales").select("*").eq("product_name", selected_product_name).eq("date", report_date.isoformat()).execute()
                         
-                        st.success(f"'{selected_product_name}'의 {report_date} 판매 기록이 **성공적으로 저장/수정**되었습니다!")
-                    
+                        if response.data:
+                            # 이미 존재하는 경우: 업데이트
+                            supabase.table("daily_sales").update(data_to_save).eq("product_name", selected_product_name).eq("date", report_date.isoformat()).execute()
+                            st.success(f"'{selected_product_name}' {report_date} 날짜의 정산 기록이 **업데이트**되었습니다!")
+                        else:
+                            # 존재하지 않는 경우: 삽입
+                            supabase.table("daily_sales").insert(data_to_save).execute()
+                            st.success(f"'{selected_product_name}' {report_date} 날짜의 정산 기록이 **저장**되었습니다!")
+                            
+                        # 입력 필드 리셋 (저장된 상태는 유지)
+                        reset_inputs()
+                        st.session_state["total_sales_qty"] = 0
+                        st.session_state["total_revenue"] = 0
+                        st.session_state["ad_sales_qty"] = 0
+                        st.session_state["ad_revenue"] = 0
+                        st.session_state["ad_cost"] = 0
+                        st.rerun()
+
                     except Exception as e:
-                        st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+                        st.error(f"일일 정산 기록 저장/업데이트 중 오류가 발생했습니다: {e}")
 
-
-        with st.expander("판매 현황"):
-            
-            # --- 페이지네이션 초기화 및 설정 ---
-            def reset_page():
+        # 판매 현황 섹션 (일일 정산 기록 조회)
+        with st.expander("판매 현황 (일일 정산 기록 조회)"):
+            if "daily_sales_page" not in st.session_state:
                 st.session_state.daily_sales_page = 1
+            RECORDS_PER_PAGE = 10
             
-            if 'daily_sales_page' not in st.session_state:
-                st.session_state.daily_sales_page = 1
-            PAGE_SIZE = 10 # 한 페이지에 표시할 일수 (10일치)
-            
-            # --- 상품 목록 로드 ---
-            product_list = ["(상품을 선택해주세요)"]
+            # 상품 필터링 목록 (중복 제거)
+            sales_product_list = ["(상품을 선택해주세요)"]
             try:
-                response_prods = supabase.table("products").select("product_name").order("product_name").execute()
-                if response_prods.data:
-                    product_list.extend([item['product_name'] for item in response_prods.data])
+                response = supabase.table("daily_sales").select("product_name").order("product_name").execute()
+                if response.data:
+                    unique_products = sorted(list(set([item['product_name'] for item in response.data])))
+                    sales_product_list.extend(unique_products)
             except Exception as e:
-                st.warning("상품 목록을 불러올 수 없습니다. 상품 정보를 먼저 저장해주세요.")
+                st.error(f"판매 현황 상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
-
-            # --- 상품 필터 셀렉트 박스 ---
-            selected_product_filter = st.selectbox(
-                "조회할 상품 선택", 
-                product_list, 
-                key="sales_status_product_filter",
-                on_change=reset_page  # 필터 변경 시 페이지 1로 리셋
-            )
-
-            # 판매 현황 로직 시작
-            try:
-                # 1. 데이터 로드 및 선택된 상품으로 필터링
-                query = supabase.table("daily_sales").select("*").order("date", desc=True)
+            selected_product_filter = st.selectbox("상품명 필터링", sales_product_list, key="sales_filter")
             
-                # '상품을 선택해주세요'이 아닌 경우에만 쿼리에 필터 조건 추가
+            st.markdown("---")
+
+            try:
+                # 필터링 및 페이지네이션
+                query = supabase.table("daily_sales").select("*", count="exact")
                 if selected_product_filter != "(상품을 선택해주세요)":
                     query = query.eq("product_name", selected_product_filter)
+                
+                # 날짜 역순 정렬
+                query = query.order("date", desc=True)
 
-                response = query.execute() 
-                df = pd.DataFrame(response.data)
+                # 페이지네이션 적용
+                offset = (st.session_state.daily_sales_page - 1) * RECORDS_PER_PAGE
+                query = query.range(offset, offset + RECORDS_PER_PAGE - 1)
+                
+                response = query.execute()
+                
+                total_count = response.count
+                total_pages = (total_count + RECORDS_PER_PAGE - 1) // RECORDS_PER_PAGE
 
-                if not df.empty:
-                    df['date'] = pd.to_datetime(df['date'])
+                if response.data:
+                    df = pd.DataFrame(response.data)
+                    # 필요한 컬럼만 선택하고 보기 좋게 이름 변경 및 포맷팅
+                    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+                    df = df.rename(columns={
+                        'product_name': '상품명',
+                        'date': '날짜',
+                        'total_sales_qty': '총 판매 수량',
+                        'total_revenue': '총 매출액 (원)',
+                        'ad_sales_qty': '광고 판매 수량',
+                        'ad_revenue': '광고 매출액 (원)',
+                        'ad_cost': '광고비 (원)',
+                        'daily_profit': '일일 순이익 (원)',
+                    })
+                    display_cols = ['날짜', '상품명', '총 판매 수량', '총 매출액 (원)', '일일 순이익 (원)', '광고 판매 수량', '광고 매출액 (원)', '광고비 (원)']
+                    df = df[display_cols]
                     
-                    # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
-                    if selected_product_filter != "(상품을 선택해주세요)":
-                        
-                        # [요청 2. 반영: 총 순이익금 섹션을 일일 판매 기록 위에 표시]
-                        total_profit_sum = df['daily_profit'].sum()
-                        st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원") 
-                        
-                        st.markdown("---") # 순이익금과 기록 섹션 구분
+                    # 숫자 포맷팅
+                    for col in ['총 매출액 (원)', '광고 매출액 (원)', '광고비 (원)', '일일 순이익 (원)']:
+                        df[col] = df[col].apply(lambda x: f"{x:,}")
 
-                        st.markdown("#### 일일 판매 기록")
-                        
-                        # 2. 페이지네이션 적용 로직
-                        total_rows = len(df)
-                        total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE 
-                        
-                        if st.session_state.daily_sales_page > total_pages:
-                            st.session_state.daily_sales_page = total_pages
-                        if st.session_state.daily_sales_page < 1:
-                            st.session_state.daily_sales_page = 1
-                            
-                        start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
-                        end_index = start_index + PAGE_SIZE
-                        
-                        # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
-                        df_paged = df.iloc[start_index:end_index].copy() 
+                    # 테이블 출력
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    
+                    # 페이지네이션 컨트롤
+                    page_cols = st.columns([1, 2, 1])
+                    if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
+                        st.session_state.daily_sales_page -= 1
+                        st.rerun() 
 
-                        # --- 1부터 시작하는 번호 추가 ---
-                        df_display = df_paged.copy()
-                        # 1부터 시작하는 번호 컬럼을 맨 앞에 추가
-                        df_display.insert(0, '번호', range(start_index + 1, start_index + len(df_display) + 1))
-                        
-                        # 3. 데이터프레임 표시 (기존 컬럼명 변경 로직 재사용)
-                        df_display = df_display.rename(columns={
-                            "date": "날짜",
-                            "product_name": "상품명",
-                            "daily_sales_qty": "전체 수량",
-                            "daily_revenue": "전체 매출액",
-                            "ad_sales_qty": "광고 수량",
-                            "ad_revenue": "광고 매출액",
-                            "organic_sales_qty": "자연 수량",
-                            "organic_revenue": "자연 매출액",
-                            "daily_ad_cost": "일일 광고비",
-                            "daily_profit": "일일 순이익금",
-                        })
-                        df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-                        # '번호' 컬럼 추가 (display_cols 재정의)
-                        display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
-                        
-                        # --- 숫자 컬럼 포맷팅 및 문자열 변환 ---
-                        # (이 코드는 콤마와 '원'을 추가하여 다른 컬럼의 좌측 정렬 효과를 유지합니다.)
-                        format_cols = ['전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+                    page_cols[1].markdown(
+                        f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
+                        unsafe_allow_html=True
+                    )
 
-                        for col in format_cols:
-                            if '수량' in col:
-                                df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}")
-                            else:
-                                df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
-                        
-                        # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
-                        df_display.reset_index(drop=True, inplace=True) 
-                        
-                        # 깔끔한 st.dataframe 호출 (hide_index=True는 유지)
-                        st.dataframe(
-                            df_display[display_cols],
-                            use_container_width=True, 
-                            hide_index=True
-                        )
+                    if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
+                        st.session_state.daily_sales_page += 1
+                        st.rerun() 
 
-                        # 4. 페이지네이션 컨트롤러 (이전/다음 버튼)
-                        page_cols = st.columns([1, 4, 1])
-                        
-                        if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
-                            st.session_state.daily_sales_page -= 1
-                            st.rerun() 
-
-                        page_cols[1].markdown(
-                            f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
-                            unsafe_allow_html=True
-                        )
-
-                        if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
-                            st.session_state.daily_sales_page += 1
-                            st.rerun() 
-
-                        st.markdown("---") 
-
-                    else: # selected_product_filter == "(상품을 선택해주세요)" 일 때
-                        # [요청 1. 반영: 안내 메시지 제거, 아무것도 표시하지 않음]
-                        pass
-
+                    st.markdown("---") 
 
                 else:
                     st.info("아직 저장된 판매 기록이 없습니다.")
@@ -846,4 +780,18 @@ if __name__ == "__main__":
     if "qty_raw" not in st.session_state: st.session_state["qty_raw"] = ""
     if "show_result" not in st.session_state: st.session_state["show_result"] = False
     
+    # 세션 상태 키 초기화
+    if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
+    if "original_product_name" not in st.session_state: st.session_state.original_product_name = ""
+    if "product_id_to_edit" not in st.session_state: st.session_state.product_id_to_edit = None
+    if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
+    if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
+    if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = ""
+    if "purchase_cost_input" not in st.session_state: st.session_state.purchase_cost_input = ""
+    if "quantity_input" not in st.session_state: st.session_state.quantity_input = ""
+    if "logistics_cost_input" not in st.session_state: st.session_state.logistics_cost_input = ""
+    if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_input = ""
+    if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = ""
+    if "is_edit_mode" not in st.session_state: st.session_state.is_edit_mode = False
+
     main()
