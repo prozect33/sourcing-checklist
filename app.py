@@ -433,45 +433,40 @@ def main():
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
-                        if validate_inputs():
-                            try:
-                                data_to_update = {
-                                    "product_name": st.session_state.product_name_input, # <-- 상품명 업데이트 필드 포함
-                                    "sell_price": sell_price, 
-                                    "fee": fee_rate, 
-                                    "inout_shipping_cost": inout_shipping_cost, 
-                                    "purchase_cost": purchase_cost, 
-                                    "quantity": quantity_to_save, 
-                                    "unit_purchase_cost": unit_purchase_cost, 
-                                    "logistics_cost": logistics_cost, 
-                                    "customs_duty": customs_duty, 
-                                    "etc_cost": etc_cost, 
-                                }
-                                # 1. products 테이블 업데이트 (ID를 기준으로 업데이트)
-                                supabase.table("products").update(data_to_update).eq("id", st.session_state.product_id_to_edit).execute() 
+                    if st.button("수정하기"):
+                    if validate_inputs():
+                        try:
+                            old_name = st.session_state.product_loader  # 기존 상품명
+                            new_name = st.session_state.product_name_input  # 새 상품명
+            
+                            data_to_update = {
+                                "product_name": new_name,
+                                "sell_price": sell_price,
+                                "fee": fee_rate,
+                                "inout_shipping_cost": inout_shipping_cost,
+                                "purchase_cost": purchase_cost,
+                                "quantity": quantity_to_save,
+                                "unit_purchase_cost": unit_purchase_cost,
+                                "logistics_cost": logistics_cost,
+                                "customs_duty": customs_duty,
+                                "etc_cost": etc_cost,
+                            }
 
-                                # 2. daily_sales 테이블 업데이트 (상품명이 변경되었을 경우)
-                                if st.session_state.product_name_input != st.session_state.original_product_name:
-                                    
-                                    # --- [디버그 코드] ---
-                                    st.info(f"""
-                                        **[디버그] daily_sales 업데이트 시도:**
-                                        - **이전 상품명 (필터):** '{st.session_state.original_product_name}'
-                                        - **새 상품명 (업데이트):** '{st.session_state.product_name_input}'
-                                    """)
-                                    # --------------------
-                                    
-                                    sales_data_to_update = {
-                                        "product_name": st.session_state.product_name_input
-                                    }
-                                    # daily_sales 테이블에서 이전 상품명으로 된 모든 기록을 새로운 상품명으로 업데이트
-                                    supabase.table("daily_sales").update(sales_data_to_update).eq("product_name", st.session_state.original_product_name).execute()
-                                
-                                st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
-                                st.rerun()
-                         
-                            except Exception as e:
-                                st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
+                            # 1️⃣ products 테이블 상품명 변경
+                            supabase.table("products").update(data_to_update).eq("product_name", old_name).execute()
+
+                            # 2️⃣ daily_sales 테이블 상품명 일괄 변경
+                            supabase.table("daily_sales").update({"product_name": new_name}).eq("product_name", old_name).execute()
+
+                            st.success(f"'{old_name}' → '{new_name}' 로 상품명이 변경되었습니다!")
+
+                            # 수정 후 상태 리셋
+                            st.session_state.product_loader = new_name
+                            st.session_state.is_edit_mode = True
+
+                        except Exception as e:
+                            st.error(f"상품명 변경 중 오류가 발생했습니다: {e}")
+
                 with col_del:
                     if st.button("삭제하기"):
                         try:
