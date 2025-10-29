@@ -153,15 +153,17 @@ def load_product_data(selected_product_name):
         st.session_state.etc_cost_input = ""
     else:
         try:
-            response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
+            response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute() 
             if response.data:
-            if response.data:
-                product_data = response.data[0]
+                product_data = response.data[0] 
                 st.session_state.is_edit_mode = True
-                st.session_state.product_id_to_edit = product_data.get("id") # 상품 ID 로드 추가
+                
+                # 상품 ID 로드 (이전 단계에서 추가된 로직)
+                st.session_state.product_id_to_edit = product_data.get("id")
                 st.session_state.product_name_input = product_data.get("product_name", "")
 
                 def get_display_value(key, default=""):
+                    # ... (나머지 get_display_value 함수와 그 아래의 나머지 로직은 그대로 유지)
                     val = product_data.get(key)
                     if val is None or val == 0:
                         return ""
