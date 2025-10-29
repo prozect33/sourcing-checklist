@@ -465,7 +465,7 @@ def main():
 
                         except Exception as e:
                             st.error(f"상품명 변경 중 오류가 발생했습니다: {e}")
-
+                            
                 with col_del:
                     if st.button("삭제하기"):
                         try:
