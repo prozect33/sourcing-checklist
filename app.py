@@ -119,6 +119,7 @@ except Exception as e:
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
+if "original_product_name" not in st.session_state: st.session_state.original_product_name = "" # <-- 이 줄 추가
 if "product_id_to_edit" not in st.session_state: st.session_state.product_id_to_edit = None
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
@@ -141,25 +142,24 @@ if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
-        st.session_state.product_id_to_edit = None # 상품 ID 초기화 추가
+        st.session_state.original_product_name = "" # <-- 이 줄 추가
+        st.session_state.product_id_to_edit = None # 상품 
+[cite_start][cite: 1] ID 초기화 추가
         st.session_state.product_name_input = ""
         st.session_state.sell_price_input = ""
-        st.session_state.fee_rate_input = ""
-        st.session_state.inout_shipping_cost_input = ""
-        st.session_state.purchase_cost_input = ""
-        st.session_state.quantity_input = ""
-        st.session_state.logistics_cost_input = ""
-        st.session_state.customs_duty_input = ""
-        st.session_state.etc_cost_input = ""
+        # ... (중략)
     else:
-        try:
+    
+[cite_start][cite: 1]     try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute() 
             if response.data:
                 product_data = response.data[0] 
                 st.session_state.is_edit_mode = True
                 
-                # 상품 ID 로드 (이전 단계에서 추가된 로직)
+              
+[cite_start][cite: 1]   # 상품 ID 로드 (이전 단계에서 추가된 로직)
                 st.session_state.product_id_to_edit = product_data.get("id")
+                st.session_state.original_product_name = product_data.get("product_name", "") # <-- 이 줄 추가
                 st.session_state.product_name_input = product_data.get("product_name", "")
 
                 def get_display_value(key, default=""):
@@ -445,12 +445,22 @@ def main():
                                     "customs_duty": customs_duty, 
                                     "etc_cost": etc_cost, 
                                 }
-                                # <-- ID를 기준으로 업데이트하도록 수정
+                                # 1. products 테이블 업데이트 (ID를 기준으로 업데이트)
                                 supabase.table("products").update(data_to_update).eq("id", st.session_state.product_id_to_edit).execute() 
+
+                                # 2. daily_sales 테이블 업데이트 (상품명이 변경되었을 경우)
+                                if st.session_state.product_name_input != st.session_state.original_product_name:
+                                    sales_data_to_update = {
+                                        "product_name": st.session_state.product_name_input
+                                    }
+                                    # daily_sales 테이블에서 이전 상품명으로 된 모든 기록을 새로운 상품명으로 업데이트
+                                    supabase.table("daily_sales").update(sales_data_to_update).eq("product_name", st.session_state.original_product_name).execute()
                                 
+        
                                 st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
                                 st.rerun()
-                            except Exception as e:
+                         
+[cite_start][cite: 1]    except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
                     if st.button("삭제하기"):
