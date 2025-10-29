@@ -433,7 +433,6 @@ def main():
                 col_mod, col_del = st.columns(2)
                 with col_mod:
                     if st.button("수정하기"):
-                    if st.button("수정하기"):
                     if validate_inputs():
                         try:
                             old_name = st.session_state.product_loader  # 기존 상품명
