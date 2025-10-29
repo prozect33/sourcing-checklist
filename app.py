@@ -635,7 +635,7 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
                 else:
                     try:
                         data_to_save = {
-                            "report_date": report_date.isoformat(),
+                            "date": report_date.isoformat(),
                             "product_name": selected_product_name,
                             "total_sales_qty": st.session_state.total_sales_qty,
                             "total_revenue": st.session_state.total_revenue,
@@ -686,15 +686,15 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
                     query = query.eq("product_name", selected_product_filter)
                 
                 # 정렬 및 실행
-                response = query.order("report_date", desc=True).execute()
+                response = query.order("date", desc=True).execute()
 
                 if response.data:
                     df = pd.DataFrame(response.data)
-                    df['report_date'] = pd.to_datetime(df['report_date']).dt.date
+                    df['date'] = pd.to_datetime(df['report_date']).dt.date
                     
                     # 컬럼명 변경 (이전 오류 해결 로직 유지)
                     df = df.rename(columns={
-                        'report_date': '날짜',
+                        'date': '날짜',
                         'product_name': '상품명',
                         'total_sales_qty': '총 판매 수량',
                         'total_revenue': '총 매출액 (원)',
