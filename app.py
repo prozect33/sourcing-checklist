@@ -119,7 +119,7 @@ except Exception as e:
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
-if "original_product_name" not in st.session_state: st.session_state.original_product_name = "" # <-- 이 줄 추가
+if "original_product_name" not in st.session_state: st.session_state.original_product_name = "" # <-- 원본 상품명 저장을 위한 변수
 if "product_id_to_edit" not in st.session_state: st.session_state.product_id_to_edit = None
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
@@ -340,25 +340,25 @@ def main():
                 st.markdown(f"- 📉 **최소마진율:** {(profit2/supply_price2*100):.2f}%")
                 st.markdown(f"- 📊 **ROAS:** {roas:.2f}%")
 
-                with st.expander("📦 상세 비용 항목 보기", expanded=False):
-                    def styled_line(label, value):
-                        return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
-                    st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})" if cost_display else f"{format_number(unit_cost)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("입출고비용:", f"{format_number(inout)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("회수비용:", f"{format_number(pickup)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("재입고비용:", f"{format_number(restock)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("반품비용:", f"{format_number(return_cost)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("기타비용:", f"{format_number(etc)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("사은품 비용:", f"{format_number(gift)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("총비용:", f"{format_number(total_cost)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("공급가액:", f"{format_number(round(supply_price2))}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
-                    st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
-                    st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
+            with st.expander("📦 상세 비용 항목 보기", expanded=False):
+                def styled_line(label, value):
+                    return f"<div style='font-size:15px;'><strong>{label}</strong> {value}</div>"
+                st.markdown(styled_line("판매가:", f"{format_number(sell_price)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("원가:", f"{format_number(unit_cost)}원 ({cost_display})" if cost_display else f"{format_number(unit_cost)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("수수료:", f"{format_number(fee)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("광고비:", f"{format_number(ad)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("입출고비용:", f"{format_number(inout)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("회수비용:", f"{format_number(pickup)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("재입고비용:", f"{format_number(restock)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("반품비용:", f"{format_number(return_cost)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("기타비용:", f"{format_number(etc)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("사은품 비용:", f"{format_number(gift)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("총비용:", f"{format_number(total_cost)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("공급가액:", f"{format_number(round(supply_price2))}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
+                st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
+                st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
 
     with tab2:
         st.subheader("세부 마진 계산기")
@@ -436,7 +436,7 @@ def main():
                         if validate_inputs():
                             try:
                                 data_to_update = {
-                                    "product_name": st.session_state.product_name_input, # <-- 상품명 업데이트 필드 추가
+                                    "product_name": st.session_state.product_name_input, # <-- 상품명 업데이트 필드 포함
                                     "sell_price": sell_price, 
                                     "fee": fee_rate, 
                                     "inout_shipping_cost": inout_shipping_cost, 
@@ -458,11 +458,10 @@ def main():
                                     # daily_sales 테이블에서 이전 상품명으로 된 모든 기록을 새로운 상품명으로 업데이트
                                     supabase.table("daily_sales").update(sales_data_to_update).eq("product_name", st.session_state.original_product_name).execute()
                                 
-        
                                 st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
                                 st.rerun()
                          
-[cite_start][cite: 1]    except Exception as e:
+                            except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
                     if st.button("삭제하기"):
@@ -493,6 +492,7 @@ def main():
                                     "etc_cost": etc_cost,
                                 }
                                 response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
+                                
                                 if response.data:
                                     st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                                 else:
@@ -500,6 +500,7 @@ def main():
                           
                                     st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
                                     st.rerun()
+                            
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
@@ -564,7 +565,7 @@ def main():
             # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
             organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
             organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
-            
+          
             # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
             st.number_input(
                 "자연 판매 수량",
@@ -584,7 +585,7 @@ def main():
                 current_total_sales_qty = st.session_state.total_sales_qty
                 current_total_revenue = st.session_state.total_revenue
                 current_ad_cost = st.session_state.ad_cost
-                
+            
                 quantity_val = product_data.get("quantity", 1)
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
                 unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
@@ -605,7 +606,7 @@ def main():
                 )
                 daily_profit = round(daily_profit)
 
-            st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
+                st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
             
             # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) ---
             if selected_product_name != "상품을 선택해주세요" and product_data:
@@ -635,7 +636,7 @@ def main():
 
                 # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
                 st.markdown(
-                    f"""                    
+                    f"""
                     <small>
                     - 판매 수수료 (VAT 포함): {fee_cost:,}원 (매출액 기준)<br>
                     - 매입비: {purchase_cost_total:,}원 ({current_total_sales_qty:,}개)<br>
@@ -678,13 +679,6 @@ def main():
                             "created_at": datetime.datetime.now().isoformat()
                         }
                         
-                        # --- INSERT 대신 UPSERT(덮어쓰기) 적용 ---
-                        # 수정된 코드 (이전 Supabase 버전과 호환)
-                        # on_conflict 대신 upsert를 사용하고 conflict_target 인자를 추가합니다.
-                        # 수정된 코드 (가장 오래된 Supabase 버전과 호환 가능성 높음)
-                        # Primary Key 또는 Unique Constraint를 자동으로 사용하도록 유도합니다.
-                        # 이 코드를 위의 지운 코드 자리에 붙여넣습니다.
-                        # --- 최종 UPSERT(덮어쓰기) 적용: 최신 .insert().on_conflict() 문법 ---
                         # --- 최종 UPSERT(덮어쓰기) 적용: 서버 함수(RPC) 호출 ---
                         supabase.rpc(
                             'upsert_daily_sales', 
@@ -695,7 +689,6 @@ def main():
                     
                     except Exception as e:
                         st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
-                        st.error(f"일일 정산 저장 중 오류가 발생했습니다: {e}")
 
 
         with st.expander("판매 현황"):
@@ -730,7 +723,7 @@ def main():
             try:
                 # 1. 데이터 로드 및 선택된 상품으로 필터링
                 query = supabase.table("daily_sales").select("*").order("date", desc=True)
-                
+            
                 # '상품을 선택해주세요'이 아닌 경우에만 쿼리에 필터 조건 추가
                 if selected_product_filter != "(상품을 선택해주세요)":
                     query = query.eq("product_name", selected_product_filter)
