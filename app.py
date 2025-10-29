@@ -431,13 +431,13 @@ def main():
             # 저장/수정/삭제 버튼 로직
             if st.session_state.is_edit_mode:
                 col_mod, col_del = st.columns(2)
-                with col_mod:
-                    if st.button("수정하기"):
+            with col_mod:
+                if st.button("수정하기"):
                     if validate_inputs():
                         try:
                             old_name = st.session_state.product_loader  # 기존 상품명
                             new_name = st.session_state.product_name_input  # 새 상품명
-            
+
                             data_to_update = {
                                 "product_name": new_name,
                                 "sell_price": sell_price,
@@ -451,15 +451,15 @@ def main():
                                 "etc_cost": etc_cost,
                             }
 
-                            # 1️⃣ products 테이블 상품명 변경
+                            # ✅ 1️⃣ products 테이블 상품명 및 세부정보 수정
                             supabase.table("products").update(data_to_update).eq("product_name", old_name).execute()
 
-                            # 2️⃣ daily_sales 테이블 상품명 일괄 변경
+                            # ✅ 2️⃣ daily_sales 테이블 내 해당 상품명 전부 변경
                             supabase.table("daily_sales").update({"product_name": new_name}).eq("product_name", old_name).execute()
 
                             st.success(f"'{old_name}' → '{new_name}' 로 상품명이 변경되었습니다!")
 
-                            # 수정 후 상태 리셋
+                            # ✅ 상태 갱신
                             st.session_state.product_loader = new_name
                             st.session_state.is_edit_mode = True
 
