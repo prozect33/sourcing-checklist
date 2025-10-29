@@ -142,10 +142,18 @@ if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
-        st.session_state.original_product_name = "" # <-- 이 줄 추가
-        st.session_state.product_id_to_edit = None # 상품 
-[cite_start][cite: 1] ID 초기화 추가
+        st.session_state.original_product_name = "" 
+        st.session_state.product_id_to_edit = None
         st.session_state.product_name_input = ""
+        st.session_state.sell_price_input = ""
+        st.session_state.fee_rate_input = ""
+        st.session_state.inout_shipping_cost_input = ""
+        st.session_state.purchase_cost_input = ""
+        st.session_state.quantity_input = ""
+        st.session_state.logistics_cost_input = ""
+        st.session_state.customs_duty_input = ""
+        st.session_state.etc_cost_input = ""
+    else:
         st.session_state.sell_price_input = ""
         # ... (중략)
     else:
