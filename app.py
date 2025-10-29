@@ -465,7 +465,7 @@ def main():
 
                         except Exception as e:
                             st.error(f"상품명 변경 중 오류가 발생했습니다: {e}")
-                            
+
                 with col_del:
                     if st.button("삭제하기"):
                         try:
@@ -476,6 +476,7 @@ def main():
             else:
                 if st.button("상품 저장하기"):
                     if validate_inputs():
+                        try:
                         product_name_to_save = st.session_state.product_name_input
 
                         if sell_price == 0:
