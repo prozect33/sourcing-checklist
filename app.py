@@ -450,10 +450,19 @@ def main():
                                 supabase.table("products").update(data_to_update).eq("id", st.session_state.product_id_to_edit).execute() 
 
                                 # 2. daily_sales 테이블 업데이트 (상품명이 변경되었을 경우)
-                                if st.session_state.product_name_input != st.session_state.original_product_name:
-                                    sales_data_to_update = {
-                                        "product_name": st.session_state.product_name_input
-                                    }
+                                            if st.session_state.product_name_input != st.session_state.original_product_name:
+                
+                                                # --- [디버그 코드 추가 시작] ---
+                                                st.info(f"""
+                                                    **[디버그] daily_sales 업데이트 시도:**
+                                                    - **이전 상품명 (필터):** '{st.session_state.original_product_name}'
+                                                    - **새 상품명 (업데이트):** '{st.session_state.product_name_input}'
+                                                """)
+                                                # --- [디버그 코드 추가 끝] ---
+                
+                                                sales_data_to_update = {
+                                                    "product_name": st.session_state.product_name_input
+                                                }
                                     # daily_sales 테이블에서 이전 상품명으로 된 모든 기록을 새로운 상품명으로 업데이트
                                     supabase.table("daily_sales").update(sales_data_to_update).eq("product_name", st.session_state.original_product_name).execute()
                                 
