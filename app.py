@@ -142,7 +142,7 @@ if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
-        st.session_state.original_product_name = "" 
+        st.session_state.original_product_name = "" # <-- 원본 상품명 초기화
         st.session_state.product_id_to_edit = None
         st.session_state.product_name_input = ""
         st.session_state.sell_price_input = ""
@@ -154,24 +154,18 @@ def load_product_data(selected_product_name):
         st.session_state.customs_duty_input = ""
         st.session_state.etc_cost_input = ""
     else:
-        st.session_state.sell_price_input = ""
-        # ... (중략)
-    else:
-    
-[cite_start][cite: 1]     try:
+        try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute() 
             if response.data:
                 product_data = response.data[0] 
                 st.session_state.is_edit_mode = True
                 
-              
-[cite_start][cite: 1]   # 상품 ID 로드 (이전 단계에서 추가된 로직)
+                # 상품 ID와 원래 상품명 로드
                 st.session_state.product_id_to_edit = product_data.get("id")
-                st.session_state.original_product_name = product_data.get("product_name", "") # <-- 이 줄 추가
+                st.session_state.original_product_name = product_data.get("product_name", "") # <-- 원래 상품명 저장
                 st.session_state.product_name_input = product_data.get("product_name", "")
 
                 def get_display_value(key, default=""):
-                    # ... (나머지 get_display_value 함수와 그 아래의 나머지 로직은 그대로 유지)
                     val = product_data.get(key)
                     if val is None or val == 0:
                         return ""
