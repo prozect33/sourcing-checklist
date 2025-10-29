@@ -680,7 +680,7 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
                 end_date = st.date_input("종료일", value=datetime.date.today())
 
             try:
-                query = supabase.table("daily_sales").select("*").gte("report_date", start_date.isoformat()).lte("report_date", end_date.isoformat())
+                query = supabase.table("daily_sales").select("*").gte("date", start_date.isoformat()).lte("date", end_date.isoformat())
                 
                 if selected_product_filter != "(상품을 선택해주세요)":
                     query = query.eq("product_name", selected_product_filter)
@@ -690,7 +690,7 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
 
                 if response.data:
                     df = pd.DataFrame(response.data)
-                    df['date'] = pd.to_datetime(df['report_date']).dt.date
+                    df['date'] = pd.to_datetime(df['date']).dt.date
                     
                     # 컬럼명 변경 (이전 오류 해결 로직 유지)
                     df = df.rename(columns={
