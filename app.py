@@ -155,7 +155,7 @@ def load_product_data(selected_product_name):
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
             if response.data:
-if response.data:
+            if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
                 st.session_state.product_id_to_edit = product_data.get("id") # 상품 ID 로드 추가
