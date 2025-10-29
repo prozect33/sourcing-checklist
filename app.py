@@ -119,6 +119,7 @@ except Exception as e:
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
+if "product_id_to_edit" not in st.session_state: st.session_state.product_id_to_edit = None
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
 if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = ""
@@ -140,6 +141,7 @@ if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
+        st.session_state.product_id_to_edit = None # 상품 ID 초기화 추가
         st.session_state.product_name_input = ""
         st.session_state.sell_price_input = ""
         st.session_state.fee_rate_input = ""
@@ -153,9 +155,10 @@ def load_product_data(selected_product_name):
         try:
             response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
             if response.data:
+if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
-
+                st.session_state.product_id_to_edit = product_data.get("id") # 상품 ID 로드 추가
                 st.session_state.product_name_input = product_data.get("product_name", "")
 
                 def get_display_value(key, default=""):
@@ -429,18 +432,22 @@ def main():
                         if validate_inputs():
                             try:
                                 data_to_update = {
-                                    "sell_price": sell_price,
-                                    "fee": fee_rate,
-                                    "inout_shipping_cost": inout_shipping_cost,
-                                    "purchase_cost": purchase_cost,
-                                    "quantity": quantity_to_save,
-                                    "unit_purchase_cost": unit_purchase_cost,
-                                    "logistics_cost": logistics_cost,
-                                    "customs_duty": customs_duty,
-                                    "etc_cost": etc_cost,
+                                    "product_name": st.session_state.product_name_input, # <-- 상품명 업데이트 필드 추가
+                                    "sell_price": sell_price, 
+                                    "fee": fee_rate, 
+                                    "inout_shipping_cost": inout_shipping_cost, 
+                                    "purchase_cost": purchase_cost, 
+                                    "quantity": quantity_to_save, 
+                                    "unit_purchase_cost": unit_purchase_cost, 
+                                    "logistics_cost": logistics_cost, 
+                                    "customs_duty": customs_duty, 
+                                    "etc_cost": etc_cost, 
                                 }
-                                supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
+                                # <-- ID를 기준으로 업데이트하도록 수정
+                                supabase.table("products").update(data_to_update).eq("id", st.session_state.product_id_to_edit).execute() 
+                                
                                 st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
+                                st.experimental_rerun() # <-- 수정 후 즉시 화면 새로고침
                             except Exception as e:
                                 st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
                 with col_del:
@@ -475,8 +482,10 @@ def main():
                                 if response.data:
                                     st.warning("이미 같은 이름의 상품이 존재합니다. 수정하려면 목록에서 선택해주세요.")
                                 else:
-                                    supabase.table("products").insert(data_to_save).execute()
-                                st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                    supabase.table("products").insert(data_to_save).execute() 
+                          
+                                    st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                    st.experimental_rerun() # <-- 저장 후 즉시 화면 새로고침
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
