@@ -469,33 +469,34 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
             else:
                 if st.button("상품 저장하기"):
                     if validate_inputs():
-                        try:
-                            product_name_to_save = st.session_state.product_name_input
-                            if sell_price == 0:
-                                st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
-                            else:
-                                try:
-                                    data_to_save = {
-                                        "product_name": product_name_to_save,
-                                        "sell_price": sell_price,
-                                        "fee": fee_rate,
-                                        "inout_shipping_cost": inout_shipping_cost,
-                                        "purchase_cost": purchase_cost,
-                                        "quantity": quantity_to_save,
-                                        "unit_purchase_cost": unit_purchase_cost,
-                                        "logistics_cost": logistics_cost,
-                                        "customs_duty": customs_duty,
-                                        "etc_cost": etc_cost,
-                                    }
-                                    response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
-                                    if response.data:
-                                        st.warning("이미 같은 이름의 상품이 존재합니다.\n수정하려면 목록에서 선택해주세요.")
-                                    else:
-                                        supabase.table("products").insert(data_to_save).execute()
-                                        st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
-                                        st.rerun()
-                                except Exception as e:
-                                    st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+                        # FIX: 여기서 불필요한 바깥쪽 try를 제거하고 들여쓰기를 수정했습니다.
+                        product_name_to_save = st.session_state.product_name_input
+                        if sell_price == 0:
+                            st.warning("판매가는 0이 아닌 값으로 입력해야 합니다.")
+                        else:
+                            try:
+                                data_to_save = {
+                                    "product_name": product_name_to_save,
+                                    "sell_price": sell_price,
+                                    "fee": fee_rate,
+                                    "inout_shipping_cost": inout_shipping_cost,
+                                    "purchase_cost": purchase_cost,
+                                    "quantity": quantity_to_save,
+                                    "unit_purchase_cost": unit_purchase_cost,
+                                    "logistics_cost": logistics_cost,
+                                    "customs_duty": customs_duty,
+                                    "etc_cost": etc_cost,
+                                }
+                                response = supabase.table("products").select("product_name").eq("product_name", product_name_to_save).execute()
+                                if response.data:
+                                    st.warning("이미 같은 이름의 상품이 존재합니다.\n수정하려면 목록에서 선택해주세요.")
+                                else:
+                                    supabase.table("products").insert(data_to_save).execute()
+                                    st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+
         with st.expander("일일 정산"):
             # 상품 선택 로직
             product_list = ["상품을 선택해주세요"]
@@ -690,7 +691,7 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
                     df = pd.DataFrame(response.data)
                     df['report_date'] = pd.to_datetime(df['report_date']).dt.date
                     
-                    # [이전 오류 메시지: "['총 판매 수량', '총 매출액 (원)', '광고비 (원)'] not in index"를 피하기 위한 컬럼명 변경 (수정된 코드의 로직을 유지)]
+                    # 컬럼명 변경 (이전 오류 해결 로직 유지)
                     df = df.rename(columns={
                         'report_date': '날짜',
                         'product_name': '상품명',
@@ -745,7 +746,6 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
                         st.markdown("---") 
 
                     else: # selected_product_filter == "(상품을 선택해주세요)" 일 때
-                        # [요청 1. 반영: 안내 메시지 제거, 아무것도 표시하지 않음]
                         pass
 
 
