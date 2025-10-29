@@ -733,13 +733,14 @@ def main():
                     df = df.rename(columns={
                         'product_name': '상품명',
                         'date': '날짜',
-                        'total_sales_qty': '총 판매 수량',
-                        'total_revenue': '총 매출액 (원)',
+                        'daily_sales_qty': '총 판매 수량',
+                        'daily_revenue': '총 매출액 (원)',
                         'ad_sales_qty': '광고 판매 수량',
                         'ad_revenue': '광고 매출액 (원)',
-                        'ad_cost': '광고비 (원)',
+                        'daily_ad_cost': '광고비 (원)',
                         'daily_profit': '일일 순이익 (원)',
                     })
+
                     display_cols = ['날짜', '상품명', '총 판매 수량', '총 매출액 (원)', '일일 순이익 (원)', '광고 판매 수량', '광고 매출액 (원)', '광고비 (원)']
                     df = df[display_cols]
                     
