@@ -456,8 +456,7 @@ line-height:10px; color:#f63366; font-size:15px; margin-bottom:15px;'>
                                 st.success(f"'{old_name}' → '{new_name}' 로 상품명이 변경되었습니다!")
                                 # ✅ 상태 갱신
                                 st.session_state.original_product_name = new_name
-                                st.session_state.product_name_input = new_name
-
+                                
                                 st.session_state.is_edit_mode = True
                             except Exception as e:
                                 st.error(f"상품명 변경 중 오류가 발생했습니다: {e}")
