@@ -604,6 +604,13 @@ def main():
                 daily_profit = round(daily_profit)
 
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
+            if selected_product_name != "상품을 선택해주세요" and product_data:
+                total_quantity = product_data.get("quantity", 0)
+                total_sales_qty = st.session_state.total_sales_qty
+                st.markdown(
+                    f"<small style='color:gray;'>{total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)</small>",
+                    unsafe_allow_html=True
+                )            
             
             # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) ---
             if selected_product_name != "상품을 선택해주세요" and product_data:
