@@ -422,7 +422,6 @@ def main():
             quantity_to_save = quantity
            
             # 저장/수정/삭제 버튼 로직
-            if st.session_state.is_edit_mode:
             with col_mod:
                 if st.button("수정하기"):
                     if validate_inputs():
