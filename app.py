@@ -118,7 +118,7 @@ except Exception as e:
     st.stop()
 
 # 상품 정보 입력 상태 초기화 (탭2)
-if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
+if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
 if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = ""
@@ -156,7 +156,7 @@ def load_product_data(selected_product_name):
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
 
-                st.session_state["loaded_product_name"] = product_data.get("product_name", "")
+                st.session_state.product_name_input = product_data.get("product_name", "")
 
                 def get_display_value(key, default=""):
                     val = product_data.get(key)
@@ -367,19 +367,20 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
-            st.text_input(
-                "상품명",
-                value=st.session_state.get("loaded_product_name", ""),
-                key="product_name_input",
-                placeholder="예: 무선 이어폰"
+            st.selectbox(
+                "저장된 상품 선택 또는 새로 입력",
+                product_list,
+                key="product_loader",
+                on_change=lambda: load_product_data(st.session_state.product_loader)
             )
 
             st.text_input(
                 "상품명",
-                value=st.session_state.product_name_input,
+                value=st.session_state.get("product_name_input_default", ""),
                 key="product_name_input",
                 placeholder="예: 무선 이어폰"
             )
+
 
             # 상품 세부 정보 입력
             col_left, col_right = st.columns(2)
@@ -841,5 +842,3 @@ if __name__ == "__main__":
     if "show_result" not in st.session_state: st.session_state["show_result"] = False
     
     main()
-
-                    
