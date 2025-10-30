@@ -451,7 +451,7 @@ def main():
                                 supabase.table("products").update(data_to_update).eq("product_name", old_name).execute()
 
                                 # 2) daily_sales 테이블의 상품명 동기화
-                                supabase.table("daily_sales").update({"product_name": new_name}).eq("product_name", old_name).execute()
+                                supabase.rpc("update_daily_sales_name", {"old_name": old_name, "new_name": new_name}).execute()
 
                                 # 3) 세션 상태 갱신 (셀렉트박스 선택값 동기화)
 
