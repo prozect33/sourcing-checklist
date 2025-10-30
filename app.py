@@ -465,7 +465,7 @@ def main():
                             st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
-                else:
+            else:
                 if st.button("상품 저장하기"):
                     if validate_inputs():
                         product_name_to_save = st.session_state.product_name_input
