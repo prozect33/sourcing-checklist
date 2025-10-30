@@ -621,7 +621,7 @@ def main():
             except Exception as e:
                 st.error(f"수량 표시 중 오류 발생: {e}")
 
-st.markdown("---")  # 기존 구분선(있으면 유지)
+            st.markdown("---")  # 기존 구분선(있으면 유지)
 
             # --- 일일 순이익 계산 내역 ---
             if selected_product_name != "상품을 선택해주세요" and product_data:
