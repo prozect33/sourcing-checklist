@@ -455,7 +455,7 @@ def main():
 
                                 # 3) 세션 상태 갱신 (셀렉트박스 선택값 동기화)
 
-                                st.success(f"'{old_name}' → '{new_name}' 상품명이 포함된 모든 데이터가 수정되었습니다!")
+                                st.success("데이터가 수정되었습니다!")
                                 st.rerun()
 
                             except Exception as e:
