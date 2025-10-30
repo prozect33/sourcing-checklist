@@ -456,7 +456,7 @@ def main():
                                 # 3) 세션 상태 갱신 (셀렉트박스 선택값 동기화)
 
                                 st.success(f"'{old_name}' → '{new_name}' 상품명이 포함된 모든 데이터가 수정되었습니다!")
-                                load_product_data(new_name)
+                                st.rerun()
 
                             except Exception as e:
                                 st.error(f"상품명 수정 중 오류가 발생했습니다: {e}")
