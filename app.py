@@ -466,6 +466,7 @@ def main():
                         try:
                             supabase.table("products").delete().eq("product_name", st.session_state.product_name_input).execute()
                             st.success(f"'{st.session_state.product_name_input}' 상품이 삭제되었습니다!")
+                            st.rerun()  # ✅ 삭제 후 즉시 새로고침
                         except Exception as e:
                             st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
 
@@ -496,6 +497,7 @@ def main():
                                 else:
                                     supabase.table("products").insert(data_to_save).execute()
                                 st.success(f"'{product_name_to_save}' 상품이 성공적으로 저장되었습니다!")
+                                st.rerun()  # ✅ 저장 후 즉시 새로고침
                             except Exception as e:
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
