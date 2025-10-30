@@ -423,26 +423,41 @@ def main():
            
             # 저장/수정/삭제 버튼 로직
             if st.session_state.is_edit_mode:
-                col_mod, col_del = st.columns(2)
-                with col_mod:
-                    if st.button("수정하기"):
-                        if validate_inputs():
-                            try:
-                                data_to_update = {
-                                    "sell_price": sell_price,
-                                    "fee": fee_rate,
-                                    "inout_shipping_cost": inout_shipping_cost,
-                                    "purchase_cost": purchase_cost,
-                                    "quantity": quantity_to_save,
-                                    "unit_purchase_cost": unit_purchase_cost,
-                                    "logistics_cost": logistics_cost,
-                                    "customs_duty": customs_duty,
-                                    "etc_cost": etc_cost,
-                                }
-                                supabase.table("products").update(data_to_update).eq("product_name", st.session_state.product_name_input).execute()
-                                st.success(f"'{st.session_state.product_name_input}' 상품 정보가 업데이트되었습니다!")
-                            except Exception as e:
-                                st.error(f"데이터 수정 중 오류가 발생했습니다: {e}")
+            with col_mod:
+                if st.button("수정하기"):
+                    if validate_inputs():
+                        try:
+                            old_name = st.session_state.product_loader  # 기존 상품명
+                            new_name = st.session_state.product_name_input  # 새 상품명
+
+                            # 업데이트할 필드 구성
+                            data_to_update = {
+                                "product_name": new_name,
+                                "sell_price": sell_price,
+                                "fee": fee_rate,
+                                "inout_shipping_cost": inout_shipping_cost,
+                                "purchase_cost": purchase_cost,
+                                "quantity": quantity_to_save,
+                                "unit_purchase_cost": unit_purchase_cost,
+                                "logistics_cost": logistics_cost,
+                                "customs_duty": customs_duty,
+                                "etc_cost": etc_cost,
+                            }
+
+                            # 1️⃣ products 테이블에서 상품명 포함 정보 업데이트
+                            supabase.table("products").update(data_to_update).eq("product_name", old_name).execute()
+
+                            # 2️⃣ daily_sales 테이블에서도 상품명 변경 동기화
+                            supabase.table("daily_sales").update({"product_name": new_name}).eq("product_name", old_name).execute()
+
+                            # 3️⃣ 세션 상태 갱신
+                            st.session_state.product_loader = new_name
+
+                            st.success(f"'{old_name}' → '{new_name}' 상품명이 포함된 모든 데이터가 수정되었습니다!")
+
+                       except Exception as e:
+                            st.error(f"상품명 수정 중 오류가 발생했습니다: {e}")
+
                 with col_del:
                     if st.button("삭제하기"):
                         try:
