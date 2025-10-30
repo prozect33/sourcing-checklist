@@ -156,7 +156,7 @@ def load_product_data(selected_product_name):
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
 
-                st.session_state.product_name_input = product_data.get("product_name", "")
+                st.session_state["loaded_product_name"] = product_data.get("product_name", "")
 
                 def get_display_value(key, default=""):
                     val = product_data.get(key)
@@ -367,11 +367,11 @@ def main():
             except Exception as e:
                 st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
-            st.selectbox(
-                "저장된 상품 선택 또는 새로 입력",
-                product_list,
-                key="product_loader",
-                on_change=lambda: load_product_data(st.session_state.product_loader)
+            st.text_input(
+                "상품명",
+                value=st.session_state.get("loaded_product_name", ""),
+                key="product_name_input",
+                placeholder="예: 무선 이어폰"
             )
 
             st.text_input(
