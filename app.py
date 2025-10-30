@@ -575,14 +575,14 @@ def main():
                 disabled=True
             )
 
-            # 일일 순이익 계산
+            # --- 일일 순이익 계산 ---
             daily_profit = 0
             if selected_product_name != "상품을 선택해주세요" and product_data:
-                # 안전하게 세션 상태의 최신 입력값 사용
+                # 세션 상태의 최신 값 안전하게 사용
                 current_total_sales_qty = st.session_state.total_sales_qty
                 current_total_revenue = st.session_state.total_revenue
                 current_ad_cost = st.session_state.ad_cost
-                
+
                 quantity_val = product_data.get("quantity", 1)
                 quantity_for_calc = quantity_val if quantity_val > 0 else 1
                 unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
@@ -603,30 +603,33 @@ def main():
                 )
                 daily_profit = round(daily_profit)
 
+            # --- 일일 순이익금 출력 ---
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
-            # --- 총 순이익금 표시 ---
-            st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
 
-            # ✅ (추가) 상품 전체 수량 / 판매 수량 표시
-            try:
-                product_info = supabase.table("products").select("quantity").eq("product_name", selected_product_filter).execute()
-                total_quantity = product_info.data[0]["quantity"] if product_info.data else 0
-                total_sales_qty = df["daily_sales_qty"].sum() if "daily_sales_qty" in df.columns else 0
-                st.markdown(
-                    f"<small style='color:gray;'>{total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)</small>",
-                    unsafe_allow_html=True
-                )
-            except Exception as e:
-                st.error(f"수량 표시 중 오류 발생: {e}")
-            
-            # --- 일일 순이익 계산 내역 (순수 비용 항목만, 세로, 작은 글씨) ---
+            # --- 총 순이익금 표시 (판매현황용) ---
+            if 'selected_product_filter' in locals():
+                try:
+                    total_profit_sum = df["daily_profit"].sum()
+                    st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
+
+                    # ✅ (추가) 상품 전체 수량 / 판매 수량 표시
+                    product_info = supabase.table("products").select("quantity").eq("product_name", selected_product_filter).execute()
+                    total_quantity = product_info.data[0]["quantity"] if product_info.data else 0
+                    total_sales_qty = df["daily_sales_qty"].sum() if "daily_sales_qty" in df.columns else 0
+                    st.markdown(
+                        f"<small style='color:gray;'>{total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)</small>",
+                        unsafe_allow_html=True
+                    )
+                except Exception as e:
+                    st.error(f"수량 표시 중 오류 발생: {e}")
+
+            # --- 일일 순이익 계산 내역 ---
             if selected_product_name != "상품을 선택해주세요" and product_data:
-                # 1. 계산에 필요한 변수 설정 (daily_profit 계산에 사용된 변수 재사용)
                 vat = 1.1
-                fee_rate_db = product_data.get("fee", 0.0) 
+                fee_rate_db = product_data.get("fee", 0.0)
                 current_total_sales_qty = st.session_state.total_sales_qty
                 current_total_revenue = st.session_state.total_revenue
-                current_ad_cost = st.session_state.ad_cost 
+                current_ad_cost = st.session_state.ad_cost
                 
                 # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
                 quantity_val = product_data.get("quantity", 1)
