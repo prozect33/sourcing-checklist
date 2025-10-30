@@ -605,23 +605,23 @@ def main():
 
             # --- 일일 순이익금 출력 ---
             st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
+            # ✅ 총 순이익금 아래: (전체 수량 / 판매 수량) 표시
+            try:
+                # products에서 전체 수량
+                product_info = supabase.table("products").select("quantity").eq("product_name", selected_product_filter).execute()
+                total_quantity = product_info.data[0]["quantity"] if (product_info.data and len(product_info.data) > 0) else 0
 
-            # --- 총 순이익금 표시 (판매현황용) ---
-            if 'selected_product_filter' in locals():
-                try:
-                    total_profit_sum = df["daily_profit"].sum()
-                    st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
+                # daily_sales 집계에서 전체 판매 수량
+                total_sales_qty = int(df["daily_sales_qty"].sum()) if "daily_sales_qty" in df.columns else 0
 
-                    # ✅ (추가) 상품 전체 수량 / 판매 수량 표시
-                    product_info = supabase.table("products").select("quantity").eq("product_name", selected_product_filter).execute()
-                    total_quantity = product_info.data[0]["quantity"] if product_info.data else 0
-                    total_sales_qty = df["daily_sales_qty"].sum() if "daily_sales_qty" in df.columns else 0
-                    st.markdown(
-                        f"<small style='color:gray;'>{total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)</small>",
-                        unsafe_allow_html=True
-                    )
-                except Exception as e:
-                    st.error(f"수량 표시 중 오류 발생: {e}")
+                st.markdown(
+                    f"<small style='color:gray;'>{total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)</small>",
+                    unsafe_allow_html=True
+                )
+            except Exception as e:
+                st.error(f"수량 표시 중 오류 발생: {e}")
+
+st.markdown("---")  # 기존 구분선(있으면 유지)
 
             # --- 일일 순이익 계산 내역 ---
             if selected_product_name != "상품을 선택해주세요" and product_data:
