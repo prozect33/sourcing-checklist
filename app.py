@@ -746,9 +746,57 @@ def main():
                         total_profit_sum = df['daily_profit'].sum()
                         st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원") 
                         # ✅ 총 순이익금 아래: (전체 수량 / 판매 수량) 표시
+                        # ✅ 총 순이익금 표시
+                        total_profit_sum = df["daily_profit"].sum()
+                        st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
+
+                        # ✅ 총 수량 / 판매 수량 / ROI / 마진율 표시
                         try:
-                            # products에서 전체 수량
-                            product_info = supabase.table("products")
+                            # 기본 정보 불러오기
+                            product_info = supabase.table("products").select("*").eq("product_name", selected_product_filter).execute()
+                            product_data = product_info.data[0] if (product_info.data and len(product_info.data) > 0) else {}
+                            total_quantity = product_data.get("quantity", 0)
+                            total_sales_qty = int(df["daily_sales_qty"].sum()) if "daily_sales_qty" in df.columns else 0
+                            total_revenue_sum = int(df["daily_revenue"].sum()) if "daily_revenue" in df.columns else 0
+
+                            # 단위 비용
+                            quantity_for_calc = product_data.get("quantity", 1) or 1
+                            unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                            unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
+                            unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
+                            unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
+                            inout_shipping_cost = product_data.get("inout_shipping_cost", 0)
+                            fee_rate_db = product_data.get("fee", 0.0)
+
+                            # ROI 분모 = 모든 비용 합산
+                            fee_cost = total_revenue_sum * (fee_rate_db / 100) * 1.1
+                            purchase_cost_total = unit_purchase_cost * total_sales_qty
+                            inout_shipping_total = inout_shipping_cost * total_sales_qty * 1.1
+                            logistics_total = unit_logistics * total_sales_qty
+                            customs_total = unit_customs * total_sales_qty
+                            etc_total = unit_etc * total_sales_qty
+                            ad_total = df["daily_ad_cost"].sum() * 1.1
+                            total_cost_sum = fee_cost + purchase_cost_total + inout_shipping_total + logistics_total + customs_total + etc_total + ad_total
+
+                            # ROI / 마진율 계산
+                            roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
+                            margin = (total_profit_sum / total_revenue_sum * 100) if total_revenue_sum else 0
+
+                            # 표시 블록 (세로 정렬)
+                            st.markdown(
+                                f"""
+                                <div style='color:gray; font-size:14px; line-height:1.6;'>
+                                    {total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)<br>
+                                    ROI: {roi:.2f}%<br>
+                                    마진율: {margin:.2f}%
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        except Exception as e:
+                            st.error(f"ROI/마진율 계산 중 오류 발생: {e}")
+
                         
                         st.markdown("---") # 순이익금과 기록 섹션 구분
 
