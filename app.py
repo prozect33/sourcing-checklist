@@ -743,8 +743,6 @@ def main():
                     if selected_product_filter != "(상품을 선택해주세요)":
                         
                         # [요청 2. 반영: 총 순이익금 섹션을 일일 판매 기록 위에 표시]
-                        total_profit_sum = df['daily_profit'].sum()
-                        st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원") 
                         # ✅ 총 순이익금 아래: (전체 수량 / 판매 수량) 표시
                         # ✅ 총 순이익금 표시
                         total_profit_sum = df["daily_profit"].sum()
