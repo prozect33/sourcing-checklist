@@ -428,6 +428,7 @@ def main():
 
                 with col_mod:
                     if st.button("수정하기"):
+                    if st.button("수정하기"):
                         if validate_inputs():
                             try:
                                 old_name = st.session_state.product_loader
@@ -448,15 +449,28 @@ def main():
                                     "etc_cost": safe_int(st.session_state.etc_cost_input),
                                 }
 
-                                supabase.rpc("upsert_product", {"p_data": data_to_update}).execute()
-
                                 if old_name != new_name:
-                                    supabase.rpc("update_daily_sales_name", {"old_name": old_name, "new_name": new_name}).execute()
+                                    # ✅ 이름이 바뀐 경우: 기존 행 update
+                                    supabase.rpc(
+                                        "update_product_by_old_name",
+                                        {"old_name": old_name, "p_data": data_to_update}
+                                    ).execute()
+
+                                    # ✅ daily_sales 테이블도 이름 동기화
+                                    supabase.rpc(
+                                        "update_daily_sales_name",
+                                        {"old_name": old_name, "new_name": new_name}
+                                    ).execute()
+                                else:
+                                    # ✅ 이름이 같으면 기존 upsert 그대로
+                                    supabase.rpc("upsert_product", {"p_data": data_to_update}).execute()
 
                                 st.success("데이터가 수정되었습니다!")
                                 st.rerun()
+
                             except Exception as e:
                                 st.error(f"상품명 수정 중 오류가 발생했습니다: {e}")
+
                 
                 with col_del:
                     if st.button("삭제하기"):
