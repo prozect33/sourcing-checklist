@@ -428,7 +428,6 @@ def main():
 
                 with col_mod:
                     if st.button("수정하기"):
-                    if st.button("수정하기"):
                         if validate_inputs():
                             try:
                                 old_name = st.session_state.product_loader
