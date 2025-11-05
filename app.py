@@ -41,6 +41,7 @@ def load_supabase_credentials():
 
 SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+config = load_settings_from_supabase()
 
 def load_settings_from_supabase():
     try:
@@ -154,24 +155,6 @@ def save_settings_to_supabase(config_dict):
     except Exception as e:
         st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
 
-
-# ------------------------------
-# 설정 적용
-# ------------------------------
-config = load_settings_from_supabase()
-        st.session_state.is_edit_mode = False
-        st.session_state.product_name_input = ""
-        st.session_state.sell_price_input = ""
-        st.session_state.fee_rate_input = ""
-        st.session_state.inout_shipping_cost_input = ""
-        st.session_state.purchase_cost_input = ""
-        st.session_state.quantity_input = ""
-        st.session_state.logistics_cost_input = ""
-        st.session_state.customs_duty_input = ""
-        st.session_state.etc_cost_input = ""
-    else:
-        try:
-            response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
             if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
