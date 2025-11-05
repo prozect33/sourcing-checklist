@@ -68,32 +68,6 @@ def load_supabase_credentials():
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
 
-def load_settings_from_supabase():
-    try:
-        response = supabase.table("settings").select("*").execute()
-        rows = response.data
-
-        base = default_config()  # fallback 기본값 유지
-
-        for row in rows:
-            key = row["key"]
-            value = row["value"]
-            if key in base:
-                base[key] = float(value)
-        return base
-
-    except Exception as e:
-        st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
-        return default_config()
-
-def save_settings_to_supabase(config_dict):
-    try:
-        for k, v in config_dict.items():
-            supabase.rpc("update_settings", {"p_key": k, "p_value": v}).execute()
-        st.sidebar.success("✅ Supabase에 저장 완료")
-    except Exception as e:
-        st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
-
 config = load_settings_from_supabase()
 
 st.sidebar.header("🛠️ 설정값")
@@ -140,6 +114,36 @@ if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
+
+def load_settings_from_supabase():
+    try:
+        response = supabase.table("settings").select("*").execute()
+        rows = response.data
+
+        base = default_config()  # fallback 기본값 유지
+
+        for row in rows:
+            key = row["key"]
+            value = row["value"]
+            if key in base:
+                base[key] = float(value)
+        return base
+
+    except Exception as e:
+        st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
+        return default_config()
+
+
+def save_settings_to_supabase(config_dict):
+    try:
+        for k, v in config_dict.items():
+            supabase.rpc("update_settings", {"p_key": k, "p_value": v}).execute()
+        st.sidebar.success("✅ Supabase에 저장 완료")
+    except Exception as e:
+        st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
+
+config = load_settings_from_supabase()
+
         st.session_state.is_edit_mode = False
         st.session_state.product_name_input = ""
         st.session_state.sell_price_input = ""
