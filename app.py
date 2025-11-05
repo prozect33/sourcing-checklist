@@ -69,6 +69,7 @@ def load_supabase_credentials():
         st.stop()
 
 config = load_settings_from_supabase()
+
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
 config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
