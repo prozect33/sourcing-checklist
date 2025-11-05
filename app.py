@@ -126,7 +126,6 @@ def load_product_data(selected_product_name):
         st.session_state.etc_cost_input = ""
         return
 
-
 # ------------------------------
 # Supabase 설정 불러오기 / 저장
 # ------------------------------
