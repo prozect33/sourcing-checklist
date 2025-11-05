@@ -16,6 +16,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
+DEFAULT_CONFIG_FILE = "default_config.json"
+
 def default_config():
     return {
         "FEE_RATE": 10.8,
@@ -30,46 +33,67 @@ def default_config():
         "GIFT_COST": 0
     }
 
+def load_config():
+    if os.path.exists(DEFAULT_CONFIG_FILE):
+        try:
+            with open(DEFAULT_CONFIG_FILE, "r") as f:
+                data = json.load(f)
+                base = default_config()
+                for k, v in data.items():
+                    if k in base:
+                        try:
+                            base[k] = float(v)
+                        except:
+                            pass
+                return base
+        except:
+            return default_config()
+    else:
+        return default_config()
+
+def save_config(config):
+    with open(DEFAULT_CONFIG_FILE, "w") as f:
+        json.dump(config, f)
+
+def format_number(val):
+    if val is None:
+        return ""
+    return f"{int(val):,}" if float(val).is_integer() else f"{val:,.2f}"
+
+def reset_inputs():
+    # 탭1 리셋
+    st.session_state["sell_price_raw"] = ""
+    st.session_state["unit_yuan"] = ""
+    st.session_state["unit_won"] = ""
+    st.session_state["qty_raw"] = ""
+    st.session_state["show_result"] = False
+    
+    # 탭2 일일 정산 리셋
+    if "total_sales_qty" in st.session_state: st.session_state["total_sales_qty"] = 0
+    if "total_revenue" in st.session_state: st.session_state["total_revenue"] = 0
+    if "ad_sales_qty" in st.session_state: st.session_state["ad_sales_qty"] = 0
+    if "ad_revenue" in st.session_state: st.session_state["ad_revenue"] = 0
+    if "ad_cost" in st.session_state: st.session_state["ad_cost"] = 0
+    if "product_select_daily" in st.session_state:
+        st.session_state["product_select_daily"] = "상품을 선택해주세요"
+
+
 def load_supabase_credentials():
     try:
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
-    except:
-        st.error("⚠️ credentials.json 확인 필요")
+    except FileNotFoundError:
+        st.error("오류: 'credentials.json' 파일을 찾을 수 없습니다.\n파일을 생성하고 Supabase 키를 입력해주세요.")
+        st.stop()
+    except json.JSONDecodeError:
+        st.error("오류: 'credentials.json' 파일의 형식이 잘못되었습니다. JSON 형식을 확인해주세요.")
+        st.stop()
+    except KeyError:
+        st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
 
-SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-config = load_settings_from_supabase()
-
-def load_settings_from_supabase():
-    try:
-        response = supabase.table("settings").select("*").execute()
-        rows = response.data
-        base = default_config()
-        for row in rows:
-            key = row["key"]
-            value = row["value"]
-            if key in base:
-                base[key] = float(value)
-        return base
-    except:
-        return default_config()
-
-def save_settings_to_supabase(config_dict):
-    try:
-        for k, v in config_dict.items():
-            supabase.rpc("update_settings", {"p_key": k, "p_value": v}).execute()
-        st.sidebar.success("✅ Supabase에 저장 완료")
-    except Exception as e:
-        st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
-
-def load_product_data(selected_product_name):
-    if selected_product_name == "새로운 상품 입력":
-        return
-
+config = load_config()
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
 config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
@@ -83,13 +107,18 @@ config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)", value=int(
 config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=int(config["GIFT_COST"]), step=100)
 
 if st.sidebar.button("📂 기본값으로 저장"):
-    save_settings_to_supabase(config)
+    save_config(config)
+    st.sidebar.success("기본값이 저장되었습니다.")
 
+try:
+    SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
 # 상품 정보 입력 상태 초기화 (탭2)
-if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
+if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
 if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = ""
@@ -100,6 +129,7 @@ if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_i
 if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = ""
 if "is_edit_mode" not in st.session_state: st.session_state.is_edit_mode = False
 
+# 일일 정산 입력 상태 초기화 (탭 2 number_input의 key를 사용)
 if "total_sales_qty" not in st.session_state: st.session_state["total_sales_qty"] = 0
 if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 0
 if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
@@ -107,9 +137,6 @@ if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
 if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 
 
-# ------------------------------
-# 상품 상세 데이터 불러오기 함수
-# ------------------------------
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
         st.session_state.is_edit_mode = False
@@ -122,36 +149,9 @@ def load_product_data(selected_product_name):
         st.session_state.logistics_cost_input = ""
         st.session_state.customs_duty_input = ""
         st.session_state.etc_cost_input = ""
-        return
-
-# ------------------------------
-# Supabase 설정 불러오기 / 저장
-# ------------------------------
-def load_settings_from_supabase():
-    try:
-        response = supabase.table("settings").select("*").execute()
-        rows = response.data
-
-        base = default_config()
-        for row in rows:
-            key = row["key"]
-            value = row["value"]
-            if key in base:
-                base[key] = float(value)
-        return base
-    except Exception as e:
-        st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
-        return default_config()
-
-
-def save_settings_to_supabase(config_dict):
-    try:
-        for k, v in config_dict.items():
-            supabase.rpc("update_settings", {"p_key": k, "p_value": v}).execute()
-        st.sidebar.success("✅ Supabase에 저장 완료")
-    except Exception as e:
-        st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
-
+    else:
+        try:
+            response = supabase.table("products").select("*").eq("product_name", selected_product_name).execute()
             if response.data:
                 product_data = response.data[0]
                 st.session_state.is_edit_mode = True
