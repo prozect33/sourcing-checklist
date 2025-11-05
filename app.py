@@ -91,7 +91,7 @@ except Exception as e:
     st.stop()
 
 # 상품 정보 입력 상태 초기화 (탭2)
-if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
+if "product_name_input" not in st.session_state: st.session_state.product_name_input = ""
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
 if "fee_rate_input" not in st.session_state: st.session_state.fee_rate_input = ""
 if "inout_shipping_cost_input" not in st.session_state: st.session_state.inout_shipping_cost_input = ""
@@ -102,7 +102,6 @@ if "customs_duty_input" not in st.session_state: st.session_state.customs_duty_i
 if "etc_cost_input" not in st.session_state: st.session_state.etc_cost_input = ""
 if "is_edit_mode" not in st.session_state: st.session_state.is_edit_mode = False
 
-# 일일 정산 입력 상태 초기화 (탭 2 number_input의 key를 사용)
 if "total_sales_qty" not in st.session_state: st.session_state["total_sales_qty"] = 0
 if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 0
 if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
@@ -110,23 +109,39 @@ if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
 if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 
 
+# ------------------------------
+# 상품 상세 데이터 불러오기 함수
+# ------------------------------
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
+        st.session_state.is_edit_mode = False
+        st.session_state.product_name_input = ""
+        st.session_state.sell_price_input = ""
+        st.session_state.fee_rate_input = ""
+        st.session_state.inout_shipping_cost_input = ""
+        st.session_state.purchase_cost_input = ""
+        st.session_state.quantity_input = ""
+        st.session_state.logistics_cost_input = ""
+        st.session_state.customs_duty_input = ""
+        st.session_state.etc_cost_input = ""
+        return
 
+
+# ------------------------------
+# Supabase 설정 불러오기 / 저장
+# ------------------------------
 def load_settings_from_supabase():
     try:
         response = supabase.table("settings").select("*").execute()
         rows = response.data
 
-        base = default_config()  # fallback 기본값 유지
-
+        base = default_config()
         for row in rows:
             key = row["key"]
             value = row["value"]
             if key in base:
                 base[key] = float(value)
         return base
-
     except Exception as e:
         st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
         return default_config()
@@ -140,8 +155,11 @@ def save_settings_to_supabase(config_dict):
     except Exception as e:
         st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
 
-config = load_settings_from_supabase()
 
+# ------------------------------
+# 설정 적용
+# ------------------------------
+config = load_settings_from_supabase()
         st.session_state.is_edit_mode = False
         st.session_state.product_name_input = ""
         st.session_state.sell_price_input = ""
