@@ -55,8 +55,6 @@ def load_supabase_credentials():
         st.stop()
 
 # ← 사이드바 시작
-config = load_config_from_supabase()
-
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"]       = st.sidebar.number_input("수수료율 (%)",       value=config.get("FEE_RATE", 10.8), step=0.1, format="%.2f")
 config["AD_RATE"]        = st.sidebar.number_input("광고비율 (%)",       value=config.get("AD_RATE", 20.0),  step=0.1, format="%.2f")
@@ -87,6 +85,8 @@ def load_config_from_supabase():
     for row in data:
         cfg[row["key"]] = float(row["value"])
     return cfg
+
+config = load_config_from_supabase()
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
