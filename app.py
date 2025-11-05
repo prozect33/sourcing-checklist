@@ -107,15 +107,8 @@ config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)", value=int(
 config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=int(config["GIFT_COST"]), step=100)
 
 if st.sidebar.button("📂 기본값으로 저장"):
-    try:
-        for key, val in config.items():
-            supabase.rpc(
-                "update_settings",
-                {"p_key": key, "p_value": float(val)}
-            ).execute()
-        st.sidebar.success("✅ Supabase에 기본값 저장 완료")
-    except Exception as e:
-        st.sidebar.error(f"❌ 저장 실패: {e}")
+    save_config(config)
+    st.sidebar.success("기본값이 저장되었습니다.")
 
 try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
