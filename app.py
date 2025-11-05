@@ -38,7 +38,6 @@ def reset_inputs():
     if "product_select_daily" in st.session_state:
         st.session_state["product_select_daily"] = "상품을 선택해주세요"
 
-
 def load_supabase_credentials():
     try:
         with open("credentials.json", "r") as f:
@@ -55,6 +54,22 @@ def load_supabase_credentials():
         st.stop()
 
 # ← 사이드바 시작
+try:
+    SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
+    st.stop()
+
+def load_config_from_supabase():
+    data = supabase.table("settings").select("*").execute().data
+    cfg = {}
+    for row in data:
+        cfg[row["key"]] = float(row["value"])
+    return cfg
+
+config = load_config_from_supabase()
+
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"]       = st.sidebar.number_input("수수료율 (%)",       value=config.get("FEE_RATE", 10.8), step=0.1, format="%.2f")
 config["AD_RATE"]        = st.sidebar.number_input("광고비율 (%)",       value=config.get("AD_RATE", 20.0),  step=0.1, format="%.2f")
@@ -71,22 +86,6 @@ if st.sidebar.button("📂 기본값으로 저장"):
     for k, v in config.items():
         supabase.table("settings").upsert({"key": k, "value": v}).execute()
     st.sidebar.success("Supabase에 저장 완료 ✅")
-
-try:
-    SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
-    st.stop()
-
-def load_config_from_supabase():
-    data = supabase.table("settings").select("*").execute().data
-    cfg = {}
-    for row in data:
-        cfg[row["key"]] = float(row["value"])
-    return cfg
-
-config = load_config_from_supabase()
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
