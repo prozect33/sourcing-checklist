@@ -16,45 +16,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
-DEFAULT_CONFIG_FILE = "default_config.json"
-
-def default_config():
-    return {
-        "FEE_RATE": 10.8,
-        "AD_RATE": 20.0,
-        "INOUT_COST": 3000.0,
-        "PICKUP_COST": 0.0,
-        "RESTOCK_COST": 0.0,
-        "RETURN_RATE": 0.0,
-        "ETC_RATE": 2.0,
-        "EXCHANGE_RATE": 300,
-        "PACKAGING_COST": 0,
-        "GIFT_COST": 0
-    }
-
-def load_config():
-    if os.path.exists(DEFAULT_CONFIG_FILE):
-        try:
-            with open(DEFAULT_CONFIG_FILE, "r") as f:
-                data = json.load(f)
-                base = default_config()
-                for k, v in data.items():
-                    if k in base:
-                        try:
-                            base[k] = float(v)
-                        except:
-                            pass
-                return base
-        except:
-            return default_config()
-    else:
-        return default_config()
-
-def save_config(config):
-    with open(DEFAULT_CONFIG_FILE, "w") as f:
-        json.dump(config, f)
-
 def format_number(val):
     if val is None:
         return ""
@@ -92,8 +53,16 @@ def load_supabase_credentials():
     except KeyError:
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
+        
+def load_settings_from_supabase():
+    try:
+        resp = supabase.table("settings").select("key", "value").execute()
+        data = resp.data or []
+        return { row["key"]: float(row["value"]) for row in data }
+    except Exception as e:
+        st.error(f"settings 테이블 불러오기 오류: {e}")
+        st.stop()
 
-config = load_config()
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
 config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
@@ -116,6 +85,8 @@ try:
 except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
+
+config = load_settings_from_supabase()
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
