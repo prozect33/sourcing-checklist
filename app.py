@@ -93,7 +93,7 @@ def load_supabase_credentials():
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
 
-config = load_config()
+config = load_settings_from_supabase()
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
 config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
@@ -107,8 +107,7 @@ config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)", value=int(
 config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=int(config["GIFT_COST"]), step=100)
 
 if st.sidebar.button("📂 기본값으로 저장"):
-    save_config(config)
-    st.sidebar.success("기본값이 저장되었습니다.")
+    save_settings_to_supabase(config)
 
 try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
@@ -116,6 +115,33 @@ try:
 except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
+
+def load_settings_from_supabase():
+    try:
+        response = supabase.table("settings").select("*").execute()
+        rows = response.data
+
+        base = default_config()  # fallback 기본값 유지
+
+        for row in rows:
+            key = row["key"]
+            value = row["value"]
+            if key in base:
+                base[key] = float(value)
+        return base
+
+    except Exception as e:
+        st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
+        return default_config()
+
+
+def save_settings_to_supabase(config_dict):
+    try:
+        for k, v in config_dict.items():
+            supabase.rpc("update_settings", {"p_key": k, "p_value": v}).execute()
+        st.sidebar.success("✅ Supabase에 저장 완료")
+    except Exception as e:
+        st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
