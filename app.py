@@ -51,7 +51,7 @@ def load_config():
     else:
         return default_config()
 
-def save_config(config):
+save_settings_to_supabase(config)
     with open(DEFAULT_CONFIG_FILE, "w") as f:
         json.dump(config, f)
 
@@ -133,7 +133,6 @@ def load_settings_from_supabase():
     except Exception as e:
         st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
         return default_config()
-
 
 def save_settings_to_supabase(config_dict):
     try:
