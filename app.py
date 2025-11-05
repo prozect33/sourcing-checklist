@@ -16,7 +16,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 def default_config():
     return {
         "FEE_RATE": 10.8,
@@ -31,42 +30,32 @@ def default_config():
         "GIFT_COST": 0
     }
 
-
 def load_supabase_credentials():
     try:
         with open("credentials.json", "r") as f:
             creds = json.load(f)
             return creds["SUPABASE_URL"], creds["SUPABASE_KEY"]
-    except Exception:
-        st.error("⚠️ Supabase 인증정보(credentials.json)를 확인하세요.")
+    except:
+        st.error("⚠️ credentials.json 확인 필요")
         st.stop()
 
-
-# ✅ Supabase 먼저 연결
 SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-
-# ✅ Supabase 설정 불러오기
 def load_settings_from_supabase():
     try:
         response = supabase.table("settings").select("*").execute()
         rows = response.data
         base = default_config()
-
         for row in rows:
             key = row["key"]
             value = row["value"]
             if key in base:
                 base[key] = float(value)
-
         return base
-    except Exception as e:
-        st.warning(f"⚠️ Supabase 설정 불러오기 실패 — 기본값 사용 ({e})")
+    except:
         return default_config()
 
-
-# ✅ Supabase 저장
 def save_settings_to_supabase(config_dict):
     try:
         for k, v in config_dict.items():
@@ -75,17 +64,10 @@ def save_settings_to_supabase(config_dict):
     except Exception as e:
         st.sidebar.error(f"❌ Supabase 저장 실패: {e}")
 
-
-# ✅ 빈 바디 함수 방지 (문법 오류 해결)
 def load_product_data(selected_product_name):
-    pass
+    if selected_product_name == "새로운 상품 입력":
+        return
 
-
-# ✅ 이제 설정 로드 실행 (순서 맞음)
-config = load_settings_from_supabase()
-
-
-# ✅ 사이드바 UI
 st.sidebar.header("🛠️ 설정값")
 config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
 config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
@@ -100,7 +82,6 @@ config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=in
 
 if st.sidebar.button("📂 기본값으로 저장"):
     save_settings_to_supabase(config)
-
 
 try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
