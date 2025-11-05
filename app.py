@@ -16,9 +16,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
-DEFAULT_CONFIG_FILE = "default_config.json"
-
 def default_config():
     return {
         "FEE_RATE": 10.8,
@@ -32,28 +29,6 @@ def default_config():
         "PACKAGING_COST": 0,
         "GIFT_COST": 0
     }
-
-def load_config():
-    if os.path.exists(DEFAULT_CONFIG_FILE):
-        try:
-            with open(DEFAULT_CONFIG_FILE, "r") as f:
-                data = json.load(f)
-                base = default_config()
-                for k, v in data.items():
-                    if k in base:
-                        try:
-                            base[k] = float(v)
-                        except:
-                            pass
-                return base
-        except:
-            return default_config()
-    else:
-        return default_config()
-
-save_settings_to_supabase(config)
-    with open(DEFAULT_CONFIG_FILE, "w") as f:
-        json.dump(config, f)
 
 def format_number(val):
     if val is None:
