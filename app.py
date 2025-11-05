@@ -41,6 +41,7 @@ def load_supabase_credentials():
 
 SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 config = load_settings_from_supabase()
 
 def load_settings_from_supabase():
@@ -84,10 +85,6 @@ config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=in
 if st.sidebar.button("📂 기본값으로 저장"):
     save_settings_to_supabase(config)
 
-try:
-    SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
