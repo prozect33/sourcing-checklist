@@ -16,45 +16,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
-DEFAULT_CONFIG_FILE = "default_config.json"
-
-def default_config():
-    return {
-        "FEE_RATE": 10.8,
-        "AD_RATE": 20.0,
-        "INOUT_COST": 3000.0,
-        "PICKUP_COST": 0.0,
-        "RESTOCK_COST": 0.0,
-        "RETURN_RATE": 0.0,
-        "ETC_RATE": 2.0,
-        "EXCHANGE_RATE": 300,
-        "PACKAGING_COST": 0,
-        "GIFT_COST": 0
-    }
-
-def load_config():
-    if os.path.exists(DEFAULT_CONFIG_FILE):
-        try:
-            with open(DEFAULT_CONFIG_FILE, "r") as f:
-                data = json.load(f)
-                base = default_config()
-                for k, v in data.items():
-                    if k in base:
-                        try:
-                            base[k] = float(v)
-                        except:
-                            pass
-                return base
-        except:
-            return default_config()
-    else:
-        return default_config()
-
-def save_config(config):
-    with open(DEFAULT_CONFIG_FILE, "w") as f:
-        json.dump(config, f)
-
 def format_number(val):
     if val is None:
         return ""
@@ -93,22 +54,25 @@ def load_supabase_credentials():
         st.error("오류: 'credentials.json' 파일에 'SUPABASE_URL' 또는 'SUPABASE_KEY'가 없습니다.")
         st.stop()
 
-config = load_config()
+# ← 사이드바 시작
+config = load_config_from_supabase()
+
 st.sidebar.header("🛠️ 설정값")
-config["FEE_RATE"] = st.sidebar.number_input("수수료율 (%)", value=config["FEE_RATE"], step=0.1, format="%.2f")
-config["AD_RATE"] = st.sidebar.number_input("광고비율 (%)", value=config["AD_RATE"], step=0.1, format="%.2f")
-config["INOUT_COST"] = st.sidebar.number_input("입출고비용 (원)", value=int(config["INOUT_COST"]), step=100)
-config["PICKUP_COST"] = st.sidebar.number_input("회수비용 (원)", value=int(config["PICKUP_COST"]), step=100)
-config["RESTOCK_COST"] = st.sidebar.number_input("재입고비용 (원)", value=int(config["RESTOCK_COST"]), step=100)
-config["RETURN_RATE"] = st.sidebar.number_input("반품률 (%)", value=config["RETURN_RATE"], step=0.1, format="%.2f")
-config["ETC_RATE"] = st.sidebar.number_input("기타비용률 (%)", value=config["ETC_RATE"], step=0.1, format="%.2f")
-config["EXCHANGE_RATE"] = st.sidebar.number_input("위안화 환율", value=int(config["EXCHANGE_RATE"]), step=1)
-config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)", value=int(config["PACKAGING_COST"]), step=100)
-config["GIFT_COST"] = st.sidebar.number_input("사은품 비용 (원)", value=int(config["GIFT_COST"]), step=100)
+config["FEE_RATE"]       = st.sidebar.number_input("수수료율 (%)",       value=config.get("FEE_RATE", 10.8), step=0.1, format="%.2f")
+config["AD_RATE"]        = st.sidebar.number_input("광고비율 (%)",       value=config.get("AD_RATE", 20.0),  step=0.1, format="%.2f")
+config["INOUT_COST"]     = st.sidebar.number_input("입출고비용 (원)",    value=int(config.get("INOUT_COST", 3000)), step=100)
+config["PICKUP_COST"]    = st.sidebar.number_input("회수비용 (원)",      value=int(config.get("PICKUP_COST", 0)),    step=100)
+config["RESTOCK_COST"]   = st.sidebar.number_input("재입고비용 (원)",    value=int(config.get("RESTOCK_COST", 0)),   step=100)
+config["RETURN_RATE"]    = st.sidebar.number_input("반품률 (%)",         value=config.get("RETURN_RATE", 0.0), step=0.1, format="%.2f")
+config["ETC_RATE"]       = st.sidebar.number_input("기타비용률 (%)",     value=config.get("ETC_RATE", 2.0),  step=0.1, format="%.2f")
+config["EXCHANGE_RATE"]  = st.sidebar.number_input("위안화 환율",        value=int(config.get("EXCHANGE_RATE", 300)), step=1)
+config["PACKAGING_COST"] = st.sidebar.number_input("포장비 (원)",        value=int(config.get("PACKAGING_COST", 0)), step=100)
+config["GIFT_COST"]      = st.sidebar.number_input("사은품 비용 (원)",   value=int(config.get("GIFT_COST", 0)),      step=100)
 
 if st.sidebar.button("📂 기본값으로 저장"):
-    save_config(config)
-    st.sidebar.success("기본값이 저장되었습니다.")
+    for k, v in config.items():
+        supabase.table("settings").upsert({"key": k, "value": v}).execute()
+    st.sidebar.success("Supabase에 저장 완료 ✅")
 
 try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
@@ -116,6 +80,13 @@ try:
 except Exception as e:
     st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
+
+def load_config_from_supabase():
+    data = supabase.table("settings").select("*").execute().data
+    cfg = {}
+    for row in data:
+        cfg[row["key"]] = float(row["value"])
+    return cfg
 
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
@@ -292,9 +263,6 @@ def main():
                     cost_display = f"{unit_yuan_val}위안"
                 else:
                     unit_cost_val = 0
-                
-                
-                cost_display = ""
                 
                 # 비용 계산
                 vat = 1.1
