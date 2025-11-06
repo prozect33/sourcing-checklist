@@ -744,7 +744,7 @@ def main():
                             customs_total = unit_customs * total_sales_qty
                             etc_total = unit_etc * total_sales_qty
                             ad_total = df["daily_ad_cost"].sum() * 1.1
-                            total_cost_sum = fee_cost + purchase_cost_total + inout_shipping_total + logistics_total + customs_total + etc_total + ad_total
+                            total_cost_sum = purchase_cost_total + logistics_total + customs_total + etc_total
 
                             # ROI / 마진율 계산
                             roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
