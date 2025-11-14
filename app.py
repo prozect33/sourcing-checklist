@@ -13,57 +13,59 @@ st.markdown("""
      [data-testid="stSidebarContent"] { padding-top: 15px !important; }
      [data-testid="stHeading"] { margin-bottom: 15px !important; }
      [data-testid="stNumberInput"] button { display: none !important; }
-/* --- 오늘 날짜 강조 최종 수정: 선택 여부와 관계없이 빨간 테두리 표시 --- */
+/* --- 오늘 날짜 강조 최종 해결책: ::after 가상 요소 사용 --- */
      
-     /* 1. 오늘 날짜 (DayPicker-Day--today) 강조 - 빨간색 테두리 적용 */
-     /* today 클래스를 가진 모든 날짜에 적용 */
-     .stDateInput div[role="dialog"] .DayPicker-Day--today {
-         position: relative;
-         /* 캘린더 날짜 셀의 기본 padding을 줄여 테두리 공간을 확보 */
-         padding: 0 !important; 
-     }
-     
-     /* 오늘 날짜 숫자에만 빨간색 테두리와 글자색 적용 */
-     /* !important를 사용하여 Streamlit의 다른 스타일보다 우선하도록 설정 */
-     .stDateInput div[role="dialog"] .DayPicker-Day--today abbr {
-         border: 2px solid #FF4B4B !important; /* 빨간색 테두리 */
-         color: #FF4B4B !important;          /* 빨간색 숫자 */
-         background-color: transparent !important;
-         border-radius: 50%;
-         height: 30px;
-         width: 30px;
-         line-height: 26px; /* 테두리 포함 중앙 정렬 */
-         display: block;
-         margin: auto;
-     }
-     
-     /* 2. 오늘이면서 선택된 날짜 (today AND selected) 스타일 오버라이드 */
-     /* 선택된 날짜는 Streamlit 기본 스타일을 따르도록 설정 */
-     .stDateInput div[role="dialog"] .DayPicker-Day--today.DayPicker-Day--selected {
-         background-color: var(--primary-color) !important; /* Streamlit 기본색 */
-         color: white !important;
-         border-radius: 50%;
+     /* 1. 오늘 날짜 (DayPicker-Day--today) 셀 설정 */
+     /* 선택된 상태가 아닌 오늘 날짜에만 적용하여 겹침 방지 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--today:not(.DayPicker-Day--selected) {
+         position: relative !important;
      }
 
-     /* 3. 오늘이면서 선택된 날짜의 숫자(abbr) 스타일 오버라이드 */
-     .stDateInput div[role="dialog"] .DayPicker-Day--today.DayPicker-Day--selected abbr {
-         color: white !important;
-         border: none !important; /* 선택되었을 때는 빨간 테두리 제거 */
-         background-color: transparent !important;
+     /* 2. 오늘 날짜가 선택되지 않은 경우, 빨간색 원형 테두리 가상 요소 생성 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--today:not(.DayPicker-Day--selected)::after {
+         content: '';
+         position: absolute;
+         top: 50%;
+         left: 50%;
+         transform: translate(-50%, -50%);
+         border: 2px solid #FF4B4B; /* 빨간색 테두리 */
+         border-radius: 50%;
+         height: 30px; /* 원의 크기 */
+         width: 30px;  /* 원의 크기 */
+         z-index: 1; /* 날짜 숫자 위에 오도록 설정 */
+         pointer-events: none; /* 클릭을 방해하지 않도록 설정 */
      }
      
-     /* 4. 일반 선택된 날짜 (selected) 스타일 - Streamlit 기본색 유지 */
+     /* 3. 오늘이면서 선택된 날짜 (today AND selected) 스타일 */
+     /* 선택된 날짜의 기본 파란색 배경 위에 빨간색 점을 띄워 두 가지 상태를 모두 표시 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--today.DayPicker-Day--selected::before {
+         content: '';
+         position: absolute;
+         top: 3px;
+         right: 3px;
+         width: 6px;
+         height: 6px;
+         background-color: #FF4B4B; /* 빨간색 점 */
+         border-radius: 50%;
+         z-index: 2;
+         pointer-events: none;
+     }
+
+     /* 4. 선택되지 않은 오늘 날짜의 숫자 색상을 빨간색으로 변경 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--today:not(.DayPicker-Day--selected) abbr {
+         color: #FF4B4B !important;
+         position: relative;
+         z-index: 2; /* 가상 요소 위에 오도록 설정 */
+     }
+
+     /* 5. 일반 선택된 날짜 (selected) 스타일 - Streamlit 기본색 유지 */
      .stDateInput div[role="dialog"] .DayPicker-Day--selected {
          background-color: var(--primary-color) !important;
+         color: white !important;
          border-radius: 50%;
      }
 
-     /* 5. hover 시 스타일 조정 (선택되지 않은 오늘 날짜) */
-     .stDateInput div[role="dialog"] .DayPicker-Day--today:not(.DayPicker-Day--selected):hover {
-         background-color: rgba(255, 75, 75, 0.1) !important; /* 옅은 빨간색 배경 */
-         border-radius: 50%;
-     }
-     /* --- 오늘 날짜 강조 최종 수정 끝 --- */
+     /* --- 오늘 날짜 강조 최종 해결책 끝 --- */
     </style>
 """, unsafe_allow_html=True)
 
