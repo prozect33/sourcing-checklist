@@ -688,6 +688,41 @@ def main():
                 st.session_state.daily_sales_page = 1
                 
             selected_product_filter = st.selectbox("상품 필터", product_list, key="product_filter")
+            # --- 기간별 전체 순이익 계산 시작 (새로 추가된 부분) ---
+            st.markdown("---")
+            st.markdown("#### 📅 기간별 전체 순이익 조회")
+
+            # 1. 날짜 선택 (오늘 날짜와 7일 전을 기본값으로 설정)
+            today = datetime.date.today()
+            default_start_date = today - datetime.timedelta(days=6) # 최근 7일
+            col_date1, col_date2 = st.columns(2)
+            with col_date1:
+                start_date = st.date_input("시작 날짜", value=default_start_date, key="profit_start_date")
+            with col_date2:
+                end_date = st.date_input("종료 날짜", value=today, key="profit_end_date")
+
+            # 2. 전체 데이터 로드 및 기간 필터링
+            if start_date <= end_date:
+                try:
+                    # DB에서 전체 daily_sales 데이터 로드 (날짜 범위 필터링)
+                    response_all = supabase.table("daily_sales").select("*").gte("date", start_date.isoformat()).lte("date", end_date.isoformat()).execute()
+                    df_all = pd.DataFrame(response_all.data)
+                    
+                    # 순이익 계산 및 표시
+                    if not df_all.empty:
+                        total_period_profit = df_all["daily_profit"].sum()
+                        st.metric(label=f"{start_date.isoformat()} ~ {end_date.isoformat()} 전체 상품 총 순이익금", value=f"{total_period_profit:,.0f}원")
+                    else:
+                        st.info("선택 기간에 저장된 판매 기록이 없습니다.")
+                        
+                except Exception as e:
+                    st.error(f"기간별 순이익 계산 중 오류가 발생했습니다: {e}")
+            else:
+                st.warning("시작 날짜가 종료 날짜보다 늦을 수 없습니다.")
+
+            st.markdown("---")
+            st.markdown("#### 📊 상품별 판매 현황") 
+            # --- 기간별 전체 순이익 계산 종료 ---
             
             # --- 데이터 로드 ---
             
