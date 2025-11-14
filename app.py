@@ -682,13 +682,7 @@ def main():
                 product_list.extend([item['product_name'] for item in response.data])
 
             st.markdown("### 판매 현황 조회")
-            
-            # 페이지네이션 초기화
-            if 'daily_sales_page' not in st.session_state:
-                st.session_state.daily_sales_page = 1
-                
-            selected_product_filter = st.selectbox("상품 필터", product_list, key="product_filter")
-            # --- 기간별 전체 순이익 계산 시작 (새로 추가된 부분) ---
+                        # --- 기간별 전체 순이익 계산 시작 (새로 추가된 부분) ---
             st.markdown("---")
             st.markdown("#### 📅 기간별 전체 순이익 조회")
 
@@ -723,6 +717,12 @@ def main():
             st.markdown("---")
             st.markdown("#### 📊 상품별 판매 현황") 
             # --- 기간별 전체 순이익 계산 종료 ---
+            
+            # 페이지네이션 초기화
+            if 'daily_sales_page' not in st.session_state:
+                st.session_state.daily_sales_page = 1
+                
+            selected_product_filter = st.selectbox("상품 필터", product_list, key="product_filter")
             
             # --- 데이터 로드 ---
             
