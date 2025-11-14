@@ -712,13 +712,10 @@ def main():
                     # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
                     if selected_product_filter != "(상품을 선택해주세요)":
                         
-                        # [요청 2. 반영: 총 순이익금 섹션을 일일 판매 기록 위에 표시]
-                        # ✅ 총 순이익금 아래: (전체 수량 / 판매 수량) 표시
-                        # ✅ 총 순이익금 표시
+                        # [총 순이익금 + 전체 수량/판매 수량/ROI/마진율 표시]
                         total_profit_sum = df["daily_profit"].sum()
                         st.metric(label=f"'{selected_product_filter}' 총 순이익금", value=f"{total_profit_sum:,.0f}원")
 
-                        # ✅ 총 수량 / 판매 수량 / ROI / 마진율 표시
                         try:
                             # 기본 정보 불러오기
                             product_info = supabase.table("products").select("*").eq("product_name", selected_product_filter).execute()
@@ -736,17 +733,15 @@ def main():
                             inout_shipping_cost = product_data.get("inout_shipping_cost", 0)
                             fee_rate_db = product_data.get("fee", 0.0)
 
-                            # ROI 분모 = 모든 비용 합산
-                            fee_cost = total_revenue_sum * (fee_rate_db / 100) * 1.1
+                            # ROI 분모 = 매입 + 물류 + 관세 + 기타 (총 순이익 블록과 동일)
                             purchase_cost_total = unit_purchase_cost * total_sales_qty
-                            inout_shipping_total = inout_shipping_cost * total_sales_qty * 1.1
                             logistics_total = unit_logistics * total_sales_qty
                             customs_total = unit_customs * total_sales_qty
                             etc_total = unit_etc * total_sales_qty
-                            ad_total = df["daily_ad_cost"].sum() * 1.1
+
                             total_cost_sum = purchase_cost_total + logistics_total + customs_total + etc_total
 
-                            # ROI / 마진율 계산
+                            # ROI / 마진율 계산 (총 순이익 블록)
                             roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
                             margin = (total_profit_sum / total_revenue_sum * 100) if total_revenue_sum else 0
 
@@ -761,30 +756,6 @@ def main():
                                 """,
                                 unsafe_allow_html=True
                             )
-                                                    # ✅ 각 일자별 ROI / 마진율 계산해서 df에 컬럼으로 추가
-                            def calc_daily_ratio(row):
-                                sales_qty = row.get("daily_sales_qty", 0) or 0
-                                revenue = row.get("daily_revenue", 0) or 0
-                                profit = row.get("daily_profit", 0) or 0
-
-                                # ROI 분모: 매입 + 물류 + 관세 + 기타 (수수료/입출고/광고 제외)
-                                cost_base = (
-                                    unit_purchase_cost
-                                    + unit_logistics
-                                    + unit_customs
-                                    + unit_etc
-                                ) * sales_qty
-
-                                daily_roi = (profit / cost_base * 100) if cost_base > 0 else 0
-                                daily_margin = (profit / revenue * 100) if revenue > 0 else 0
-
-                                return pd.Series({
-                                    "daily_roi": round(daily_roi, 2),
-                                    "daily_margin": round(daily_margin, 2),
-                                })
-
-                            df[["daily_roi", "daily_margin"]] = df.apply(calc_daily_ratio, axis=1)
-
 
                         except Exception as e:
                             st.error(f"ROI/마진율 계산 중 오류 발생: {e}")
@@ -807,14 +778,35 @@ def main():
                         end_index = start_index + PAGE_SIZE
                         
                         # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
-                        df_paged = df.iloc[start_index:end_index].copy() 
+                        df_paged = df.iloc[start_index:end_index].copy()
 
-                        # --- 1부터 시작하는 번호 추가 ---
+                        # --- [추가] 일자별 ROI / 마진율 계산 (총 순이익 블록과 동일한 계산식) ---
+                        if product_data:
+                            def calc_row_roi_margin(row):
+                                sales_qty = row["daily_sales_qty"]
+                                revenue = row["daily_revenue"]
+                                profit = row["daily_profit"]
+
+                                # 일자별 비용(매입, 물류, 관세, 기타) – 총 순이익 블록과 동일한 구성
+                                purchase_cost_row = unit_purchase_cost * sales_qty
+                                logistics_cost_row = unit_logistics * sales_qty
+                                customs_cost_row = unit_customs * sales_qty
+                                etc_cost_row = unit_etc * sales_qty
+
+                                total_cost_row = purchase_cost_row + logistics_cost_row + customs_cost_row + etc_cost_row
+
+                                roi_row = (profit / total_cost_row * 100) if total_cost_row else 0
+                                margin_row = (profit / revenue * 100) if revenue else 0
+
+                                return pd.Series({"ROI": roi_row, "마진율": margin_row})
+
+                            roi_margin_df = df_paged.apply(calc_row_roi_margin, axis=1)
+                            df_paged = pd.concat([df_paged.reset_index(drop=True), roi_margin_df], axis=1)
+
+                        # --- 표시용 데이터프레임 생성 ---
                         df_display = df_paged.copy()
-                        # 1부터 시작하는 번호 컬럼을 맨 앞에 추가
-                        df_display.insert(0, '번호', range(start_index + 1, start_index + len(df_display) + 1))
                         
-                        # 3. 데이터프레임 표시 (기존 컬럼명 변경 로직 재사용)
+                        # 컬럼명 한글로 변경
                         df_display = df_display.rename(columns={
                             "date": "날짜",
                             "product_name": "상품명",
@@ -826,25 +818,44 @@ def main():
                             "organic_revenue": "자연 매출액",
                             "daily_ad_cost": "일일 광고비",
                             "daily_profit": "일일 순이익금",
+                            # ROI / 마진율은 그대로 사용 (컬럼명 동일)
                         })
                         df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-                        # '번호' 컬럼 추가 (display_cols 재정의)
-                        display_cols = ['번호', '날짜', '상품명', '전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
-                        
-                        # --- 숫자 컬럼 포맷팅 및 문자열 변환 ---
-                        # (이 코드는 콤마와 '원'을 추가하여 다른 컬럼의 좌측 정렬 효과를 유지합니다.)
-                        format_cols = ['전체 매출액', '전체 수량', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
 
-                        for col in format_cols:
-                            if '수량' in col:
-                                df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}")
-                            else:
-                                df_display[col] = df_display[col].fillna(0).astype(int).apply(lambda x: f"{x:,}원")
+                        # --- 최종 표시 컬럼 순서 지정 (번호 제거, 요청 순서대로) ---
+                        display_cols = [
+                            '날짜',
+                            '상품명',
+                            '전체 매출액',
+                            '광고 매출액',
+                            '자연 매출액',
+                            '일일 광고비',
+                            'ROI',
+                            '마진율',
+                            '일일 순이익금'
+                        ]
                         
-                        # Streamlit DataFrame의 인덱스를 표시하지 않기 위해 index를 reset
+                        # --- 숫자 컬럼 포맷팅 (금액, 수량) ---
+                        money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+                        for col in money_cols:
+                            if col in df_display.columns:
+                                df_display[col] = (
+                                    df_display[col]
+                                    .fillna(0)
+                                    .astype(int)
+                                    .apply(lambda x: f"{x:,}원")
+                                )
+
+                        # --- ROI / 마진율 포맷팅 (XX.XX%) ---
+                        if 'ROI' in df_display.columns:
+                            df_display['ROI'] = df_display['ROI'].fillna(0).apply(lambda x: f"{x:.2f}%")
+                        if '마진율' in df_display.columns:
+                            df_display['마진율'] = df_display['마진율'].fillna(0).apply(lambda x: f"{x:.2f}%")
+                        
+                        # 인덱스 리셋
                         df_display.reset_index(drop=True, inplace=True) 
                         
-                        # 깔끔한 st.dataframe 호출 (hide_index=True는 유지)
+                        # 최종 표 출력 (인덱스 숨김)
                         st.dataframe(
                             df_display[display_cols],
                             use_container_width=True, 
@@ -870,7 +881,7 @@ def main():
                         st.markdown("---") 
 
                     else: # selected_product_filter == "(상품을 선택해주세요)" 일 때
-                        # [요청 1. 반영: 안내 메시지 제거, 아무것도 표시하지 않음]
+                        # 아무 것도 표시하지 않음
                         pass
 
 
@@ -878,6 +889,7 @@ def main():
                     st.info("아직 저장된 판매 기록이 없습니다.")
             except Exception as e:
                 st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
+
 
 if __name__ == "__main__":
     # 메인 실행 전에 탭 1의 세션 상태 키 초기화 보장
