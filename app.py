@@ -682,7 +682,8 @@ def main():
                 product_list.extend([item['product_name'] for item in response.data])
 
             st.markdown("### 판매 현황 조회")
-# --- 기간별 전체 순이익 계산 시작 (순수 합산 로직) ---
+# --- 기간별 전체 순이익 계산 시작 (조회 버튼 및 UI 개선) ---
+            st.markdown("---")
             st.markdown("#### 📅 기간별 전체 순이익 조회")
 
             # 1. 날짜 선택 (세션 상태를 사용하여 선택한 날짜 유지)
@@ -694,8 +695,11 @@ def main():
                 st.session_state.profit_start_date_val = default_start_date
             if "profit_end_date_val" not in st.session_state:
                 st.session_state.profit_end_date_val = today
+            # 조회 실행 상태 저장
+            if "run_profit_query" not in st.session_state:
+                st.session_state.run_profit_query = False
 
-            col_date1, col_date2 = st.columns(2)
+            col_date1, col_date2 = st.columns([1, 1])
             with col_date1:
                 start_date = st.date_input(
                     "시작 날짜", 
@@ -711,26 +715,35 @@ def main():
                     on_change=lambda: st.session_state.__setitem__("profit_end_date_val", st.session_state.profit_end_date_input)
                 )
 
-            # 2. 전체 데이터 로드 및 기간 필터링, 순이익 합산
-            if start_date and end_date and start_date <= end_date:
-                try:
-                    # DB에서 daily_profit만 로드하고 날짜 범위 필터링
-                    response_all = supabase.table("daily_sales").select("daily_profit").gte("date", start_date.isoformat()).lte("date", end_date.isoformat()).execute()
-                    df_all = pd.DataFrame(response_all.data)
-                    
-                    if not df_all.empty and "daily_profit" in df_all.columns:
-                        # **핵심**: 합산 전, 데이터 타입 안정성을 확보하여 합산 오류 방지
-                        df_all["daily_profit"] = pd.to_numeric(df_all["daily_profit"], errors='coerce').fillna(0)
-                        total_period_profit = df_all["daily_profit"].sum()
+            # 2. 조회하기 버튼 추가 및 로직 실행
+            col_btn, col_space = st.columns([1, 2])
+            with col_btn:
+                if st.button("순이익 조회하기", use_container_width=True, key="profit_query_btn"):
+                    st.session_state.run_profit_query = True
+                    st.rerun() # 버튼 클릭 시 즉시 실행
+
+            # 3. 순이익 계산 및 표시 로직 (버튼 클릭 시에만 실행)
+            if st.session_state.run_profit_query:
+                if start_date and end_date and start_date <= end_date:
+                    st.markdown(f"##### 🔎 **{start_date.isoformat()} ~ {end_date.isoformat()}** 순이익 집계 결과")
+                    try:
+                        # DB에서 daily_profit만 로드하고 날짜 범위 필터링
+                        response_all = supabase.table("daily_sales").select("daily_profit").gte("date", start_date.isoformat()).lte("date", end_date.isoformat()).execute()
+                        df_all = pd.DataFrame(response_all.data)
                         
-                        st.metric(label=f"{start_date.isoformat()} ~ {end_date.isoformat()} 전체 상품 총 순이익금", value=f"{total_period_profit:,.0f}원")
-                    else:
-                        st.info("선택 기간에 저장된 판매 기록이 없습니다.")
-                        
-                except Exception as e:
-                    st.error(f"기간별 순이익 계산 중 오류가 발생했습니다: {e}")
-            elif start_date and end_date:
-                st.warning("시작 날짜가 종료 날짜보다 늦을 수 없습니다.")
+                        if not df_all.empty and "daily_profit" in df_all.columns:
+                            # 합산 전, 데이터 타입 안정성을 확보
+                            df_all["daily_profit"] = pd.to_numeric(df_all["daily_profit"], errors='coerce').fillna(0)
+                            total_period_profit = df_all["daily_profit"].sum()
+                            
+                            st.metric(label="전체 상품 총 순이익금", value=f"{total_period_profit:,.0f}원")
+                        else:
+                            st.info("선택 기간에 저장된 판매 기록이 없습니다.")
+                            
+                    except Exception as e:
+                        st.error(f"기간별 순이익 계산 중 오류가 발생했습니다: {e}")
+                elif start_date and end_date:
+                    st.warning("시작 날짜가 종료 날짜보다 늦을 수 없습니다.")
 
             st.markdown("---")
             st.markdown("#### 📊 상품별 판매 현황") 
