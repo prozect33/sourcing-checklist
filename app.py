@@ -13,6 +13,35 @@ st.markdown("""
      [data-testid="stSidebarContent"] { padding-top: 15px !important; }
      [data-testid="stHeading"] { margin-bottom: 15px !important; }
      [data-testid="stNumberInput"] button { display: none !important; }
+     /* --- 수정된 부분 시작: 오늘 날짜와 선택된 날짜 구분 --- */
+     
+     /* 1. 오늘 날짜 (today) 강조 - 빨간색 원형 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--today:not(.DayPicker-Day--selected) {
+         background-color: transparent !important;
+         position: relative;
+     }
+     .stDateInput div[role="dialog"] .DayPicker-Day--today:not(.DayPicker-Day--selected) abbr {
+         background-color: #FF4B4B; /* Streamlit 빨간색 */
+         color: white;
+         border-radius: 50%;
+         height: 28px;
+         width: 28px;
+         line-height: 28px;
+         display: block;
+         margin: 0 auto;
+     }
+
+     /* 2. 선택된 날짜 (selected) 스타일 - 기본 파란색 유지 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--selected {
+         background-color: var(--primary-color) !important; /* Streamlit 기본색 */
+         color: white;
+         border-radius: 50%;
+     }
+     /* 3. 오늘이면서 선택된 날짜는 선택된 날짜 스타일을 따르도록 함 */
+     .stDateInput div[role="dialog"] .DayPicker-Day--today.DayPicker-Day--selected {
+         background-color: var(--primary-color) !important;
+     }
+     /* --- 수정된 부분 끝 --- */
     </style>
 """, unsafe_allow_html=True)
 
