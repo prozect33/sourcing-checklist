@@ -682,14 +682,14 @@ def main():
                 product_list.extend([item['product_name'] for item in response.data])
 
             st.markdown("### 판매 현황 조회")
-         # --- 기간별 전체 순이익 계산 시작 (정밀 검토 및 수정) ---
+# --- 기간별 전체 순이익 계산 시작 (순수 합산 로직) ---
             st.markdown("#### 📅 기간별 전체 순이익 조회")
 
-            # 1. 날짜 선택 (오늘 날짜와 7일 전을 기본값으로 설정)
+            # 1. 날짜 선택 (세션 상태를 사용하여 선택한 날짜 유지)
             today = datetime.date.today()
-            default_start_date = today - datetime.timedelta(days=6) 
-            
-            # 세션 상태에 값이 없으면 초기값 설정 (선택한 날짜 유지)
+            default_start_date = today - datetime.timedelta(days=6) # 최근 7일
+
+            # 세션 상태에 값이 없으면 초기값 설정
             if "profit_start_date_val" not in st.session_state:
                 st.session_state.profit_start_date_val = default_start_date
             if "profit_end_date_val" not in st.session_state:
@@ -701,7 +701,6 @@ def main():
                     "시작 날짜", 
                     value=st.session_state.profit_start_date_val, 
                     key="profit_start_date_input",
-                    # 날짜 변경 시 세션 상태 업데이트 (선택값 유지)
                     on_change=lambda: st.session_state.__setitem__("profit_start_date_val", st.session_state.profit_start_date_input)
                 )
             with col_date2:
@@ -709,28 +708,22 @@ def main():
                     "종료 날짜", 
                     value=st.session_state.profit_end_date_val, 
                     key="profit_end_date_input",
-                    # 날짜 변경 시 세션 상태 업데이트 (선택값 유지)
                     on_change=lambda: st.session_state.__setitem__("profit_end_date_val", st.session_state.profit_end_date_input)
                 )
 
-
-            # 2. 전체 데이터 로드 및 기간 필터링
+            # 2. 전체 데이터 로드 및 기간 필터링, 순이익 합산
             if start_date and end_date and start_date <= end_date:
                 try:
-                    # DB에서 필요한 필드(daily_profit)만 로드
+                    # DB에서 daily_profit만 로드하고 날짜 범위 필터링
                     response_all = supabase.table("daily_sales").select("daily_profit").gte("date", start_date.isoformat()).lte("date", end_date.isoformat()).execute()
                     df_all = pd.DataFrame(response_all.data)
                     
-                    # 순이익 계산 및 표시
-                    if not df_all.empty:
-                        if "daily_profit" in df_all.columns: 
-                            # **핵심 수정**: 합산 전, 데이터 타입 안정성을 확보
-                            df_all["daily_profit"] = pd.to_numeric(df_all["daily_profit"], errors='coerce').fillna(0)
-                            total_period_profit = df_all["daily_profit"].sum()
-                            
-                            st.metric(label=f"{start_date.isoformat()} ~ {end_date.isoformat()} 전체 상품 총 순이익금", value=f"{total_period_profit:,.0f}원")
-                        else:
-                            st.error("⚠️ 데이터베이스에서 'daily_profit' 필드를 찾을 수 없습니다. '일일 정산' 저장 로직 또는 DB 스키마를 확인해주세요.")
+                    if not df_all.empty and "daily_profit" in df_all.columns:
+                        # **핵심**: 합산 전, 데이터 타입 안정성을 확보하여 합산 오류 방지
+                        df_all["daily_profit"] = pd.to_numeric(df_all["daily_profit"], errors='coerce').fillna(0)
+                        total_period_profit = df_all["daily_profit"].sum()
+                        
+                        st.metric(label=f"{start_date.isoformat()} ~ {end_date.isoformat()} 전체 상품 총 순이익금", value=f"{total_period_profit:,.0f}원")
                     else:
                         st.info("선택 기간에 저장된 판매 기록이 없습니다.")
                         
@@ -740,7 +733,7 @@ def main():
                 st.warning("시작 날짜가 종료 날짜보다 늦을 수 없습니다.")
 
             st.markdown("---")
-            st.markdown("#### 📊 상품별 판매 현황") # 기존 판매 현황 로직의 새로운 제목
+            st.markdown("#### 📊 상품별 판매 현황") 
             # --- 기간별 전체 순이익 계산 종료 ---
             
             # 페이지네이션 초기화
