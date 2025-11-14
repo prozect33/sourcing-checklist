@@ -761,6 +761,30 @@ def main():
                                 """,
                                 unsafe_allow_html=True
                             )
+                                                    # ✅ 각 일자별 ROI / 마진율 계산해서 df에 컬럼으로 추가
+                            def calc_daily_ratio(row):
+                                sales_qty = row.get("daily_sales_qty", 0) or 0
+                                revenue = row.get("daily_revenue", 0) or 0
+                                profit = row.get("daily_profit", 0) or 0
+
+                                # ROI 분모: 매입 + 물류 + 관세 + 기타 (수수료/입출고/광고 제외)
+                                cost_base = (
+                                    unit_purchase_cost
+                                    + unit_logistics
+                                    + unit_customs
+                                    + unit_etc
+                                ) * sales_qty
+
+                                daily_roi = (profit / cost_base * 100) if cost_base > 0 else 0
+                                daily_margin = (profit / revenue * 100) if revenue > 0 else 0
+
+                                return pd.Series({
+                                    "daily_roi": round(daily_roi, 2),
+                                    "daily_margin": round(daily_margin, 2),
+                                })
+
+                            df[["daily_roi", "daily_margin"]] = df.apply(calc_daily_ratio, axis=1)
+
 
                         except Exception as e:
                             st.error(f"ROI/마진율 계산 중 오류 발생: {e}")
