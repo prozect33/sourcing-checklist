@@ -720,37 +720,34 @@ def main():
         # --- [New] 2. 달력 활용 기간 선택 총 순이익 (모든 상품) ---
         st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
 
-        # 오늘 날짜 (Streamlit date_input의 기본값으로 사용)
-        today = datetime.date.today() 
+        # 오늘 날짜
+        today = datetime.date.today()
+        # 기본값을 오늘부터 일주일(7일)로 변경
+        last_7days_start, _ = get_date_range("7days") 
 
         date_col1, date_col2 = st.columns(2)
         with date_col1:
-            # value 인자를 생략하여 오늘 날짜가 기본값으로 표시되게 합니다. (공란 불가)
             start_date_input = st.date_input("시작 날짜", 
+                                            value=last_7days_start, # 7일 전을 기본값으로 사용
                                             key="profit_start_date")
         with date_col2:
-            # value 인자를 생략하여 오늘 날짜가 기본값으로 표시되게 합니다. (공란 불가)
             end_date_input = st.date_input("종료 날짜", 
+                                          value=today,
                                           key="profit_end_date")
 
-        # 조회 버튼을 추가하고, 이 버튼이 눌렸을 때만 아래 로직이 실행되게 합니다.
-        search_button = st.button("순이익 조회하기", key="search_profit_btn")
-
-        if search_button:
-            if start_date_input and end_date_input:
-                if start_date_input > end_date_input:
-                    st.warning("시작 날짜는 종료 날짜보다 빠를 수 없습니다.")
-                else:
-                    try:
-                        # 계산 실행
-                        custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
-                        
-                        # 계산 결과를 버튼 아래에 출력
-                        st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
-                                  value=f"{format_number(custom_profit)}원")
-                                  
-                    except Exception as e:
-                        st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
+        custom_profit = 0
+        if start_date_input and end_date_input:
+            if start_date_input > end_date_input:
+                st.warning("시작 날짜는 종료 날짜보다 빠를 수 없습니다.")
+            else:
+                try:
+                    custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
+                except Exception as e:
+                    st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
+                    
+            # 결과 표시 (1번 아래에 배치)
+            st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
+                      value=f"{format_number(custom_profit)}원")
 
         st.markdown("---")
 
