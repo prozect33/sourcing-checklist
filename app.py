@@ -203,7 +203,7 @@ def main():
                     ad_fee = round((sell_price_val * config['AD_RATE'] / 100) * vat)
                     inout_cost = round(config['INOUT_COST'] * vat)
                     return_cost = round((config['PICKUP_COST'] + config['RESTOCK_COST']) * (config['RETURN_RATE'] / 100) * vat)
-                    etc_cost = round((sell_price_val * config['ETC_RATE'] / 100) * vat)
+                    etc_cost = round((sell_price_val * config['ETC_RATE'] / 100)
                     packaging_cost = round(config['PACKAGING_COST'] * vat)
                     gift_cost = round(config['GIFT_COST'] * vat)
                     supply_price = sell_price_val / vat
@@ -279,7 +279,7 @@ def main():
                 total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                 profit2 = sell_price - total_cost
                 supply_price2 = sell_price / vat
-                margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift)
+                margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)
                 margin_ratio = round((margin_profit / supply_price2) * 100, 2)
                 roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                 roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
