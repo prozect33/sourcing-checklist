@@ -203,7 +203,7 @@ def main():
                     ad_fee = round((sell_price_val * config['AD_RATE'] / 100) * vat)
                     inout_cost = round(config['INOUT_COST'] * vat)
                     return_cost = round((config['PICKUP_COST'] + config['RESTOCK_COST']) * (config['RETURN_RATE'] / 100) * vat)
-                    etc_cost = round((sell_price_val * config['ETC_RATE'] / 100)
+                    etc_cost = round(sell_price_val * config['ETC_RATE'] / 100)
                     packaging_cost = round(config['PACKAGING_COST'] * vat)
                     gift_cost = round(config['GIFT_COST'] * vat)
                     supply_price = sell_price_val / vat
