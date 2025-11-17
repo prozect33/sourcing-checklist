@@ -106,13 +106,37 @@ if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
 if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
 if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 
-# --- [새로 추가된 기간 선택을 위한 세션 상태 초기화] ---
+# --- [기간 선택을 위한 세션 상태 초기화 및 함수 추가] ---
+today = datetime.date.today()
 if "profit_start_date_val" not in st.session_state:
-    st.session_state["profit_start_date_val"] = datetime.date.today()
+    # 초기값은 오늘 날짜로 설정 (Streamlit date_input의 공란 방지)
+    st.session_state["profit_start_date_val"] = today
 if "profit_end_date_val" not in st.session_state:
-    st.session_state["profit_end_date_val"] = datetime.date.today()
+    st.session_state["profit_end_date_val"] = today
 if "search_profit_flag" not in st.session_state:
+    # 초기 로드 시에는 자동 조회하지 않음
     st.session_state["search_profit_flag"] = False
+
+def get_date_range_for_button(days: int) -> tuple[datetime.date, datetime.date]:
+    """오늘을 포함한 지정된 기간의 시작일과 종료일(오늘)을 반환합니다."""
+    today_date = datetime.date.today()
+    
+    if days == 0: # 어제 (오늘 제외하고 어제만)
+        yesterday = today_date - datetime.timedelta(days=1)
+        return yesterday, yesterday
+    
+    # 오늘 포함 N일: 오늘 - (N-1)일 = 시작일
+    start_date = today_date - datetime.timedelta(days=days - 1)
+    return start_date, today_date
+
+def set_date_range(days: int):
+    """기간 선택 버튼 클릭 시 세션 상태를 업데이트합니다."""
+    start_date, end_date = get_date_range_for_button(days)
+    st.session_state["profit_start_date_val"] = start_date
+    st.session_state["profit_end_date_val"] = end_date
+    # 버튼을 누르면 자동 조회가 되도록 플래그 설정
+    st.session_state["search_profit_flag"] = True
+# --- [End of New Functions] ---
 
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
@@ -186,27 +210,6 @@ def validate_inputs():
 
     return True
 
-# --- [기간 선택 버튼을 위한 새로운 함수] ---
-def get_date_range_for_button(days: int) -> tuple[datetime.date, datetime.date]:
-    """오늘을 포함한 지정된 기간의 시작일과 종료일(오늘)을 반환합니다."""
-    today = datetime.date.today()
-    
-    if days == 0: # 어제
-        yesterday = today - datetime.timedelta(days=1)
-        return yesterday, yesterday
-    
-    # 오늘 포함 N일: 오늘 - (N-1)일 = 시작일
-    start_date = today - datetime.timedelta(days=days - 1)
-    return start_date, today
-
-def set_date_range(days: int):
-    """기간 선택 버튼 클릭 시 세션 상태를 업데이트합니다."""
-    start_date, end_date = get_date_range_for_button(days)
-    st.session_state["profit_start_date_val"] = start_date
-    st.session_state["profit_end_date_val"] = end_date
-    # 버튼을 누르면 자동 조회가 되도록 플래그 설정
-    st.session_state["search_profit_flag"] = True
-
 def calculate_profit_for_period(start_date: datetime.date, end_date: datetime.date, supabase: Client) -> int:
     """Supabase에서 지정된 기간 동안의 모든 상품의 총 순이익을 계산합니다."""
     start_str = start_date.isoformat()
@@ -228,7 +231,6 @@ def calculate_profit_for_period(start_date: datetime.date, end_date: datetime.da
     except Exception as e:
         # Supabase 연동 오류 발생 시 기본값 0 반환
         return 0
-# --- [End of New Functions] ---
 
 def main():
     if 'show_product_info' not in st.session_state:
@@ -708,11 +710,9 @@ def main():
         # --- 2. 달력 활용 기간 선택 총 순이익 (모든 상품) ---
         st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
 
-        # 오늘 날짜
-        today = datetime.date.today() 
-
-        # --- [새로 추가된 코드] 빠른 기간 선택 단추 ---
+        # --- [추가된 코드] 빠른 기간 선택 단추 ---
         btn_cols = st.columns([1, 1, 1, 1, 1, 1])
+        # days=0 은 어제(1일)를 의미하도록 set_date_range 함수 내에서 정의됨
         if btn_cols[0].button("어제", on_click=set_date_range, args=[0], key="btn_yesterday"):
             pass
         if btn_cols[1].button("7일", on_click=set_date_range, args=[7], key="btn_7days"):
@@ -725,7 +725,7 @@ def main():
             pass
         if btn_cols[5].button("360일", on_click=set_date_range, args=[360], key="btn_360days"):
             pass
-        # ---------------------------------------------
+        # -----------------------------------------------------
 
         date_col1, date_col2 = st.columns(2)
         with date_col1:
@@ -733,12 +733,14 @@ def main():
             start_date_input = st.date_input("시작 날짜", 
                                             value=st.session_state["profit_start_date_val"], 
                                             key="profit_start_date",
-                                            on_change=lambda: st.session_state.update(search_profit_flag=False)) # 날짜 수동 변경 시 자동 조회 해제
+                                            # 날짜 수동 변경 시 자동 조회 플래그 해제
+                                            on_change=lambda: st.session_state.update(search_profit_flag=False))
         with date_col2:
             end_date_input = st.date_input("종료 날짜", 
                                           value=st.session_state["profit_end_date_val"],
                                           key="profit_end_date",
-                                          on_change=lambda: st.session_state.update(search_profit_flag=False)) # 날짜 수동 변경 시 자동 조회 해제
+                                          # 날짜 수동 변경 시 자동 조회 플래그 해제
+                                          on_change=lambda: st.session_state.update(search_profit_flag=False))
 
         # 조회 버튼 (달력 수동 변경 시 사용)
         search_button = st.button("순이익 조회하기", key="search_profit_btn")
