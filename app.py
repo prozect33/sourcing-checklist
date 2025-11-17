@@ -106,6 +106,13 @@ if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
 if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
 if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
 
+# --- [새로 추가된 기간 선택을 위한 세션 상태 초기화] ---
+if "profit_start_date_val" not in st.session_state:
+    st.session_state["profit_start_date_val"] = datetime.date.today()
+if "profit_end_date_val" not in st.session_state:
+    st.session_state["profit_end_date_val"] = datetime.date.today()
+if "search_profit_flag" not in st.session_state:
+    st.session_state["search_profit_flag"] = False
 
 def load_product_data(selected_product_name):
     if selected_product_name == "새로운 상품 입력":
@@ -179,7 +186,27 @@ def validate_inputs():
 
     return True
 
-# --- [New Functions for tab4] ---
+# --- [기간 선택 버튼을 위한 새로운 함수] ---
+def get_date_range_for_button(days: int) -> tuple[datetime.date, datetime.date]:
+    """오늘을 포함한 지정된 기간의 시작일과 종료일(오늘)을 반환합니다."""
+    today = datetime.date.today()
+    
+    if days == 0: # 어제
+        yesterday = today - datetime.timedelta(days=1)
+        return yesterday, yesterday
+    
+    # 오늘 포함 N일: 오늘 - (N-1)일 = 시작일
+    start_date = today - datetime.timedelta(days=days - 1)
+    return start_date, today
+
+def set_date_range(days: int):
+    """기간 선택 버튼 클릭 시 세션 상태를 업데이트합니다."""
+    start_date, end_date = get_date_range_for_button(days)
+    st.session_state["profit_start_date_val"] = start_date
+    st.session_state["profit_end_date_val"] = end_date
+    # 버튼을 누르면 자동 조회가 되도록 플래그 설정
+    st.session_state["search_profit_flag"] = True
+
 def calculate_profit_for_period(start_date: datetime.date, end_date: datetime.date, supabase: Client) -> int:
     """Supabase에서 지정된 기간 동안의 모든 상품의 총 순이익을 계산합니다."""
     start_str = start_date.isoformat()
@@ -201,42 +228,6 @@ def calculate_profit_for_period(start_date: datetime.date, end_date: datetime.da
     except Exception as e:
         # Supabase 연동 오류 발생 시 기본값 0 반환
         return 0
-
-def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
-    """오늘을 포함한 지정된 기간의 시작일과 종료일(오늘)을 반환합니다."""
-    today = datetime.date.today()
-    
-    if period == "yesterday":
-        yesterday = today - datetime.timedelta(days=1)
-        return yesterday, yesterday
-    elif period == "7days":
-        # 오늘 포함 7일: 오늘 - 6일 = 시작일
-        start_date = today - datetime.timedelta(days=6)
-        return start_date, today
-    elif period == "30days":
-        # 오늘 포함 30일: 오늘 - 29일 = 시작일
-        start_date = today - datetime.timedelta(days=29)
-        return start_date, today
-    elif period == "3months":
-        # 약 90일로 계산
-        start_date = today - datetime.timedelta(days=90)
-        return start_date, today
-    else:
-        return today, today # 기본값
-
-def display_profit_metric(col, label: str, profit: int):
-    """지정된 컬럼에 순이익 메트릭을 HTML 형식으로 표시합니다."""
-    # 순이익이 0 이상일 경우 붉은색, 아닐 경우 회색으로 표시
-    profit_color = "#f63366" if profit >= 0 else "#888888" 
-    
-    col.markdown(
-        f"""
-        <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; text-align: center; height: 100%;">
-            <small style="color: #888; font-size: 14px;">{label}</small>
-            <h3 style="margin: 5px 0 0 0; color: {profit_color};">{format_number(profit)}원</h3>
-        </div>
-        """, unsafe_allow_html=True
-    )
 # --- [End of New Functions] ---
 
 def main():
@@ -714,40 +705,70 @@ def main():
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         st.subheader("판매 현황")
 
-        # --- [삭제됨] 1. 어제, 7일, 30일, 3개월 총 순이익 블록 (모든 상품) ---
-        # 요청에 따라 해당 섹션(제목, 4개 블록, 구분선)을 모두 제거합니다.
-        
-        # --- [New] 2. 달력 활용 기간 선택 총 순이익 (모든 상품) ---
+        # --- 2. 달력 활용 기간 선택 총 순이익 (모든 상품) ---
         st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
 
         # 오늘 날짜
-        today = datetime.date.today()
-        # 기본값을 오늘부터 일주일(7일)로 변경
-        last_7days_start, _ = get_date_range("7days") 
+        today = datetime.date.today() 
+
+        # --- [새로 추가된 코드] 빠른 기간 선택 단추 ---
+        btn_cols = st.columns([1, 1, 1, 1, 1, 1])
+        if btn_cols[0].button("어제", on_click=set_date_range, args=[0], key="btn_yesterday"):
+            pass
+        if btn_cols[1].button("7일", on_click=set_date_range, args=[7], key="btn_7days"):
+            pass
+        if btn_cols[2].button("30일", on_click=set_date_range, args=[30], key="btn_30days"):
+            pass
+        if btn_cols[3].button("90일", on_click=set_date_range, args=[90], key="btn_90days"):
+            pass
+        if btn_cols[4].button("180일", on_click=set_date_range, args=[180], key="btn_180days"):
+            pass
+        if btn_cols[5].button("360일", on_click=set_date_range, args=[360], key="btn_360days"):
+            pass
+        # ---------------------------------------------
 
         date_col1, date_col2 = st.columns(2)
         with date_col1:
+            # 세션 상태 값(버튼 클릭 시 업데이트됨)을 기본값으로 사용
             start_date_input = st.date_input("시작 날짜", 
-                                            value=last_7days_start, # 7일 전을 기본값으로 사용
-                                            key="profit_start_date")
+                                            value=st.session_state["profit_start_date_val"], 
+                                            key="profit_start_date",
+                                            on_change=lambda: st.session_state.update(search_profit_flag=False)) # 날짜 수동 변경 시 자동 조회 해제
         with date_col2:
             end_date_input = st.date_input("종료 날짜", 
-                                          value=today,
-                                          key="profit_end_date")
+                                          value=st.session_state["profit_end_date_val"],
+                                          key="profit_end_date",
+                                          on_change=lambda: st.session_state.update(search_profit_flag=False)) # 날짜 수동 변경 시 자동 조회 해제
 
+        # 조회 버튼 (달력 수동 변경 시 사용)
+        search_button = st.button("순이익 조회하기", key="search_profit_btn")
+        
+        # --- [수정된 계산 로직] 버튼이 눌렸거나, 기간 선택 단추가 눌렸을 때만 계산 실행 ---
         custom_profit = 0
-        if start_date_input and end_date_input:
-            if start_date_input > end_date_input:
-                st.warning("시작 날짜는 종료 날짜보다 빠를 수 없습니다.")
-            else:
-                try:
-                    custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
-                except Exception as e:
-                    st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
-                    
-            # 결과 표시 (1번 아래에 배치)
-            st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
-                      value=f"{format_number(custom_profit)}원")
+        
+        # search_button이 눌렸거나, 기간 선택 단추가 눌려 search_profit_flag가 True일 때 실행
+        if search_button or st.session_state["search_profit_flag"]:
+            if start_date_input and end_date_input:
+                if start_date_input > end_date_input:
+                    st.warning("시작 날짜는 종료 날짜보다 빠를 수 없습니다.")
+                else:
+                    try:
+                        # 계산 실행
+                        custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
+                        
+                        # 계산 결과를 출력
+                        st.markdown("#### 조회 결과")
+                        st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
+                                  value=f"{format_number(custom_profit)}원")
+                        
+                        # 계산이 완료되면 플래그 초기화
+                        st.session_state["search_profit_flag"] = False
+
+                    except Exception as e:
+                        st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
+
+        st.markdown("---")
+        # ------------------------------------------------------------------
 
         # --- 페이지네이션 초기화 및 설정 --- (기존 코드 유지)
         def reset_page():
@@ -906,15 +927,25 @@ def main():
                     ]
 
                     # --- 숫자 컬럼 포맷팅 (금액, 수량) ---
-                    money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+                    money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '자연 수량', '광고 수량', '전체 수량', '일일 광고비', '일일 순이익금']
                     for col in money_cols:
                         if col in df_display.columns:
-                            df_display[col] = (
-                                df_display[col]
-                                .fillna(0)
-                                .astype(int)
-                                .apply(lambda x: f"{x:,}원")
-                            )
+                            # 수량은 '원'을 붙이지 않고 금액만 '원'을 붙입니다.
+                            if '수량' in col:
+                                df_display[col] = (
+                                    df_display[col]
+                                    .fillna(0)
+                                    .astype(int)
+                                    .apply(lambda x: f"{x:,}")
+                                )
+                            else: # 금액
+                                df_display[col] = (
+                                    df_display[col]
+                                    .fillna(0)
+                                    .astype(int)
+                                    .apply(lambda x: f"{x:,}원")
+                                )
+
 
                     # --- ROI / 마진율 포맷팅 (XX.XX%) ---
                     if 'ROI' in df_display.columns: df_display['ROI'] = df_display['ROI'].apply(lambda x: f"{x:.2f}%")
