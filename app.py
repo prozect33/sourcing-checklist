@@ -212,7 +212,7 @@ def main():
                                 - supply_price * (target_margin / 100) \
                                 - C_total_fixed_cost
                     target_cost = max(0, int(raw_cost2))
-                    yuan_cost = round((target_cost / config['EXCHANGE_RATE']) /, 2)
+                    yuan_cost = round((target_cost / config['EXCHANGE_RATE']) / , 2)
                     profit = sell_price_val - (
                         round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
                     )
