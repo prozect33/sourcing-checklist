@@ -36,7 +36,7 @@ def reset_inputs():
     if "ad_revenue" in st.session_state: st.session_state["ad_revenue"] = 0
     if "ad_cost" in st.session_state: st.session_state["ad_cost"] = 0
     if "product_select_daily" in st.session_state:
-        st.session_state["product_select_daily"] = "상품을 선택해주세요"
+       st.session_state["product_select_daily"] = "상품을 선택해주세요"
 
 def load_supabase_credentials():
     try:
@@ -206,7 +206,9 @@ def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
     """오늘을 포함한 지정된 기간의 시작일과 종료일(오늘)을 반환합니다."""
     today = datetime.date.today()
     
-    if period == "yesterday":
+    if period == "today": # 오늘
+        return today, today
+    elif period == "yesterday": # 어제
         yesterday = today - datetime.timedelta(days=1)
         return yesterday, yesterday
     elif period == "7days":
@@ -217,26 +219,20 @@ def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
         # 오늘 포함 30일: 오늘 - 29일 = 시작일
         start_date = today - datetime.timedelta(days=29)
         return start_date, today
-    elif period == "3months":
-        # 약 90일로 계산
-        start_date = today - datetime.timedelta(days=90)
+    elif period == "90days": # 90일 (기존 3months 대체)
+        # 오늘 포함 90일: 오늘 - 89일 = 시작일
+        start_date = today - datetime.timedelta(days=89) 
+        return start_date, today
+    elif period == "180days": # 180일
+        start_date = today - datetime.timedelta(days=179)
+        return start_date, today
+    elif period == "365days": # 365일
+        start_date = today - datetime.timedelta(days=364)
         return start_date, today
     else:
         return today, today # 기본값
 
-def display_profit_metric(col, label: str, profit: int):
-    """지정된 컬럼에 순이익 메트릭을 HTML 형식으로 표시합니다."""
-    # 순이익이 0 이상일 경우 붉은색, 아닐 경우 회색으로 표시
-    profit_color = "#f63366" if profit >= 0 else "#888888" 
-    
-    col.markdown(
-        f"""
-        <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; text-align: center; height: 100%;">
-            <small style="color: #888; font-size: 14px;">{label}</small>
-            <h3 style="margin: 5px 0 0 0; color: {profit_color};">{format_number(profit)}원</h3>
-        </div>
-        """, unsafe_allow_html=True
-    )
+# Note: display_profit_metric 함수는 박스형 출력 요청이 없어 제거되었습니다.
 # --- [End of New Functions] ---
 
 def main():
@@ -571,10 +567,10 @@ def main():
                 st.markdown(f"**기타:** {product_data.get('etc_cost', 0):,}원")
             else:
                 st.info("선택된 상품의 상세 정보가 없습니다.")
-
+                
         report_date = st.date_input("날짜 선택", datetime.date.today())
-
         st.markdown("---")
+
         st.markdown("#### 전체 판매")
         # 입력 필드: key를 통해 st.session_state에 값을 저장
         st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
@@ -584,36 +580,16 @@ def main():
         st.markdown("#### 광고 판매")
         # 입력 필드: key를 통해 st.session_state에 값을 저장
         st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
-        st.number_input("광고 전환 매출액", step=1000, key="ad_revenue")
-        st.number_input("광고비", step=1000, key="ad_cost")
+        st.number_input("광고 매출액", step=1000, key="ad_revenue")
+        st.number_input("광고비용", step=1000, key="ad_cost")
 
-        st.markdown("---")
-        st.markdown("#### 자연 판매 (자동 계산)")
-
-        # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
-        organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
-        organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
-        
-        # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
-        st.number_input(
-            "자연 판매 수량",
-            value=organic_sales_qty_calc,
-            disabled=True
-        )
-        st.number_input(
-            "자연 판매 매출액",
-            value=organic_revenue_calc,
-            disabled=True
-        )
-
-        # --- 일일 순이익 계산 ---
-        daily_profit = 0
+        # --- 일일 순이익 계산 및 출력 ---
         if selected_product_name != "상품을 선택해주세요" and product_data:
-            # 세션 상태의 최신 값 안전하게 사용
             current_total_sales_qty = st.session_state.total_sales_qty
             current_total_revenue = st.session_state.total_revenue
             current_ad_cost = st.session_state.ad_cost
-            
+
+            # 1. 단위 비용 계산
             quantity_val = product_data.get("quantity", 1)
             quantity_for_calc = quantity_val if quantity_val > 0 else 1
             unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
@@ -633,108 +609,140 @@ def main():
                 - (current_ad_cost * 1.1)
             )
             daily_profit = round(daily_profit)
-        # --- 일일 순이익금 출력 ---
-        st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
-        
-        # --- 일일 순이익 계산 내역 ---
-        if selected_product_name != "상품을 선택해주세요" and product_data:
-            vat = 1.1
-            fee_rate_db = product_data.get("fee", 0.0)
-            current_total_sales_qty = st.session_state.total_sales_qty
-            current_total_revenue = st.session_state.total_revenue
-            current_ad_cost = st.session_state.ad_cost
-
-            # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
-            quantity_val = product_data.get("quantity", 1)
-            quantity_for_calc = quantity_val if quantity_val > 0 else 1
-            unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
-            unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
-            unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
-            unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
-
-            # 3. 총 비용 항목 계산 (daily_profit 계산의 개별 비용 항목)
-            fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
-            purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
-            inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
-            logistics_cost_total = round(unit_logistics * current_total_sales_qty)
-            customs_cost_total = round(unit_customs * current_total_sales_qty)
-            etc_cost_total = round(unit_etc * current_total_sales_qty)
-            ad_cost_total = round(current_ad_cost * vat)
-
-            # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
-            st.markdown(
-                f"""
-                <small>
-                    - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
-                    - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
-                    - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
-                    - 물류비: {format_number(logistics_cost_total)}원<br>
-                    - 관세: {format_number(customs_cost_total)}원<br>
-                    - 기타 비용: {format_number(etc_cost_total)}원<br>
-                    - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
-                </small>
-                """,
-                unsafe_allow_html=True
-            )
             
-        st.markdown("---")
+            # --- 일일 순이익금 출력 ---
+            st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
 
-        # --- 일일 판매 기록 저장 로직
-        if st.button("판매 기록 저장"):
-            if selected_product_name == "상품을 선택해주세요":
-                st.error("상품을 먼저 선택해야 판매 기록을 저장할 수 있습니다.")
-            elif st.session_state.total_sales_qty == 0 and st.session_state.total_revenue == 0:
-                st.warning("판매 수량 또는 매출액을 입력해야 저장할 수 있습니다.")
-            else:
-                try:
-                    # organic_sales_qty_calc, organic_revenue_calc, daily_profit 등의 변수는
-                    # 이 코드가 실행되는 시점에 상위 코드에서 계산되어 있어야 합니다.
-                    data_to_save = {
-                        "date": report_date.isoformat(),
-                        "product_name": selected_product_name,
-                        "daily_sales_qty": st.session_state.total_sales_qty,
-                        "daily_revenue": st.session_state.total_revenue,
-                        "ad_sales_qty": st.session_state.ad_sales_qty,
-                        "ad_revenue": st.session_state.ad_revenue,
-                        "organic_sales_qty": organic_sales_qty_calc,
-                        "organic_revenue": organic_revenue_calc,
-                        "daily_ad_cost": st.session_state.ad_cost,
-                        "daily_profit": daily_profit,
-                        "created_at": datetime.datetime.now().isoformat()
-                    }
-                    # --- 최종 UPSERT(덮어쓰기) 적용: 서버 함수(RPC) 호출 ---
-                    supabase.rpc(
-                        'upsert_daily_sales',
-                        {'p_data': data_to_save} # 데이터를 'p_data'라는 이름으로 함수에 전달
-                    ).execute()
-                    st.success(f"'{selected_product_name}'의 {report_date} 판매 기록이 **성공적으로 저장/수정**되었습니다!")
-                except Exception as e:
-                    st.error(f"일일 정산 저장 중 오류가 발생했습니다: {e}")
+            # --- 일일 순이익 계산 내역 ---
+            if selected_product_name != "상품을 선택해주세요" and product_data:
+                vat = 1.1
+                fee_rate_db = product_data.get("fee", 0.0)
+                current_total_sales_qty = st.session_state.total_sales_qty
+                current_total_revenue = st.session_state.total_revenue
+                current_ad_cost = st.session_state.ad_cost
+
+                # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
+                quantity_val = product_data.get("quantity", 1)
+                quantity_for_calc = quantity_val if quantity_val > 0 else 1
+                unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
+                unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
+                unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
+
+                # 3. 총 비용 항목 계산 (daily_profit 계산의 개별 비용 항목)
+                fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
+                purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
+                inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
+                logistics_cost_total = round(unit_logistics * current_total_sales_qty)
+                customs_cost_total = round(unit_customs * current_total_sales_qty)
+                etc_cost_total = round(unit_etc * current_total_sales_qty)
+                ad_cost_total = round(current_ad_cost * vat)
+
+                # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
+                st.markdown(
+                    f"""
+                    <small>
+                      - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
+                      - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
+                      - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
+                      - 물류비: {format_number(logistics_cost_total)}원<br>
+                      - 관세: {format_number(customs_cost_total)}원<br>
+                      - 기타 비용: {format_number(etc_cost_total)}원<br>
+                      - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
+                    </small>
+                    """, unsafe_allow_html=True
+                )
+            
+            st.markdown("---")
+
+            # --- 일일 판매 기록 저장 로직
+            if st.button("판매 기록 저장"):
+                if selected_product_name == "상품을 선택해주세요":
+                    st.error("상품을 먼저 선택해야 판매 기록을 저장할 수 있습니다.")
+                elif st.session_state.total_sales_qty == 0 or st.session_state.total_revenue == 0:
+                    st.error("전체 판매 수량과 매출액을 입력해야 저장할 수 있습니다.")
+                else:
+                    try:
+                        # 이미 계산된 daily_profit을 포함하여 저장
+                        data_to_save = {
+                            "date": report_date.isoformat(),
+                            "product_name": selected_product_name,
+                            "daily_sales_qty": st.session_state.total_sales_qty,
+                            "daily_revenue": st.session_state.total_revenue,
+                            "ad_sales_qty": st.session_state.ad_sales_qty,
+                            "ad_revenue": st.session_state.ad_revenue,
+                            "organic_sales_qty": st.session_state.total_sales_qty - st.session_state.ad_sales_qty, # 자연 판매 수량 계산
+                            "organic_revenue": st.session_state.total_revenue - st.session_state.ad_revenue, # 자연 매출액 계산
+                            "daily_ad_cost": st.session_state.ad_cost,
+                            "daily_profit": daily_profit, # 계산된 순이익 저장
+                        }
+                        supabase.rpc("upsert_daily_sales", {"d_data": data_to_save}).execute()
+                        st.success(f"{report_date} 일일 판매 기록이 저장되었습니다! (순이익: {format_number(daily_profit)}원)")
+                        st.session_state["total_sales_qty"] = 0 # 저장 후 초기화
+                        st.session_state["total_revenue"] = 0
+                        st.session_state["ad_sales_qty"] = 0
+                        st.session_state["ad_revenue"] = 0
+                        st.session_state["ad_cost"] = 0
+                        st.rerun() # 초기화된 상태로 새로고침
+                    except Exception as e:
+                        st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         st.subheader("판매 현황")
 
-        # --- [삭제됨] 1. 어제, 7일, 30일, 3개월 총 순이익 블록 (모든 상품) ---
-        # 요청에 따라 해당 섹션(제목, 4개 블록, 구분선)을 모두 제거합니다.
+        # --- [New] 기간별 순이익 자동 집계 (깔끔한 텍스트 형식) ---
+        st.markdown("#### ⏱️ 기간별 순이익 자동 집계 (모든 상품)")
         
-        # --- [New] 2. 달력 활용 기간 선택 총 순이익 (모든 상품) ---
-        st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
+        periods = {
+            "오늘": "today",
+            "어제": "yesterday",
+            "일주일": "7days",
+            "30일": "30days",
+            "90일": "90days",
+            "180일": "180days",
+            "365일": "365days",
+        }
 
+        # 4개의 컬럼을 사용하여 기간별 순이익을 표시
+        cols = st.columns(4) 
+        col_index = 0
+        
+        for label, period_key in periods.items():
+            start_date, end_date = get_date_range(period_key)
+            # calculate_profit_for_period 함수를 사용하여 순이익 계산
+            profit = calculate_profit_for_period(start_date, end_date, supabase)
+            
+            # 깔끔한 텍스트 출력 형식 (박스 미사용)
+            # 순이익이 0 이상이면 붉은색(#f63366), 아니면 회색(#888888)
+            profit_color = "#f63366" if profit >= 0 else "#888888"
+            
+            # 각 기간별 순이익을 마크다운으로 깔끔하게 표시
+            cols[col_index].markdown(
+                f"""
+                <p style="margin: 0 0 5px 0; font-size: 14px; line-height: 1.5;">
+                    <strong style="color: #444;">{label}:</strong> 
+                    <span style="color: {profit_color}; font-weight: bold; font-size: 16px;">{format_number(profit)}원</span>
+                </p>
+                """, unsafe_allow_html=True
+            )
+            
+            col_index = (col_index + 1) % 4 # 다음 컬럼으로 이동 (4개 컬럼 순환)
+
+        st.markdown("---") # 구분선 추가
+        
+        # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
+        st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
         # 오늘 날짜
         today = datetime.date.today()
         # 기본값을 오늘부터 일주일(7일)로 변경
-        last_7days_start, _ = get_date_range("7days") 
-
+        last_7days_start, _ = get_date_range("7days")
         date_col1, date_col2 = st.columns(2)
         with date_col1:
-            start_date_input = st.date_input("시작 날짜", 
-                                            value=last_7days_start, # 7일 전을 기본값으로 사용
-                                            key="profit_start_date")
+            start_date_input = st.date_input("시작 날짜", value=last_7days_start, # 7일 전을 기본값으로 사용
+                                             key="profit_start_date")
         with date_col2:
-            end_date_input = st.date_input("종료 날짜", 
-                                          value=today,
-                                          key="profit_end_date")
-
+            end_date_input = st.date_input("종료 날짜", value=today, key="profit_end_date")
+            
         custom_profit = 0
         if start_date_input and end_date_input:
             if start_date_input > end_date_input:
@@ -744,10 +752,9 @@ def main():
                     custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
                 except Exception as e:
                     st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
-                    
-            # 결과 표시 (1번 아래에 배치)
-            st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
-                      value=f"{format_number(custom_profit)}원")
+
+        # 결과 표시 (1번 아래에 배치)
+        st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", value=f"{format_number(custom_profit)}원")
 
         # --- 페이지네이션 초기화 및 설정 --- (기존 코드 유지)
         def reset_page():
@@ -772,41 +779,43 @@ def main():
             key="sales_status_product_filter",
             on_change=reset_page # 필터 변경 시 페이지 1로 리셋
         )
-        
+
         # 판매 현황 로직 시작
         try:
             # 1. 데이터 로드 및 선택된 상품으로 필터링
             query = supabase.table("daily_sales").select("*").order("date", desc=True)
+            
             # '상품을 선택해주세요'이 아닌 경우에만 쿼리에 필터 조건 추가
             if selected_product_filter != "(상품을 선택해주세요)":
                 query = query.eq("product_name", selected_product_filter)
+                
             response = query.execute()
             df = pd.DataFrame(response.data)
 
             if not df.empty:
                 df['date'] = pd.to_datetime(df['date'])
-                
+
                 # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
                 if selected_product_filter != "(상품을 선택해주세요)":
-                    # [총 순이익금 + ROI/마진율 블록]
-                    product_data_all = supabase.table("products").select("*").eq("product_name", selected_product_filter).execute().data
-                    if product_data_all:
-                        product_data = product_data_all[0]
-                    else:
-                        product_data = {}
                     
-                    total_profit_sum = int(df["daily_profit"].sum()) if "daily_profit" in df.columns else 0
-                    total_sales_qty = int(df["daily_sales_qty"].sum()) if "daily_sales_qty" in df.columns else 0
-                    total_revenue_sum = int(df["daily_revenue"].sum()) if "daily_revenue" in df.columns else 0
-
-                    st.markdown("#### 합계")
+                    # 1. 총 합산 계산
+                    total_profit_sum = df['daily_profit'].sum()
+                    total_sales_qty = df['daily_sales_qty'].sum()
+                    total_revenue_sum = df['daily_revenue'].sum()
+                    
+                    # 선택된 상품의 단가 정보를 로드 (ROI/마진율 계산에 필요)
+                    product_data = {}
+                    response_prod = supabase.table("products").select("*").eq("product_name", selected_product_filter).execute()
+                    if response_prod.data:
+                        product_data = response_prod.data[0]
+                    
+                    # 총 순이익금 표시
                     st.metric(label=f"총 순이익금 ({selected_product_filter})", value=f"{total_profit_sum:,}원")
                     
                     try:
                         # ROI / 마진율 계산에 필요한 총 수량과 단가 로드
                         total_quantity = product_data.get("quantity", 0) or 1
                         quantity_for_calc = total_quantity if total_quantity > 0 else 1
-
                         unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
                         unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
                         unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
@@ -838,112 +847,101 @@ def main():
                         st.error(f"ROI/마진율 계산 중 오류 발생: {e}")
                     
                     st.markdown("---") # 순이익금과 기록 섹션 구분
-
                     st.markdown("#### 일일 판매 기록")
-                    # 2. 페이지네이션 적용 로직
-                    total_rows = len(df)
-                    total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE
 
-                    if st.session_state.daily_sales_page > total_pages:
-                        st.session_state.daily_sales_page = total_pages
-                    if st.session_state.daily_sales_page < 1:
-                        st.session_state.daily_sales_page = 1
+                # 2. 페이지네이션 적용 로직
+                total_rows = len(df)
+                total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE
+                
+                if st.session_state.daily_sales_page > total_pages:
+                    st.session_state.daily_sales_page = total_pages
+                if st.session_state.daily_sales_page < 1:
+                    st.session_state.daily_sales_page = 1
 
-                    start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
-                    end_index = start_index + PAGE_SIZE
-                    
-                    # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
-                    df_paged = df.iloc[start_index:end_index].copy()
+                start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
+                end_index = start_index + PAGE_SIZE
+                
+                # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
+                df_paged = df.iloc[start_index:end_index].copy()
 
-                    # --- [추가] 일자별 ROI / 마진율 계산 (총 순이익 계산과 동일 로직) ---
-                    vat = 1.1
-                    fee_rate_db = product_data.get("fee", 0.0)
-                    
-                    # 단위 비용 (quantity_for_calc는 여기서도 1 이상을 보장)
-                    unit_purchase_cost_daily = product_data.get("purchase_cost", 0) / quantity_for_calc
-                    unit_logistics_daily = product_data.get("logistics_cost", 0) / quantity_for_calc
-                    unit_customs_daily = product_data.get("customs_duty", 0) / quantity_for_calc
-                    unit_etc_daily = product_data.get("etc_cost", 0) / quantity_for_calc
+                # 3. 컬럼명 변경 및 포맷팅
+                df_display = df_paged.rename(columns={
+                    "date": "날짜",
+                    "product_name": "상품명",
+                    "daily_sales_qty": "전체 수량",
+                    "daily_revenue": "전체 매출액",
+                    "ad_sales_qty": "광고 수량",
+                    "ad_revenue": "광고 매출액",
+                    "organic_sales_qty": "자연 수량",
+                    "organic_revenue": "자연 매출액",
+                    "daily_ad_cost": "일일 광고비",
+                    "daily_profit": "일일 순이익금",
+                    # ROI / 마진율은 그대로 사용 (컬럼명 동일)
+                })
+                df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
 
-                    # 일별 총 원가/비용 계산
-                    df_paged['purchase_cost_total'] = round(unit_purchase_cost_daily * df_paged['daily_sales_qty'])
-                    df_paged['logistics_cost_total'] = round(unit_logistics_daily * df_paged['daily_sales_qty'])
-                    df_paged['customs_cost_total'] = round(unit_customs_daily * df_paged['daily_sales_qty'])
-                    df_paged['etc_cost_total'] = round(unit_etc_daily * df_paged['daily_sales_qty'])
-                    df_paged['total_cost_sum'] = df_paged['purchase_cost_total'] + df_paged['logistics_cost_total'] + df_paged['customs_cost_total'] + df_paged['etc_cost_total']
-                    
-                    # 일별 ROI / 마진율 계산
-                    df_paged['ROI'] = (df_paged['daily_profit'] / df_paged['total_cost_sum'] * 100).fillna(0).round(2)
-                    df_paged['마진율'] = (df_paged['daily_profit'] / df_paged['daily_revenue'] * 100).fillna(0).round(2)
-                    
-                    # 3. 컬럼명 변경 (ROI, 마진율, 순이익금 순서 변경 없음)
-                    df_display = df_paged.rename(columns={
-                        "date": "날짜",
-                        "product_name": "상품명",
-                        "daily_sales_qty": "전체 수량",
-                        "daily_revenue": "전체 매출액",
-                        "ad_sales_qty": "광고 수량",
-                        "ad_revenue": "광고 매출액",
-                        "organic_sales_qty": "자연 수량",
-                        "organic_revenue": "자연 매출액",
-                        "daily_ad_cost": "일일 광고비",
-                        "daily_profit": "일일 순이익금", # ROI / 마진율은 그대로 사용 (컬럼명 동일)
-                    })
-                    
-                    df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-                    
-                    # --- 최종 표시 컬럼 순서 지정 (번호 제거, 요청 순서대로) ---
-                    display_cols = [
-                        '날짜', 
-                        '상품명', 
-                        '전체 매출액', 
-                        '광고 매출액', 
-                        '자연 매출액', 
-                        '일일 광고비', 
-                        'ROI', 
-                        '마진율',
-                        '일일 순이익금'
-                    ]
+                # --- 최종 표시 컬럼 순서 지정 (번호 제거, 요청 순서대로) ---
+                display_cols = [
+                    '날짜',
+                    '상품명',
+                    '전체 매출액',
+                    '광고 매출액',
+                    '자연 매출액',
+                    '일일 광고비',
+                    'ROI',
+                    '마진율',
+                    '일일 순이익금'
+                ]
 
-                    # --- 숫자 컬럼 포맷팅 (금액, 수량) ---
-                    money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
-                    for col in money_cols:
-                        if col in df_display.columns:
-                            df_display[col] = (
-                                df_display[col]
-                                .fillna(0)
-                                .astype(int)
-                                .apply(lambda x: f"{x:,}원")
-                            )
+                # --- 숫자 컬럼 포맷팅 (금액, 수량) ---
+                money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+                for col in money_cols:
+                    if col in df_display.columns:
+                        df_display[col] = (
+                            df_display[col]
+                            .fillna(0) # NaN 값을 0으로 채움
+                            .apply(lambda x: f"{int(x):,}") # 정수 포맷팅
+                        )
+                
+                # ROI/마진율 포맷팅
+                for col in ['ROI', '마진율']:
+                     if col in df_display.columns:
+                        df_display[col] = (
+                            df_display[col]
+                            .fillna(0.0) # NaN 값을 0.0으로 채움
+                            .apply(lambda x: f"{x:.2f}%") # 소수점 두 자리 및 % 표시
+                        )
+                
+                # 수량 포맷팅
+                qty_cols = ['전체 수량', '광고 수량', '자연 수량']
+                for col in qty_cols:
+                    if col in df_display.columns:
+                        df_display[col] = (
+                            df_display[col]
+                            .fillna(0)
+                            .astype(int)
+                            .apply(lambda x: f"{x:,}개")
+                        )
+                
+                # 4. 최종 데이터프레임 출력
+                st.dataframe(df_display[display_cols], hide_index=True)
+                
+                # 5. 페이지네이션 버튼
+                page_cols = st.columns([1, 1, 1])
+                if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
+                    st.session_state.daily_sales_page -= 1
+                    st.rerun()
 
-                    # --- ROI / 마진율 포맷팅 (XX.XX%) ---
-                    if 'ROI' in df_display.columns: df_display['ROI'] = df_display['ROI'].apply(lambda x: f"{x:.2f}%")
-                    if '마진율' in df_display.columns: df_display['마진율'] = df_display['마진율'].apply(lambda x: f"{x:.2f}%")
+                page_cols[1].markdown(
+                    f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
+                    unsafe_allow_html=True
+                )
 
-                    # 4. 데이터프레임 출력
-                    st.dataframe(df_display[display_cols], use_container_width=True, hide_index=True)
+                if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
+                    st.session_state.daily_sales_page += 1
+                    st.rerun()
 
-                    # 5. 페이지네이션 버튼
-                    page_cols = st.columns([1, 2, 1])
-                    if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
-                        st.session_state.daily_sales_page -= 1
-                        st.rerun()
-
-                    page_cols[1].markdown(
-                        f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
-                        unsafe_allow_html=True
-                    )
-
-                    if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
-                        st.session_state.daily_sales_page += 1
-                        st.rerun()
-
-                    st.markdown("---")
-
-                else: # selected_product_filter == "(상품을 선택해주세요)" 일 때
-                    # 아무 것도 표시하지 않음
-                    pass
-
+                st.markdown("---")
 
             else:
                 st.info("아직 저장된 판매 기록이 없습니다.")
@@ -957,5 +955,4 @@ if __name__ == "__main__":
     if "unit_yuan" not in st.session_state: st.session_state["unit_yuan"] = ""
     if "unit_won" not in st.session_state: st.session_state["unit_won"] = ""
     if "qty_raw" not in st.session_state: st.session_state["qty_raw"] = ""
-    if "show_result" not in st.session_state: st.session_state["show_result"] = False
     main()
