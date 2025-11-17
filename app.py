@@ -749,8 +749,6 @@ def main():
             st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
                       value=f"{format_number(custom_profit)}원")
 
-        st.markdown("---")
-
         # --- 페이지네이션 초기화 및 설정 --- (기존 코드 유지)
         def reset_page():
             st.session_state.daily_sales_page = 1
