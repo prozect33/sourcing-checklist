@@ -746,14 +746,11 @@ def main():
                         custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
                         
                         # 계산 결과를 버튼 아래에 출력
-                        st.markdown("#### 조회 결과")
                         st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", 
                                   value=f"{format_number(custom_profit)}원")
                                   
                     except Exception as e:
                         st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
-
-        st.markdown("---")
 
         st.markdown("---")
 
