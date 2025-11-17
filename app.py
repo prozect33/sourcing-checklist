@@ -714,38 +714,21 @@ def main():
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         st.subheader("판매 현황")
 
-        # --- [New] 1. 어제, 7일, 30일, 3개월 총 순이익 블록 (모든 상품) ---
-        st.markdown("#### 모든 상품 총 순이익 현황")
-
-        # 오늘 날짜를 기준으로 기간 계산
-        today = datetime.date.today()
-        yesterday_start, yesterday_end = get_date_range("yesterday")
-        last_7days_start, last_7days_end = get_date_range("7days")
-        last_30days_start, last_30days_end = get_date_range("30days")
-        last_3months_start, last_3months_end = get_date_range("3months")
-
-        # 순이익 계산
-        profit_yesterday = calculate_profit_for_period(yesterday_start, yesterday_end, supabase)
-        profit_7days = calculate_profit_for_period(last_7days_start, last_7days_end, supabase)
-        profit_30days = calculate_profit_for_period(last_30days_start, last_30days_end, supabase)
-        profit_3months = calculate_profit_for_period(last_3months_start, last_3months_end, supabase)
+        # --- [삭제됨] 1. 어제, 7일, 30일, 3개월 총 순이익 블록 (모든 상품) ---
+        # 요청에 따라 해당 섹션(제목, 4개 블록, 구분선)을 모두 제거합니다.
         
-        # 결과 표시 (가로 정렬)
-        col_y, col_7, col_30, col_3m = st.columns(4)
-        display_profit_metric(col_y, "어제 총 순이익", profit_yesterday)
-        display_profit_metric(col_7, "7일간 총 순이익", profit_7days)
-        display_profit_metric(col_30, "30일간 총 순이익", profit_30days)
-        display_profit_metric(col_3m, "3개월간 총 순이익", profit_3months)
-
-        st.markdown("---")
-
         # --- [New] 2. 달력 활용 기간 선택 총 순이익 (모든 상품) ---
         st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
+
+        # 오늘 날짜
+        today = datetime.date.today()
+        # 기본값을 오늘부터 일주일(7일)로 변경
+        last_7days_start, _ = get_date_range("7days") 
 
         date_col1, date_col2 = st.columns(2)
         with date_col1:
             start_date_input = st.date_input("시작 날짜", 
-                                            value=last_3months_start, # 3개월을 기본값으로 사용
+                                            value=last_7days_start, # 7일 전을 기본값으로 사용
                                             key="profit_start_date")
         with date_col2:
             end_date_input = st.date_input("종료 날짜", 
