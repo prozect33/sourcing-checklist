@@ -740,7 +740,7 @@ def main():
                 # 달력 2개 방식
                 date_col1, date_col2 = st.columns(2)
                 with date_col1:
-                    start_date_input = st.date_input("시작 날짜", value=last_7days_start, key="profit_start_date")
+                    start_date_input = st.date_input("시작 날짜", value=today, key="profit_start_date")
                 with date_col2:
                     end_date_input = st.date_input("종료 날짜", value=today, key="profit_end_date")
 
