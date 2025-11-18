@@ -723,9 +723,16 @@ def main():
             for label, (start_d, end_d) in periods.items():
                 profit_val = calculate_profit_for_period(start_d, end_d, supabase)
                 st.markdown(
-                    f"<div style='font-size:18px; margin-bottom:8px;'><b>{label}</b> &nbsp;&nbsp; {profit_val:,}원</div>",
+                st.markdown(
+                    f"""
+                    <div style='font-size:18px; margin-bottom:4px;'>
+                        <span style='display:inline-block; width:50px; font-weight:bold;'>{label}</span>
+                        <span style='display:inline-block; text-align:right; min-width:120px;'>{profit_val:,}원</span>
+                    </div>
+                    """,
                     unsafe_allow_html=True
                 )
+
         with c3:        
                 # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
                 st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
