@@ -724,8 +724,8 @@ def main():
                                 st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
-        c1, c2, c3, c4 = st.columns([0.5, 0.2, 1, 0.7])
-        with c1: 
+        c1, c2, c3, c4 = st.columns([0.2, 0.5, 1, 0.5])
+        with c2: 
             # 각 기간 계산
             periods = {
                 "오늘": get_date_range("today"),
@@ -749,7 +749,7 @@ def main():
                     unsafe_allow_html=True
                 )
 
-        with c3:        
+        with c4:        
                 st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
 
                 today = datetime.date.today()
