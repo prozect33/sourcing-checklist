@@ -745,11 +745,16 @@ def main():
                 )
 
                 # date_range가 (start, end) 튜플로 들어올 때 처리
-                if isinstance(date_range, (list, tuple)) and len(date_range) >= 2:
-                    start_date_input, end_date_input = date_range
+                if isinstance(date_range, (list, tuple)):
+                    if len(date_range) == 2:
+                        start_date_input, end_date_input = date_range
+                    elif len(date_range) == 1:
+                        start_date_input = end_date_input = date_range[0]
+                    else:
+                        start_date_input = end_date_input = today
                 else:
-                    # 혹시 사용자가 한 날짜만 선택한 경우 대비
                     start_date_input = end_date_input = date_range
+
 
             
                 custom_profit = 0
