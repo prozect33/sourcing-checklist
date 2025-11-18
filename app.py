@@ -594,9 +594,27 @@ def main():
                 # 입력 필드: key를 통해 st.session_state에 값을 저장
                 st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
                 st.number_input("광고 매출액", step=1000, key="ad_revenue")
-                st.number_input("광고비용", step=1000, key="ad_cost")
+                st.markdown("---")
+                st.markdown("#### 자연 판매 (자동 계산)")
+
+                # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
+                organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
+                organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
+                
+                # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
+                st.number_input(
+                    "자연 판매 수량",
+                    value=organic_sales_qty_calc,
+                    disabled=True
+                )
+                st.number_input(
+                    "자연 판매 매출액",
+                    value=organic_revenue_calc,
+                    disabled=True
+                )
 
                 # --- 일일 순이익 계산 및 출력 ---
+
                 if selected_product_name != "상품을 선택해주세요" and product_data:
                     current_total_sales_qty = st.session_state.total_sales_qty
                     current_total_revenue = st.session_state.total_revenue
