@@ -228,10 +228,10 @@ def main():
     with tab1:  # 간단 마진 계산기 탭
 
         # 🔹 바깥 2컬럼: 왼쪽은 설정값 패널(가짜 사이드바), 오른쪽은 기존 계산 UI
-        left_space, main_col, right_space = st.columns([1, 3, 1])
+        c1, c2, c3, c4, c5 = st.columns([1, 1, 2, 1, 1])
 
         # === 1) 탭1에서만 보이는 설정값 패널 ===
-        with left_space:
+        with c2:
             st.markdown("### 🛠️ 설정값")
 
             config["FEE_RATE"]       = st.number_input("수수료율 (%)",       value=config.get("FEE_RATE", 10.8), step=0.1, format="%.2f")
@@ -251,7 +251,7 @@ def main():
                 st.success("Supabase에 저장 완료 ✅")
 
         # === 2) 오른쪽: 기존 탭1 UI (계산기) 그대로 ===
-        with main_col:
+        with c4:
                 st.markdown("<div style='margin-left:40px;'>", unsafe_allow_html=True)
                 st.subheader("판매정보 입력")
                 sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
