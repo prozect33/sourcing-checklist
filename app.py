@@ -734,16 +734,23 @@ def main():
         with c3:        
                 # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
                 st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
-                # 오늘 날짜
                 today = datetime.date.today()
-                # 기본값을 오늘부터 일주일(7일)로 변경
                 last_7days_start, _ = get_date_range("7days")
-                date_col1, date_col2 = st.columns(2)
-                with date_col1:
-                    start_date_input = st.date_input("시작 날짜", value=last_7days_start, # 7일 전을 기본값으로 사용
-                                                     key="profit_start_date")
-                with date_col2:
-                    end_date_input = st.date_input("종료 날짜", value=today, key="profit_end_date")
+
+                # 달력 하나에서 기간(시작, 종료) 선택
+                date_range = st.date_input(
+                    "조회 기간",
+                    value=(last_7days_start, today),
+                    key="profit_date_range"
+                )
+
+                # date_range가 (start, end) 튜플로 들어올 때 처리
+                if isinstance(date_range, tuple) and len(date_range) == 2:
+                    start_date_input, end_date_input = date_range
+                else:
+                    # 혹시 사용자가 한 날짜만 선택한 경우 대비
+                    start_date_input = end_date_input = date_range
+
             
                 custom_profit = 0
                 if start_date_input and end_date_input:
