@@ -740,12 +740,12 @@ def main():
                 # 달력 하나에서 기간(시작, 종료) 선택
                 date_range = st.date_input(
                     "조회 기간",
-                    value=(last_7days_start, today),
+                    value=(today, today),
                     key="profit_date_range"
                 )
 
                 # date_range가 (start, end) 튜플로 들어올 때 처리
-                if isinstance(date_range, tuple) and len(date_range) == 2:
+                if isinstance(date_range, (list, tuple)) and len(date_range) >= 2:
                     start_date_input, end_date_input = date_range
                 else:
                     # 혹시 사용자가 한 날짜만 선택한 경우 대비
