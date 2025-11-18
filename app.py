@@ -671,19 +671,24 @@ def main():
                             "daily_revenue": st.session_state.total_revenue,
                             "ad_sales_qty": st.session_state.ad_sales_qty,
                             "ad_revenue": st.session_state.ad_revenue,
-                            "organic_sales_qty": st.session_state.total_sales_qty - st.session_state.ad_sales_qty, # 자연 판매 수량 계산
-                            "organic_revenue": st.session_state.total_revenue - st.session_state.ad_revenue, # 자연 매출액 계산
+                            # 자연 판매 수량/매출액 계산
+                            "organic_sales_qty": st.session_state.total_sales_qty - st.session_state.ad_sales_qty,
+                            "organic_revenue": st.session_state.total_revenue - st.session_state.ad_revenue,
                             "daily_ad_cost": st.session_state.ad_cost,
-                            "daily_profit": daily_profit, # 계산된 순이익 저장
+                            "daily_profit": daily_profit,  # 계산된 순이익 저장
                         }
-                        supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
+
+                        # ✅ 2.txt 원본과 동일하게 p_data로 RPC 호출
+                        supabase.rpc(
+                            "upsert_daily_sales",
+                            {"p_data": data_to_save}
+                        ).execute()
+
                         st.success(f"{report_date} 일일 판매 기록이 저장되었습니다! (순이익: {format_number(daily_profit)}원)")
-                        st.session_state["total_sales_qty"] = 0 # 저장 후 초기화
-                        st.session_state["total_revenue"] = 0
-                        st.session_state["ad_sales_qty"] = 0
-                        st.session_state["ad_revenue"] = 0
-                        st.session_state["ad_cost"] = 0
-                        st.rerun() # 초기화된 상태로 새로고침
+
+                        # ⚠️ 여기서 session_state를 직접 0으로 초기화하지 않는다.
+                        # 필요하면 나중에 별도 '리셋' 버튼에서 reset_inputs() 같이 처리하는 쪽으로.
+
                     except Exception as e:
                         st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
 
