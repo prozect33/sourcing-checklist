@@ -708,15 +708,33 @@ def main():
             "365일": "365days",
         }
         
-        # st.metric을 사용하여 폰트 스타일(크고 굵은 글씨)과 레이블 구조를 아래 수동 조회와 동일하게 맞춥니다.
+        # 기간별 순이익을 한 줄 텍스트 + 금액으로 표시
+        label_map = {
+            "today": "오늘의 모든 상품 총 순이익",
+            "yesterday": "어제의 모든 상품 총 순이익",
+            "7days": "7일간 모든 상품 총 순이익",
+            "30days": "30일간 모든 상품 총 순이익",
+            "90days": "90일간 모든 상품 총 순이익",
+            "180days": "180일간 모든 상품 총 순이익",
+            "365days": "365일간 모든 상품 총 순이익",
+        }
+
         for label, period_key in periods.items():
             start_date, end_date = get_date_range(period_key)
             profit = calculate_profit_for_period(start_date, end_date, supabase)
-            
-            # 레이블 텍스트를 "선택 기간 (날짜 ~ 날짜) 모든 상품 총 순이익" 형식으로 통일
-            metric_label = f"선택 기간 ({start_date} ~ {end_date}) 모든 상품 총 순이익"
-            
-            st.metric(label=metric_label, value=f"{format_number(profit)}원")
+
+            text = label_map.get(period_key, f"{label} 기간 모든 상품 총 순이익")
+
+            # 레이블과 금액을 같은 폰트 크기로 한 줄에 표시
+            st.markdown(
+                f"""
+                <div style="font-size:14px; line-height:1.5;">
+                    {text} {format_number(profit)}원
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
 
         st.markdown("---") # 구분선 추가
         
