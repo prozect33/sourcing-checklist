@@ -706,222 +706,224 @@ def main():
                                 st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+        with c1:
         
-        # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
-        st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
-        # 오늘 날짜
-        today = datetime.date.today()
-        # 기본값을 오늘부터 일주일(7일)로 변경
-        last_7days_start, _ = get_date_range("7days")
-        date_col1, date_col2 = st.columns(2)
-        with date_col1:
-            start_date_input = st.date_input("시작 날짜", value=last_7days_start, # 7일 전을 기본값으로 사용
-                                             key="profit_start_date")
-        with date_col2:
-            end_date_input = st.date_input("종료 날짜", value=today, key="profit_end_date")
+                # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
+                st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
+                # 오늘 날짜
+                today = datetime.date.today()
+                # 기본값을 오늘부터 일주일(7일)로 변경
+                last_7days_start, _ = get_date_range("7days")
+                date_col1, date_col2 = st.columns(2)
+                with date_col1:
+                    start_date_input = st.date_input("시작 날짜", value=last_7days_start, # 7일 전을 기본값으로 사용
+                                                     key="profit_start_date")
+                with date_col2:
+                    end_date_input = st.date_input("종료 날짜", value=today, key="profit_end_date")
             
-        custom_profit = 0
-        if start_date_input and end_date_input:
-            if start_date_input > end_date_input:
-                st.warning("시작 날짜는 종료 날짜보다 빠를 수 없습니다.")
-            else:
-                try:
-                    custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
-                except Exception as e:
-                    st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
+                custom_profit = 0
+                if start_date_input and end_date_input:
+                    if start_date_input > end_date_input:
+                        st.warning("시작 날짜는 종료 날짜보다 빠를 수 없습니다.")
+                    else:
+                        try:
+                            custom_profit = calculate_profit_for_period(start_date_input, end_date_input, supabase)
+                        except Exception as e:
+                            st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
 
-        # 결과 표시 (1번 아래에 배치)
-        st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", value=f"{format_number(custom_profit)}원")
+                # 결과 표시 (1번 아래에 배치)
+                st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", value=f"{format_number(custom_profit)}원")
 
-        # --- 페이지네이션 초기화 및 설정 --- (기존 코드 유지)
-        def reset_page():
-            st.session_state.daily_sales_page = 1
-        if 'daily_sales_page' not in st.session_state:
-            st.session_state.daily_sales_page = 1
-        PAGE_SIZE = 10 # 한 페이지에 표시할 일수 (10일치)
-
-        # --- 상품 목록 로드 ---
-        product_list = ["(상품을 선택해주세요)"]
-        try:
-            response_prods = supabase.table("products").select("product_name").order("product_name").execute()
-            if response_prods.data:
-                product_list.extend([item['product_name'] for item in response_prods.data])
-        except Exception as e:
-            st.warning("상품 목록을 불러올 수 없습니다. 상품 정보를 먼저 저장해주세요.")
-
-        # --- 상품 필터 셀렉트 박스 ---
-        selected_product_filter = st.selectbox(
-            "조회할 상품 선택",
-            product_list,
-            key="sales_status_product_filter",
-            on_change=reset_page # 필터 변경 시 페이지 1로 리셋
-        )
-
-        # 판매 현황 로직 시작
-        try:
-            # 1. 데이터 로드 및 선택된 상품으로 필터링
-            query = supabase.table("daily_sales").select("*").order("date", desc=True)
-            
-            # '상품을 선택해주세요'이 아닌 경우에만 쿼리에 필터 조건 추가
-            if selected_product_filter != "(상품을 선택해주세요)":
-                query = query.eq("product_name", selected_product_filter)
-                
-            response = query.execute()
-            df = pd.DataFrame(response.data)
-
-            if not df.empty:
-                df['date'] = pd.to_datetime(df['date'])
-
-                # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
-                if selected_product_filter != "(상품을 선택해주세요)":
-                    
-                    # 1. 총 합산 계산
-                    total_profit_sum = df['daily_profit'].sum()
-                    total_sales_qty = df['daily_sales_qty'].sum()
-                    total_revenue_sum = df['daily_revenue'].sum()
-                    
-                    # 선택된 상품의 단가 정보를 로드 (ROI/마진율 계산에 필요)
-                    product_data = {}
-                    response_prod = supabase.table("products").select("*").eq("product_name", selected_product_filter).execute()
-                    if response_prod.data:
-                        product_data = response_prod.data[0]
-                    
-                    # 총 순이익금 표시
-                    st.metric(label=f"총 순이익금 ({selected_product_filter})", value=f"{total_profit_sum:,}원")
-                    
-                    try:
-                        # ROI / 마진율 계산에 필요한 총 수량과 단가 로드
-                        total_quantity = product_data.get("quantity", 0) or 1
-                        quantity_for_calc = total_quantity if total_quantity > 0 else 1
-                        unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
-                        unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
-                        unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
-                        unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
-                        inout_shipping_cost = product_data.get("inout_shipping_cost", 0)
-                        fee_rate_db = product_data.get("fee", 0.0)
-
-                        # ROI 분모 = 매입 + 물류 + 관세 + 기타 (총 순이익 블록과 동일)
-                        purchase_cost_total = unit_purchase_cost * total_sales_qty
-                        logistics_total = unit_logistics * total_sales_qty
-                        customs_total = unit_customs * total_sales_qty
-                        etc_total = unit_etc * total_sales_qty
-                        total_cost_sum = purchase_cost_total + logistics_total + customs_total + etc_total # 이익이 아닌 총 원가/비용
-
-                        # ROI / 마진율 계산 (총 순이익 블록)
-                        roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
-                        margin = (total_profit_sum / total_revenue_sum * 100) if total_revenue_sum else 0
-                        
-                        # 표시 블록 (세로 정렬)
-                        st.markdown(
-                            f"""
-                            <div style='color:gray; font-size:14px; line-height:1.6;'>
-                                {total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)<br>
-                                ROI: {roi:.2f}%<br>
-                                마진율: {margin:.2f}%
-                            </div>
-                            """, unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"ROI/마진율 계산 중 오류 발생: {e}")
-                    
-                    st.markdown("---") # 순이익금과 기록 섹션 구분
-                    st.markdown("#### 일일 판매 기록")
-
-                # 2. 페이지네이션 적용 로직
-                total_rows = len(df)
-                total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE
-                
-                if st.session_state.daily_sales_page > total_pages:
-                    st.session_state.daily_sales_page = total_pages
-                if st.session_state.daily_sales_page < 1:
+                # --- 페이지네이션 초기화 및 설정 --- (기존 코드 유지)
+                def reset_page():
                     st.session_state.daily_sales_page = 1
+                if 'daily_sales_page' not in st.session_state:
+                    st.session_state.daily_sales_page = 1
+                PAGE_SIZE = 10 # 한 페이지에 표시할 일수 (10일치)
 
-                start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
-                end_index = start_index + PAGE_SIZE
-                
-                # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
-                df_paged = df.iloc[start_index:end_index].copy()
+                # --- 상품 목록 로드 ---
+                product_list = ["(상품을 선택해주세요)"]
+                try:
+                    response_prods = supabase.table("products").select("product_name").order("product_name").execute()
+                    if response_prods.data:
+                        product_list.extend([item['product_name'] for item in response_prods.data])
+                except Exception as e:
+                    st.warning("상품 목록을 불러올 수 없습니다. 상품 정보를 먼저 저장해주세요.")
 
-                # 3. 컬럼명 변경 및 포맷팅
-                df_display = df_paged.rename(columns={
-                    "date": "날짜",
-                    "product_name": "상품명",
-                    "daily_sales_qty": "전체 수량",
-                    "daily_revenue": "전체 매출액",
-                    "ad_sales_qty": "광고 수량",
-                    "ad_revenue": "광고 매출액",
-                    "organic_sales_qty": "자연 수량",
-                    "organic_revenue": "자연 매출액",
-                    "daily_ad_cost": "일일 광고비",
-                    "daily_profit": "일일 순이익금",
-                    # ROI / 마진율은 그대로 사용 (컬럼명 동일)
-                })
-                df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
-
-                # --- 최종 표시 컬럼 순서 지정 (번호 제거, 요청 순서대로) ---
-                display_cols = [
-                    '날짜',
-                    '상품명',
-                    '전체 매출액',
-                    '광고 매출액',
-                    '자연 매출액',
-                    '일일 광고비',
-                    '일일 순이익금'
-                ]
-
-                # --- 숫자 컬럼 포맷팅 (금액, 수량) ---
-                money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
-                for col in money_cols:
-                    if col in df_display.columns:
-                        df_display[col] = (
-                            df_display[col]
-                            .fillna(0) # NaN 값을 0으로 채움
-                            .apply(lambda x: f"{int(x):,}") # 정수 포맷팅
-                        )
-                
-                # ROI/마진율 포맷팅
-                for col in ['ROI', '마진율']:
-                     if col in df_display.columns:
-                        df_display[col] = (
-                            df_display[col]
-                            .fillna(0.0) # NaN 값을 0.0으로 채움
-                            .apply(lambda x: f"{x:.2f}%") # 소수점 두 자리 및 % 표시
-                        )
-                
-                # 수량 포맷팅
-                qty_cols = ['전체 수량', '광고 수량', '자연 수량']
-                for col in qty_cols:
-                    if col in df_display.columns:
-                        df_display[col] = (
-                            df_display[col]
-                            .fillna(0)
-                            .astype(int)
-                            .apply(lambda x: f"{x:,}개")
-                        )
-                
-                # 4. 최종 데이터프레임 출력
-                st.dataframe(df_display[display_cols], hide_index=True)
-                
-                # 5. 페이지네이션 버튼
-                page_cols = st.columns([1, 1, 1])
-                if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
-                    st.session_state.daily_sales_page -= 1
-                    st.rerun()
-
-                page_cols[1].markdown(
-                    f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
-                    unsafe_allow_html=True
+                # --- 상품 필터 셀렉트 박스 ---
+                selected_product_filter = st.selectbox(
+                    "조회할 상품 선택",
+                    product_list,
+                    key="sales_status_product_filter",
+                    on_change=reset_page # 필터 변경 시 페이지 1로 리셋
                 )
 
-                if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
-                    st.session_state.daily_sales_page += 1
-                    st.rerun()
+                # 판매 현황 로직 시작
+                try:
+                    # 1. 데이터 로드 및 선택된 상품으로 필터링
+                    query = supabase.table("daily_sales").select("*").order("date", desc=True)
+            
+                    # '상품을 선택해주세요'이 아닌 경우에만 쿼리에 필터 조건 추가
+                    if selected_product_filter != "(상품을 선택해주세요)":
+                        query = query.eq("product_name", selected_product_filter)
+                
+                    response = query.execute()
+                    df = pd.DataFrame(response.data)
 
-                st.markdown("---")
+                    if not df.empty:
+                        df['date'] = pd.to_datetime(df['date'])
 
-            else:
-                st.info("아직 저장된 판매 기록이 없습니다.")
-        except Exception as e:
-            st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
+                        # --- 특정 상품 선택 시에만 기록과 총 순이익금 표시 ---
+                        if selected_product_filter != "(상품을 선택해주세요)":
+                    
+                            # 1. 총 합산 계산
+                            total_profit_sum = df['daily_profit'].sum()
+                            total_sales_qty = df['daily_sales_qty'].sum()
+                            total_revenue_sum = df['daily_revenue'].sum()
+                    
+                            # 선택된 상품의 단가 정보를 로드 (ROI/마진율 계산에 필요)
+                            product_data = {}
+                            response_prod = supabase.table("products").select("*").eq("product_name", selected_product_filter).execute()
+                            if response_prod.data:
+                                product_data = response_prod.data[0]
+                    
+                            # 총 순이익금 표시
+                            st.metric(label=f"총 순이익금 ({selected_product_filter})", value=f"{total_profit_sum:,}원")
+                    
+                            try:
+                                # ROI / 마진율 계산에 필요한 총 수량과 단가 로드
+                                total_quantity = product_data.get("quantity", 0) or 1
+                                quantity_for_calc = total_quantity if total_quantity > 0 else 1
+                                unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                                unit_logistics = product_data.get("logistics_cost", 0) / quantity_for_calc
+                                unit_customs = product_data.get("customs_duty", 0) / quantity_for_calc
+                                unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
+                                inout_shipping_cost = product_data.get("inout_shipping_cost", 0)
+                                fee_rate_db = product_data.get("fee", 0.0)
+
+                                # ROI 분모 = 매입 + 물류 + 관세 + 기타 (총 순이익 블록과 동일)
+                                purchase_cost_total = unit_purchase_cost * total_sales_qty
+                                logistics_total = unit_logistics * total_sales_qty
+                                customs_total = unit_customs * total_sales_qty
+                                etc_total = unit_etc * total_sales_qty
+                                total_cost_sum = purchase_cost_total + logistics_total + customs_total + etc_total # 이익이 아닌 총 원가/비용
+
+                                # ROI / 마진율 계산 (총 순이익 블록)
+                                roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
+                                margin = (total_profit_sum / total_revenue_sum * 100) if total_revenue_sum else 0
+                        
+                                # 표시 블록 (세로 정렬)
+                                st.markdown(
+                                    f"""
+                                    <div style='color:gray; font-size:14px; line-height:1.6;'>
+                                        {total_quantity:,} / {total_sales_qty:,} (전체 수량 / 판매 수량)<br>
+                                        ROI: {roi:.2f}%<br>
+                                        마진율: {margin:.2f}%
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                            except Exception as e:
+                                st.error(f"ROI/마진율 계산 중 오류 발생: {e}")
+                    
+                            st.markdown("---") # 순이익금과 기록 섹션 구분
+                            st.markdown("#### 일일 판매 기록")
+
+                        # 2. 페이지네이션 적용 로직
+                        total_rows = len(df)
+                        total_pages = (total_rows + PAGE_SIZE - 1) // PAGE_SIZE
+                
+                        if st.session_state.daily_sales_page > total_pages:
+                            st.session_state.daily_sales_page = total_pages
+                        if st.session_state.daily_sales_page < 1:
+                            st.session_state.daily_sales_page = 1
+
+                        start_index = (st.session_state.daily_sales_page - 1) * PAGE_SIZE
+                        end_index = start_index + PAGE_SIZE
+                
+                        # 페이지에 맞는 데이터프레임 슬라이싱 (10일치)
+                        df_paged = df.iloc[start_index:end_index].copy()
+
+                        # 3. 컬럼명 변경 및 포맷팅
+                        df_display = df_paged.rename(columns={
+                            "date": "날짜",
+                            "product_name": "상품명",
+                            "daily_sales_qty": "전체 수량",
+                            "daily_revenue": "전체 매출액",
+                            "ad_sales_qty": "광고 수량",
+                            "ad_revenue": "광고 매출액",
+                            "organic_sales_qty": "자연 수량",
+                            "organic_revenue": "자연 매출액",
+                            "daily_ad_cost": "일일 광고비",
+                            "daily_profit": "일일 순이익금",
+                            # ROI / 마진율은 그대로 사용 (컬럼명 동일)
+                        })
+                        df_display['날짜'] = df_display['날짜'].dt.strftime('%Y-%m-%d')
+
+                        # --- 최종 표시 컬럼 순서 지정 (번호 제거, 요청 순서대로) ---
+                        display_cols = [
+                            '날짜',
+                            '상품명',
+                            '전체 매출액',
+                            '광고 매출액',
+                            '자연 매출액',
+                            '일일 광고비',
+                            '일일 순이익금'
+                        ]
+
+                        # --- 숫자 컬럼 포맷팅 (금액, 수량) ---
+                        money_cols = ['전체 매출액', '광고 매출액', '자연 매출액', '일일 광고비', '일일 순이익금']
+                        for col in money_cols:
+                            if col in df_display.columns:
+                                df_display[col] = (
+                                    df_display[col]
+                                    .fillna(0) # NaN 값을 0으로 채움
+                                    .apply(lambda x: f"{int(x):,}") # 정수 포맷팅
+                                )
+                
+                        # ROI/마진율 포맷팅
+                        for col in ['ROI', '마진율']:
+                             if col in df_display.columns:
+                                df_display[col] = (
+                                    df_display[col]
+                                    .fillna(0.0) # NaN 값을 0.0으로 채움
+                                    .apply(lambda x: f"{x:.2f}%") # 소수점 두 자리 및 % 표시
+                                )
+                
+                        # 수량 포맷팅
+                        qty_cols = ['전체 수량', '광고 수량', '자연 수량']
+                        for col in qty_cols:
+                            if col in df_display.columns:
+                                df_display[col] = (
+                                    df_display[col]
+                                    .fillna(0)
+                                    .astype(int)
+                                    .apply(lambda x: f"{x:,}개")
+                                )
+                
+                        # 4. 최종 데이터프레임 출력
+                        st.dataframe(df_display[display_cols], hide_index=True)
+                
+                        # 5. 페이지네이션 버튼
+                        page_cols = st.columns([1, 1, 1])
+                        if page_cols[0].button("이전", disabled=(st.session_state.daily_sales_page <= 1), key="prev_page_btn"):
+                            st.session_state.daily_sales_page -= 1
+                            st.rerun()
+
+                        page_cols[1].markdown(
+                            f"<div style='text-align:center; font-size:16px; margin-top:5px;'>페이지 {st.session_state.daily_sales_page} / {total_pages}</div>", 
+                            unsafe_allow_html=True
+                        )
+
+                        if page_cols[2].button("다음", disabled=(st.session_state.daily_sales_page >= total_pages), key="next_page_btn"):
+                            st.session_state.daily_sales_page += 1
+                            st.rerun()
+
+                        st.markdown("---")
+
+                    else:
+                        st.info("아직 저장된 판매 기록이 없습니다.")
+                except Exception as e:
+                    st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
 
 if __name__ == "__main__":
