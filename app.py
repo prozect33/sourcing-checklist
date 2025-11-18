@@ -252,11 +252,10 @@ def main():
 
         # === 2) 오른쪽: 기존 탭1 UI (계산기) 그대로 ===
         with main_col:
-            left, right = st.columns(2)
+            spacer, left, right = st.columns([0.4, 1.6, 2])
 
             # --- 왼쪽: 입력 영역 ---
             with left:
-                st.markdown("<div style='margin-left:40px;'>", unsafe_allow_html=True)
                 st.subheader("판매정보 입력")
                 sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
                 margin_display = st.empty()
@@ -308,8 +307,6 @@ def main():
                 if "show_result" not in st.session_state:
                     st.session_state["show_result"] = False
                 reset_col.button("리셋", on_click=reset_inputs)
-                st.markdown("</div>", unsafe_allow_html=True)
-
             # --- 오른쪽: 결과 영역 ---
             with right:
                 # 탭 1 결과 출력 로직
