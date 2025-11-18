@@ -228,7 +228,7 @@ def main():
     with tab1:  # 간단 마진 계산기 탭
 
         # 🔹 바깥 2컬럼: 왼쪽은 설정값 패널(가짜 사이드바), 오른쪽은 기존 계산 UI
-        sidebar_col, center_col, _ = st.columns([1, 2, 1])
+        sidebar_col, main_col = st.columns([1, 3])
 
         # === 1) 탭1에서만 보이는 설정값 패널 ===
         with sidebar_col:
@@ -256,8 +256,8 @@ def main():
 
             # --- 왼쪽: 입력 영역 ---
             with left:
-                # 📌 [수정된 부분] 제목을 st.markdown으로 변경하여 가운데 정렬
-                st.markdown("<h3 style='text-align: center;'>판매정보 입력</h3>", unsafe_allow_html=True) # <--- 이 줄을 교체합니다.
+                st.markdown("<div style='margin-left:40px;'>", unsafe_allow_html=True)
+                st.subheader("판매정보 입력")
                 sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
                 margin_display = st.empty()
 
@@ -308,6 +308,8 @@ def main():
                 if "show_result" not in st.session_state:
                     st.session_state["show_result"] = False
                 reset_col.button("리셋", on_click=reset_inputs)
+                st.markdown("</div>", unsafe_allow_html=True)
+
             # --- 오른쪽: 결과 영역 ---
             with right:
                 # 탭 1 결과 출력 로직
