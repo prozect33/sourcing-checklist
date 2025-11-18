@@ -307,6 +307,7 @@ def main():
                 st.markdown("</div>", unsafe_allow_html=True)
 
             # --- 오른쪽: 결과 영역 ---
+        with c5:
                 # 탭 1 결과 출력 로직
                 if st.session_state["show_result"]:
                     try:
