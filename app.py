@@ -676,7 +676,7 @@ def main():
                             "daily_ad_cost": st.session_state.ad_cost,
                             "daily_profit": daily_profit, # 계산된 순이익 저장
                         }
-                        supabase.table("daily_sales").upsert(data_to_save).execute()
+                        supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
                         st.success(f"{report_date} 일일 판매 기록이 저장되었습니다! (순이익: {format_number(daily_profit)}원)")
                         st.session_state["total_sales_qty"] = 0 # 저장 후 초기화
                         st.session_state["total_revenue"] = 0
