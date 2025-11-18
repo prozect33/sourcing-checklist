@@ -35,6 +35,7 @@ def reset_inputs():
     if "ad_sales_qty" in st.session_state: st.session_state["ad_sales_qty"] = 0
     if "ad_revenue" in st.session_state: st.session_state["ad_revenue"] = 0
     if "ad_cost" in st.session_state: st.session_state["ad_cost"] = 0
+    if "coupon_unit" in st.session_state: st.session_state["coupon_unit"] = 0
     if "product_select_daily" in st.session_state:
        st.session_state["product_select_daily"] = "상품을 선택해주세요"
 
@@ -88,6 +89,8 @@ if "total_revenue" not in st.session_state: st.session_state["total_revenue"] = 
 if "ad_sales_qty" not in st.session_state: st.session_state["ad_sales_qty"] = 0
 if "ad_revenue" not in st.session_state: st.session_state["ad_revenue"] = 0
 if "ad_cost" not in st.session_state: st.session_state["ad_cost"] = 0
+if "coupon_unit" not in st.session_state: st.session_state["coupon_unit"] = 0
+
 
 
 def load_product_data(selected_product_name):
@@ -588,6 +591,7 @@ def main():
                 # 입력 필드: key를 통해 st.session_state에 값을 저장
                 st.number_input("전체 판매 수량", step=1, key="total_sales_qty")
                 st.number_input("전체 매출액", step=1000, key="total_revenue")
+                st.number_input("개당 쿠폰가 (원)", step=100, key="coupon_unit")
         
                 st.markdown("---")
                 st.markdown("#### 광고 판매")
@@ -598,8 +602,15 @@ def main():
                 st.markdown("#### 자연 판매 (자동 계산)")
 
                 # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
-                organic_sales_qty_calc = max(st.session_state.total_sales_qty - st.session_state.ad_sales_qty, 0)
-                organic_revenue_calc = max(st.session_state.total_revenue - st.session_state.ad_revenue, 0)
+                total_sales_qty = st.session_state.total_sales_qty
+                display_revenue = st.session_state.total_revenue
+                ad_revenue = st.session_state.ad_revenue
+                coupon_unit = st.session_state.get("coupon_unit", 0)
+                coupon_total = coupon_unit * total_sales_qty
+                actual_revenue = max(display_revenue - coupon_total, 0)
+
+                organic_sales_qty_calc = max(total_sales_qty - st.session_state.ad_sales_qty, 0)
+                organic_revenue_calc = max(actual_revenue - ad_revenue, 0)
                 
                 # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
                 st.number_input(
@@ -613,12 +624,16 @@ def main():
                     disabled=True
                 )
 
-                # --- 일일 순이익 계산 및 출력 ---
 
+                # --- 일일 순이익 계산 및 출력 ---
+            
                 if selected_product_name != "상품을 선택해주세요" and product_data:
                     current_total_sales_qty = st.session_state.total_sales_qty
-                    current_total_revenue = st.session_state.total_revenue
+                    display_revenue = st.session_state.total_revenue
                     current_ad_cost = st.session_state.ad_cost
+                    coupon_unit = st.session_state.get("coupon_unit", 0)
+                    coupon_total = coupon_unit * current_total_sales_qty
+                    current_total_revenue = max(display_revenue - coupon_total, 0)
 
                     # 1. 단위 비용 계산
                     quantity_val = product_data.get("quantity", 1)
@@ -644,13 +659,18 @@ def main():
                     # --- 일일 순이익금 출력 ---
                     st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
 
+
                     # --- 일일 순이익 계산 내역 ---
                     if selected_product_name != "상품을 선택해주세요" and product_data:
                         vat = 1.1
                         fee_rate_db = product_data.get("fee", 0.0)
                         current_total_sales_qty = st.session_state.total_sales_qty
-                        current_total_revenue = st.session_state.total_revenue
+                        display_revenue = st.session_state.total_revenue
                         current_ad_cost = st.session_state.ad_cost
+                        coupon_unit = st.session_state.get("coupon_unit", 0)
+                        coupon_total = coupon_unit * current_total_sales_qty
+                        current_total_revenue = max(display_revenue - coupon_total, 0)
+
 
                         # 2. 단위 비용 재계산 (daily_profit 계산 직전에 이미 계산됨, 여기서는 재정의)
                         quantity_val = product_data.get("quantity", 1)
@@ -699,12 +719,13 @@ def main():
                                     "date": report_date.isoformat(),
                                     "product_name": selected_product_name,
                                     "daily_sales_qty": st.session_state.total_sales_qty,
-                                    "daily_revenue": st.session_state.total_revenue,
+                                    "daily_revenue": current_total_revenue,  # 쿠폰 반영된 실제 매출
                                     "ad_sales_qty": st.session_state.ad_sales_qty,
                                     "ad_revenue": st.session_state.ad_revenue,
-                                    # 자연 판매 수량/매출액 계산
+                                    # 자연 판매 수량/매출액 계산 (실제 매출 기준)
                                     "organic_sales_qty": st.session_state.total_sales_qty - st.session_state.ad_sales_qty,
-                                    "organic_revenue": st.session_state.total_revenue - st.session_state.ad_revenue,
+                                    "organic_revenue": max(current_total_revenue - st.session_state.ad_revenue, 0),
+
                                     "daily_ad_cost": st.session_state.ad_cost,
                                     "daily_profit": daily_profit,  # 계산된 순이익 저장
                                 }
