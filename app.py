@@ -354,8 +354,6 @@ def main():
                     col_title, col_button = st.columns([4,1])
                     with col_title:
                         st.markdown("### 📊 계산 결과")
-                    with col_button:
-                        st.button("저장하기", key="save_button_tab1", disabled=True) 
 
                     if cost_display:
                         st.markdown(f"- 🏷️ **원가:** {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ **원가:** {format_number(unit_cost)}원")
