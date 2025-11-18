@@ -389,154 +389,154 @@ def main():
     with tab2: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '상품 정보 입력' 내용
         c1, c2, c3 = st.columns([1, 1, 1])     
         with c2:
-        st.subheader("상품 정보 입력")
+                st.subheader("상품 정보 입력")
         
-        # 상품 목록 로드
-        product_list = ["새로운 상품 입력"]
-        try:
-            response = supabase.table("products").select("product_name").order("product_name").execute()
-            if response.data:
-                saved_products = [item['product_name'] for item in response.data]
-                product_list.extend(saved_products)
-        except Exception as e:
-            st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
+                # 상품 목록 로드
+                product_list = ["새로운 상품 입력"]
+                try:
+                    response = supabase.table("products").select("product_name").order("product_name").execute()
+                    if response.data:
+                        saved_products = [item['product_name'] for item in response.data]
+                        product_list.extend(saved_products)
+                except Exception as e:
+                    st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
 
-        st.selectbox(
-            "저장된 상품 선택 또는 새로 입력",
-            product_list,
-            key="product_loader",
-            on_change=lambda: load_product_data(st.session_state.product_loader)
-        )
+                st.selectbox(
+                    "저장된 상품 선택 또는 새로 입력",
+                    product_list,
+                    key="product_loader",
+                    on_change=lambda: load_product_data(st.session_state.product_loader)
+                )
 
-        st.text_input(
-            "상품명",
-            value=st.session_state.get("product_name_input_default", ""),
-            key="product_name_input",
-            placeholder="예: 무선 이어폰"
-        )
+                st.text_input(
+                    "상품명",
+                    value=st.session_state.get("product_name_input_default", ""),
+                    key="product_name_input",
+                    placeholder="예: 무선 이어폰"
+                )
 
 
-        # 상품 세부 정보 입력
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.text_input("판매가", key="sell_price_input")
-        with col_right:
-            st.text_input("수수료율 (%)", key="fee_rate_input")
-        with col_left:
-            st.text_input("입출고/배송비", key="inout_shipping_cost_input")
-        with col_right:
-            st.text_input("매입비", key="purchase_cost_input")
-        with col_left:
-            st.text_input("수량", key="quantity_input")
+                # 상품 세부 정보 입력
+                col_left, col_right = st.columns(2)
+                with col_left:
+                    st.text_input("판매가", key="sell_price_input")
+                with col_right:
+                    st.text_input("수수료율 (%)", key="fee_rate_input")
+                with col_left:
+                    st.text_input("입출고/배송비", key="inout_shipping_cost_input")
+                with col_right:
+                    st.text_input("매입비", key="purchase_cost_input")
+                with col_left:
+                    st.text_input("수량", key="quantity_input")
 
-        sell_price = safe_int(st.session_state.sell_price_input)
-        fee_rate = safe_float(st.session_state.fee_rate_input)
-        inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
-        purchase_cost = safe_int(st.session_state.purchase_cost_input)
-        quantity = safe_int(st.session_state.quantity_input)
+                sell_price = safe_int(st.session_state.sell_price_input)
+                fee_rate = safe_float(st.session_state.fee_rate_input)
+                inout_shipping_cost = safe_int(st.session_state.inout_shipping_cost_input)
+                purchase_cost = safe_int(st.session_state.purchase_cost_input)
+                quantity = safe_int(st.session_state.quantity_input)
 
-        quantity_for_calc = quantity if quantity > 0 else 1
+                quantity_for_calc = quantity if quantity > 0 else 1
 
-        with col_right:
-            try:
-                unit_purchase_cost = purchase_cost / quantity_for_calc
-            except (ZeroDivisionError, TypeError):
-                unit_purchase_cost = 0
-            st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
-        with col_left:
-            st.text_input("물류비", key="logistics_cost_input")
-        with col_right:
-            st.text_input("관세", key="customs_duty_input")
+                with col_right:
+                    try:
+                        unit_purchase_cost = purchase_cost / quantity_for_calc
+                    except (ZeroDivisionError, TypeError):
+                        unit_purchase_cost = 0
+                    st.text_input("매입단가", value=f"{unit_purchase_cost:,.0f}원", disabled=True)
+                with col_left:
+                    st.text_input("물류비", key="logistics_cost_input")
+                with col_right:
+                    st.text_input("관세", key="customs_duty_input")
 
-        st.text_input("기타", key="etc_cost_input")
+                st.text_input("기타", key="etc_cost_input")
 
-        logistics_cost = safe_int(st.session_state.logistics_cost_input)
-        customs_duty = safe_int(st.session_state.customs_duty_input)
-        etc_cost = safe_int(st.session_state.etc_cost_input)
+                logistics_cost = safe_int(st.session_state.logistics_cost_input)
+                customs_duty = safe_int(st.session_state.customs_duty_input)
+                etc_cost = safe_int(st.session_state.etc_cost_input)
 
-        quantity_to_save = quantity
+                quantity_to_save = quantity
         
-        # 저장/수정/삭제 버튼 로직
-        if st.session_state.is_edit_mode:
-            col_mod, col_del = st.columns(2)
+                # 저장/수정/삭제 버튼 로직
+                if st.session_state.is_edit_mode:
+                    col_mod, col_del = st.columns(2)
 
-            with col_mod:
-                if st.button("수정하기"):
-                    if validate_inputs():
-                        try:
-                            old_name = st.session_state.product_loader
-                            new_name = st.session_state.product_name_input
+                    with col_mod:
+                        if st.button("수정하기"):
+                            if validate_inputs():
+                                try:
+                                    old_name = st.session_state.product_loader
+                                    new_name = st.session_state.product_name_input
 
-                            data_to_update = {
-                                "product_name": new_name,
-                                "sell_price": safe_int(st.session_state.sell_price_input),
-                                "fee": safe_float(st.session_state.fee_rate_input),
-                                "inout_shipping_cost": safe_int(st.session_state.inout_shipping_cost_input),
-                                "purchase_cost": safe_int(st.session_state.purchase_cost_input),
-                                "quantity": safe_int(st.session_state.quantity_input),
-                                "unit_purchase_cost": (
-                                    safe_int(st.session_state.purchase_cost_input) / max(safe_int(st.session_state.quantity_input), 1)
-                                ),
-                                "logistics_cost": safe_int(st.session_state.logistics_cost_input),
-                                "customs_duty": safe_int(st.session_state.customs_duty_input),
-                                "etc_cost": safe_int(st.session_state.etc_cost_input),
-                            }
+                                    data_to_update = {
+                                        "product_name": new_name,
+                                        "sell_price": safe_int(st.session_state.sell_price_input),
+                                        "fee": safe_float(st.session_state.fee_rate_input),
+                                        "inout_shipping_cost": safe_int(st.session_state.inout_shipping_cost_input),
+                                        "purchase_cost": safe_int(st.session_state.purchase_cost_input),
+                                        "quantity": safe_int(st.session_state.quantity_input),
+                                        "unit_purchase_cost": (
+                                            safe_int(st.session_state.purchase_cost_input) / max(safe_int(st.session_state.quantity_input), 1)
+                                        ),
+                                        "logistics_cost": safe_int(st.session_state.logistics_cost_input),
+                                        "customs_duty": safe_int(st.session_state.customs_duty_input),
+                                        "etc_cost": safe_int(st.session_state.etc_cost_input),
+                                    }
 
-                            if old_name != new_name:
-                                # ✅ 이름이 바뀐 경우: 기존 행 update
-                                supabase.rpc(
-                                    "update_product_by_old_name",
-                                    {"old_name": old_name, "p_data": data_to_update}
-                                ).execute()
+                                    if old_name != new_name:
+                                        # ✅ 이름이 바뀐 경우: 기존 행 update
+                                        supabase.rpc(
+                                            "update_product_by_old_name",
+                                            {"old_name": old_name, "p_data": data_to_update}
+                                        ).execute()
 
-                                # ✅ daily_sales 테이블도 이름 동기화
-                                supabase.rpc(
-                                    "update_daily_sales_name",
-                                    {"old_name": old_name, "new_name": new_name}
-                                ).execute()
-                            else:
-                                # ✅ 이름이 같으면 기존 upsert 그대로
-                                supabase.rpc("upsert_product", {"p_data": data_to_update}).execute()
+                                        # ✅ daily_sales 테이블도 이름 동기화
+                                        supabase.rpc(
+                                            "update_daily_sales_name",
+                                            {"old_name": old_name, "new_name": new_name}
+                                        ).execute()
+                                    else:
+                                        # ✅ 이름이 같으면 기존 upsert 그대로
+                                        supabase.rpc("upsert_product", {"p_data": data_to_update}).execute()
+        
+                                    st.success("데이터가 수정되었습니다!")
+                                    st.rerun()
 
-                            st.success("데이터가 수정되었습니다!")
-                            st.rerun()
+                                except Exception as e:
+                                    st.error(f"상품명 수정 중 오류가 발생했습니다: {e}")
 
-                        except Exception as e:
-                            st.error(f"상품명 수정 중 오류가 발생했습니다: {e}")
+                    with col_del:
+                        if st.button("삭제하기"):
+                            try:
+                                product_to_delete = st.session_state.product_name_input
+                                supabase.rpc("delete_product_and_sales", {"p_name": product_to_delete}).execute()
+                                st.success(f"'{product_to_delete}' 상품과 관련된 모든 데이터가 삭제되었습니다!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
 
-            with col_del:
-                if st.button("삭제하기"):
-                    try:
-                        product_to_delete = st.session_state.product_name_input
-                        supabase.rpc("delete_product_and_sales", {"p_name": product_to_delete}).execute()
-                        st.success(f"'{product_to_delete}' 상품과 관련된 모든 데이터가 삭제되었습니다!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
-
-        else:
-            if st.button("상품 저장하기"):
-                if validate_inputs():
-                    try:
-                        data_to_save = {
-                            "product_name": st.session_state.product_name_input,
-                            "sell_price": safe_int(st.session_state.sell_price_input),
-                            "fee": safe_float(st.session_state.fee_rate_input),
-                            "inout_shipping_cost": safe_int(st.session_state.inout_shipping_cost_input),
-                            "purchase_cost": safe_int(st.session_state.purchase_cost_input),
-                            "quantity": safe_int(st.session_state.quantity_input),
-                            "unit_purchase_cost": (
-                                safe_int(st.session_state.purchase_cost_input) / max(safe_int(st.session_state.quantity_input), 1)
-                            ),
-                            "logistics_cost": safe_int(st.session_state.logistics_cost_input),
-                            "customs_duty": safe_int(st.session_state.customs_duty_input),
-                            "etc_cost": safe_int(st.session_state.etc_cost_input),
-                        }
-                        supabase.rpc("upsert_product", {"p_data": data_to_save}).execute()
-                        st.success(f"'{st.session_state.product_name_input}' 상품이 저장(또는 수정)되었습니다!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
+                else:
+                    if st.button("상품 저장하기"):
+                        if validate_inputs():
+                            try:
+                                data_to_save = {
+                                    "product_name": st.session_state.product_name_input,
+                                    "sell_price": safe_int(st.session_state.sell_price_input),
+                                    "fee": safe_float(st.session_state.fee_rate_input),
+                                    "inout_shipping_cost": safe_int(st.session_state.inout_shipping_cost_input),
+                                    "purchase_cost": safe_int(st.session_state.purchase_cost_input),
+                                    "quantity": safe_int(st.session_state.quantity_input),
+                                    "unit_purchase_cost": (
+                                        safe_int(st.session_state.purchase_cost_input) / max(safe_int(st.session_state.quantity_input), 1)
+                                    ),
+                                    "logistics_cost": safe_int(st.session_state.logistics_cost_input),
+                                    "customs_duty": safe_int(st.session_state.customs_duty_input),
+                                    "etc_cost": safe_int(st.session_state.etc_cost_input),
+                                }
+                                supabase.rpc("upsert_product", {"p_data": data_to_save}).execute()
+                                st.success(f"'{st.session_state.product_name_input}' 상품이 저장(또는 수정)되었습니다!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
     with tab3: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '일일 정산' 내용
         st.subheader("일일 정산")
