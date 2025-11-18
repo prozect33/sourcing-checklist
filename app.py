@@ -744,19 +744,22 @@ def main():
                     key="profit_date_range"
                 )
 
-                # date_range가 (start, end) 튜플로 들어올 때 처리
+                # 👉 날짜 둘 다 선택되기 전에는 아무 것도 하지 않도록 처리
+                start_date_input = None
+                end_date_input = None
+
                 if isinstance(date_range, (list, tuple)):
                     if len(date_range) == 2:
                         start_date_input, end_date_input = date_range
-                    elif len(date_range) == 1:
-                        start_date_input = end_date_input = date_range[0]
                     else:
-                        start_date_input = end_date_input = today
+                        # 날짜 하나만 선택된 상태: 아직 기간 미완성 → 그냥 패스
+                        start_date_input = None
+                        end_date_input = None
                 else:
-                    start_date_input = end_date_input = date_range
+                    # 단일 날짜가 들어오는 경우도 무시
+                    start_date_input = None
+                    end_date_input = None
 
-
-            
                 custom_profit = 0
                 if start_date_input and end_date_input:
                     if start_date_input > end_date_input:
