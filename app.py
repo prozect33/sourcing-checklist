@@ -707,7 +707,23 @@ def main():
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.5, 0.2, 1, 0.5])
-        with c1:     
+        with c1: 
+            st.markdown("### 📌 기간별 순이익")
+            # 각 기간 계산
+            periods = {
+                "오늘": get_date_range("today"),
+                "어제": get_date_range("yesterday"),
+                "7일": get_date_range("7days"),
+                "30일": get_date_range("30days"),
+                "90일": get_date_range("90days"),
+                "180일": get_date_range("180days"),
+                "365일": get_date_range("365days"),
+            }
+
+            for label, (start_d, end_d) in periods.items():
+                profit_val = calculate_profit_for_period(start_d, end_d, supabase)
+                st.markdown(f"**{label} 순이익**")
+                st.markdown(f"<div style='font-size:18px; margin-bottom:10px;'>{profit_val:,}원</div>", unsafe_allow_html=True)
                 st.markdown("#### 🗓️ 기간별 모든 상품 순이")
         with c3:        
                 # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
