@@ -732,33 +732,17 @@ def main():
                 )
 
         with c3:        
-                # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
                 st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
+
                 today = datetime.date.today()
                 last_7days_start, _ = get_date_range("7days")
 
-                # 달력 하나에서 기간(시작, 종료) 선택
-                date_range = st.date_input(
-                    "조회 기간",
-                    value=(today, today),
-                    key="profit_date_range"
-                )
-
-                # 👉 날짜 둘 다 선택되기 전에는 아무 것도 하지 않도록 처리
-                start_date_input = None
-                end_date_input = None
-
-                if isinstance(date_range, (list, tuple)):
-                    if len(date_range) == 2:
-                        start_date_input, end_date_input = date_range
-                    else:
-                        # 날짜 하나만 선택된 상태: 아직 기간 미완성 → 그냥 패스
-                        start_date_input = None
-                        end_date_input = None
-                else:
-                    # 단일 날짜가 들어오는 경우도 무시
-                    start_date_input = None
-                    end_date_input = None
+                # 달력 2개 방식
+                date_col1, date_col2 = st.columns(2)
+                with date_col1:
+                    start_date_input = st.date_input("시작 날짜", value=last_7days_start, key="profit_start_date")
+                with date_col2:
+                    end_date_input = st.date_input("종료 날짜", value=today, key="profit_end_date")
 
                 custom_profit = 0
                 if start_date_input and end_date_input:
@@ -770,8 +754,11 @@ def main():
                         except Exception as e:
                             st.error(f"지정 기간 순이익 계산 중 오류가 발생했습니다: {e}")
 
-                # 결과 표시 (1번 아래에 배치)
-                st.metric(label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익", value=f"{format_number(custom_profit)}원")
+                st.metric(
+                    label=f"선택 기간 ({start_date_input} ~ {end_date_input}) 모든 상품 총 순이익",
+                    value=f"{format_number(custom_profit)}원"
+                )
+
 
                 # --- 페이지네이션 초기화 및 설정 --- (기존 코드 유지)
                 def reset_page():
