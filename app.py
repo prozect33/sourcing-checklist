@@ -252,11 +252,12 @@ def main():
 
         # === 2) 오른쪽: 기존 탭1 UI (계산기) 그대로 ===
         with main_col:
-            left, right = st.columns([3 ,2])
+            spacer, left, right = st.columns([1, 2, 2])
 
             # --- 왼쪽: 입력 영역 ---
             with left:
-                st.subheader("판매정보 입력")
+                # 📌 [수정된 부분] 제목을 st.markdown으로 변경하여 가운데 정렬
+                st.markdown("<h3 style='text-align: center;'>판매정보 입력</h3>", unsafe_allow_html=True) # <--- 이 줄을 교체합니다.
                 sell_price_raw = st.text_input("판매가 (원)", key="sell_price_raw")
                 margin_display = st.empty()
 
