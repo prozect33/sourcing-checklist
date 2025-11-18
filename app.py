@@ -387,7 +387,8 @@ def main():
 
 
     with tab2: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '상품 정보 입력' 내용
-        c1, c2, c3 = st.columns([1, 1, 1])        
+        c1, c2, c3 = st.columns([1, 1, 1])     
+        with c2:
         st.subheader("상품 정보 입력")
         
         # 상품 목록 로드
