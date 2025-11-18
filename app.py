@@ -252,7 +252,7 @@ def main():
 
         # === 2) 오른쪽: 기존 탭1 UI (계산기) 그대로 ===
         with main_col:
-            spacer, left, right = st.columns([3 ,2])
+            left, right = st.columns([3 ,2])
 
             # --- 왼쪽: 입력 영역 ---
             with left:
