@@ -598,6 +598,8 @@ def main():
                 # 입력 필드: key를 통해 st.session_state에 값을 저장
                 st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
                 st.number_input("광고 매출액", step=1000, key="ad_revenue")
+                st.number_input("광고비용", step=1000, key="ad_cost")
+            
                 st.markdown("---")
                 st.markdown("#### 자연 판매 (자동 계산)")
 
