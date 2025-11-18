@@ -721,35 +721,6 @@ def main():
         st.markdown("---") # 구분선 추가
         
         # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
-
-        # 4개의 컬럼을 사용하여 기간별 순이익을 표시
-        cols = st.columns(4) 
-        col_index = 0
-        
-        for label, period_key in periods.items():
-            start_date, end_date = get_date_range(period_key)
-            # calculate_profit_for_period 함수를 사용하여 순이익 계산
-            profit = calculate_profit_for_period(start_date, end_date, supabase)
-            
-            # 깔끔한 텍스트 출력 형식 (박스 미사용)
-            # 순이익이 0 이상이면 붉은색(#f63366), 아니면 회색(#888888)
-            profit_color = "#f63366" if profit >= 0 else "#888888"
-            
-            # 각 기간별 순이익을 마크다운으로 깔끔하게 표시
-            cols[col_index].markdown(
-                f"""
-                <p style="margin: 0 0 5px 0; font-size: 14px; line-height: 1.5;">
-                    <strong style="color: #444;">{label}:</strong> 
-                    <span style="color: {profit_color}; font-weight: bold; font-size: 16px;">{format_number(profit)}원</span>
-                </p>
-                """, unsafe_allow_html=True
-            )
-            
-            col_index = (col_index + 1) % 4 # 다음 컬럼으로 이동 (4개 컬럼 순환)
-
-        st.markdown("---") # 구분선 추가
-        
-        # --- [기존 코드 유지] 🗓️ 기간별 모든 상품 순이익 조회 ---
         st.markdown("#### 🗓️ 기간별 모든 상품 순이익 조회")
         # 오늘 날짜
         today = datetime.date.today()
