@@ -723,7 +723,6 @@ def main():
             for label, (start_d, end_d) in periods.items():
                 profit_val = calculate_profit_for_period(start_d, end_d, supabase)
                 st.markdown(
-                st.markdown(
                     f"""
                     <div style='font-size:18px; margin-bottom:4px;'>
                         <span style='display:inline-block; width:50px; font-weight:bold;'>{label}</span>
