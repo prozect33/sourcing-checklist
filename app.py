@@ -228,7 +228,7 @@ def main():
     with tab1:  # 간단 마진 계산기 탭
 
         # 🔹 바깥 2컬럼: 왼쪽은 설정값 패널(가짜 사이드바), 오른쪽은 기존 계산 UI
-        sidebar_col, main_col = st.columns([1, 3])
+        sidebar_col, center_col, _ = st.columns([1, 2, 1])
 
         # === 1) 탭1에서만 보이는 설정값 패널 ===
         with sidebar_col:
@@ -252,7 +252,7 @@ def main():
 
         # === 2) 오른쪽: 기존 탭1 UI (계산기) 그대로 ===
         with main_col:
-            spacer, left, right = st.columns([1, 2, 2])
+            left, right = st.columns(2)
 
             # --- 왼쪽: 입력 영역 ---
             with left:
