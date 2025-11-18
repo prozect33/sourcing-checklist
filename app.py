@@ -231,7 +231,7 @@ def main():
         c1, c2, c3, c4, c5 = st.columns([1, 1, 2, 1, 1])
 
         # === 1) 탭1에서만 보이는 설정값 패널 ===
-        with c2:
+        with c1:
             st.markdown("### 🛠️ 설정값")
 
             config["FEE_RATE"]       = st.number_input("수수료율 (%)",       value=config.get("FEE_RATE", 10.8), step=0.1, format="%.2f")
