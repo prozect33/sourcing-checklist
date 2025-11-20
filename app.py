@@ -976,34 +976,18 @@ def main():
                         ]
 
                         # ── 순이익 + ROI(%) 표시 ──
-                        # ROI 계산식은 tab4 상단 총합 ROI 계산과 동일하게:
-                        #   ROI = 순이익 ÷ (매입 + 물류 + 관세 + 기타) × 100
-                        if selected_product_filter != "(상품을 선택해주세요)" and product_data:
-                            quantity_val = product_data.get("quantity", 1) or 1
-                            quantity_for_calc = quantity_val if quantity_val > 0 else 1
-
-                            unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
-                            unit_logistics     = product_data.get("logistics_cost", 0) / quantity_for_calc
-                            unit_customs       = product_data.get("customs_duty", 0) / quantity_for_calc
-                            unit_etc           = product_data.get("etc_cost", 0) / quantity_for_calc
-
-                            base_unit_cost = unit_purchase_cost + unit_logistics + unit_customs + unit_etc
-
-                            roi_vals = []
-                            for profit, qty in zip(profit_vals, sales_qty_vals):
-                                invest = base_unit_cost * qty
-                                if invest > 0:
-                                    roi_vals.append(round(profit / invest * 100))
-                                else:
-                                    roi_vals.append(0)
-                        else:
-                            # 상품 선택 안 했을 때는 ROI 0 처리
-                            roi_vals = [0] * len(profit_vals)
+                        # 위에서 계산한 전체 기간 ROI(roi)를 그대로 사용
+                        try:
+                            roi_int = round(roi)
+                        except NameError:
+                            # 혹시라도 roi가 정의되지 않은 상황(상품 미선택 등) 대비
+                            roi_int = 0
 
                         df_display["순이익"] = [
-                            f"{int(p):,}({roi}%)"
-                            for p, roi in zip(profit_vals, roi_vals)
+                            f"{int(p):,}({roi_int}%)"
+                            for p in profit_vals
                         ]
+
 
                         # ROI / 마진율 컬럼이 따로 있을 경우 포맷 (있으면 그대로 유지)
                         for col in ['ROI', '마진율']:
@@ -1015,8 +999,11 @@ def main():
                                 )
 
                         # 4. 최종 데이터프레임 출력
-                        st.dataframe(df_display[display_cols], hide_index=True)
-
+                        st.dataframe(
+                            df_display[display_cols],
+                            hide_index=True,
+                            use_container_width=True,  # 화면 가로 전체 사용
+                        )
                 
                         # 5. 페이지네이션 버튼
                         page_cols = st.columns([1, 1, 1])
