@@ -708,7 +708,6 @@ def main():
             
                     st.markdown("---")
                     
-                    # --- 일일 판매 기록 저장 로직 ---
                 # --- 일일 판매 기록 저장 로직 ---
                 if st.button("판매 기록 저장"):
                     if selected_product_name == "상품을 선택해주세요":
