@@ -707,8 +707,8 @@ def main():
                         )
             
                     st.markdown("---")
-
-                    # --- 일일 판매 기록 저장 로직
+                    
+                    # --- 일일 판매 기록 저장 로직 ---
                     if st.button("판매 기록 저장"):
                         if selected_product_name == "상품을 선택해주세요":
                             st.error("상품을 먼저 선택해야 판매 기록을 저장할 수 있습니다.")
@@ -716,35 +716,62 @@ def main():
                             st.error("전체 판매 수량과 매출액을 입력해야 저장할 수 있습니다.")
                         else:
                             try:
-                                # 이미 계산된 daily_profit을 포함하여 저장
+                                current_total_sales_qty = st.session_state.total_sales_qty
+
+                                # ✅ ROI 계산용 단위 원가 (매입 + 물류 + 관세 + 기타)
+                                quantity_val = product_data.get("quantity", 1) or 1
+                                quantity_for_calc = quantity_val if quantity_val > 0 else 1
+
+                                unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                                unit_logistics     = product_data.get("logistics_cost", 0) / quantity_for_calc
+                                unit_customs       = product_data.get("customs_duty", 0) / quantity_for_calc
+                                unit_etc           = product_data.get("etc_cost", 0) / quantity_for_calc
+
+                                base_unit_cost = (
+                                    unit_purchase_cost
+                                    + unit_logistics
+                                    + unit_customs
+                                    + unit_etc
+                                )
+
+                                invest_for_day = base_unit_cost * current_total_sales_qty
+
+                                if invest_for_day > 0:
+                                    daily_roi = round(daily_profit / invest_for_day * 100)
+                                else:
+                                    daily_roi = 0
+
+                                # ✅ daily_roi까지 포함해서 저장
                                 data_to_save = {
                                     "date": report_date.isoformat(),
                                     "product_name": selected_product_name,
-                                    "daily_sales_qty": st.session_state.total_sales_qty,
+                                    "daily_sales_qty": current_total_sales_qty,
                                     "daily_revenue": current_total_revenue,  # 쿠폰 반영된 실제 매출
                                     "ad_sales_qty": st.session_state.ad_sales_qty,
                                     "ad_revenue": st.session_state.ad_revenue,
                                     # 자연 판매 수량/매출액 계산 (실제 매출 기준)
-                                    "organic_sales_qty": st.session_state.total_sales_qty - st.session_state.ad_sales_qty,
+                                    "organic_sales_qty": current_total_sales_qty - st.session_state.ad_sales_qty,
                                     "organic_revenue": max(current_total_revenue - st.session_state.ad_revenue, 0),
 
                                     "daily_ad_cost": st.session_state.ad_cost,
-                                    "daily_profit": daily_profit,  # 계산된 순이익 저장
+                                    "daily_profit": daily_profit,   # 계산된 순이익
+                                    "daily_roi": daily_roi,         # 🔥 새로 저장되는 ROI(%)
                                 }
 
-                                # ✅ 2.txt 원본과 동일하게 p_data로 RPC 호출
                                 supabase.rpc(
                                     "upsert_daily_sales",
                                     {"p_data": data_to_save}
                                 ).execute()
 
-                                st.success(f"{report_date} 일일 판매 기록이 저장되었습니다! (순이익: {format_number(daily_profit)}원)")
-
-                                # ⚠️ 여기서 session_state를 직접 0으로 초기화하지 않는다.
-                                # 필요하면 나중에 별도 '리셋' 버튼에서 reset_inputs() 같이 처리하는 쪽으로.
+                                st.success(
+                                    f"{report_date} 일일 판매 기록이 저장되었습니다! "
+                                    f"(순이익: {format_number(daily_profit)}원, ROI: {daily_roi}%)"
+                                )
 
                             except Exception as e:
                                 st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
+
+
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
@@ -979,14 +1006,19 @@ def main():
                         ]
 
                         # ── 순이익 + ROI(%) 표시 ──
-                        # 위에서 계산한 "해당 상품 전체 기간 ROI"를 그대로 사용
-                        summary_roi = st.session_state.get("summary_roi_for_selected_product", 0.0)
-                        roi_int = round(float(summary_roi))
+                        # daily_sales 테이블에 저장된 daily_roi 사용
+                        if "daily_roi" in df_paged.columns:
+                            roi_vals = df_paged["daily_roi"].fillna(0)
+                            df_display["순이익"] = [
+                                f"{int(p):,}({int(round(r))}%)"
+                                for p, r in zip(profit_vals, roi_vals)
+                            ]
+                        else:
+                            # daily_roi 컬럼이 아직 없거나 과거 데이터인 경우: 순이익만 표시
+                            df_display["순이익"] = profit_vals.astype(int).apply(
+                                lambda x: f"{x:,}"
+                            )
 
-                        df_display["순이익"] = [
-                            f"{int(p):,}({roi_int}%)"
-                            for p in profit_vals
-                        ]
 
 
 
