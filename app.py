@@ -710,58 +710,39 @@ def main():
                     
                     # --- 일일 판매 기록 저장 로직 ---
                     if st.button("판매 기록 저장"):
-                        if selected_product_name == "상품을 선택해주세요":
-                            st.error("상품을 먼저 선택해야 판매 기록을 저장할 수 있습니다.")
-                        elif st.session_state.total_sales_qty == 0 or st.session_state.total_revenue == 0:
-                            st.error("전체 판매 수량과 매출액을 입력해야 저장할 수 있습니다.")
-                        else:
-                            try:
-                                current_total_sales_qty = st.session_state.total_sales_qty
+                        current_total_sales_qty = st.session_state.total_sales_qty
 
-                                # ✅ ROI 계산용 단위 원가 (매입 + 물류 + 관세 + 기타)
-                                quantity_val = product_data.get("quantity", 1) or 1
-                                quantity_for_calc = quantity_val if quantity_val > 0 else 1
+                        # ROI 계산
+                        quantity_val = product_data.get("quantity", 1) or 1
+                        quantity_for_calc = quantity_val if quantity_val > 0 else 1
 
-                                unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
-                                unit_logistics     = product_data.get("logistics_cost", 0) / quantity_for_calc
-                                unit_customs       = product_data.get("customs_duty", 0) / quantity_for_calc
-                                unit_etc           = product_data.get("etc_cost", 0) / quantity_for_calc
+                        unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                        unit_logistics     = product_data.get("logistics_cost", 0) / quantity_for_calc
+                        unit_customs       = product_data.get("customs_duty", 0) / quantity_for_calc
+                        unit_etc           = product_data.get("etc_cost", 0) / quantity_for_calc
 
-                                base_unit_cost = (
-                                    unit_purchase_cost
-                                    + unit_logistics
-                                    + unit_customs
-                                    + unit_etc
-                                )
+                        base_unit_cost = unit_purchase_cost + unit_logistics + unit_customs + unit_etc
 
-                                invest_for_day = base_unit_cost * current_total_sales_qty
+                        invest_for_day = base_unit_cost * current_total_sales_qty
 
-                                if invest_for_day > 0:
-                                    daily_roi = round(daily_profit / invest_for_day * 100)
-                                else:
-                                    daily_roi = 0
+                        daily_roi = round(daily_profit / invest_for_day * 100) if invest_for_day > 0 else 0
 
-                                # ✅ daily_roi까지 포함해서 저장
-                                data_to_save = {
-                                    "date": report_date.isoformat(),
-                                    "product_name": selected_product_name,
-                                    "daily_sales_qty": current_total_sales_qty,
-                                    "daily_revenue": current_total_revenue,  # 쿠폰 반영된 실제 매출
-                                    "ad_sales_qty": st.session_state.ad_sales_qty,
-                                    "ad_revenue": st.session_state.ad_revenue,
-                                    # 자연 판매 수량/매출액 계산 (실제 매출 기준)
-                                    "organic_sales_qty": current_total_sales_qty - st.session_state.ad_sales_qty,
-                                    "organic_revenue": max(current_total_revenue - st.session_state.ad_revenue, 0),
+                        data_to_save = {
+                            "date": report_date.isoformat(),
+                            "product_name": selected_product_name,
+                            "daily_sales_qty": current_total_sales_qty,
+                            "daily_revenue": current_total_revenue,
+                            "ad_sales_qty": st.session_state.ad_sales_qty,
+                            "ad_revenue": st.session_state.ad_revenue,
+                            "organic_sales_qty": current_total_sales_qty - st.session_state.ad_sales_qty,
+                            "organic_revenue": max(current_total_revenue - st.session_state.ad_revenue, 0),
+                            "daily_ad_cost": st.session_state.ad_cost,
+                            "daily_profit": daily_profit,
+                            "daily_roi": daily_roi,   # ←🔥 핵심
+                        }
 
-                                    "daily_ad_cost": st.session_state.ad_cost,
-                                    "daily_profit": daily_profit,   # 계산된 순이익
-                                    "daily_roi": daily_roi,         # 🔥 새로 저장되는 ROI(%)
-                                }
+                        supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
 
-                                supabase.rpc(
-                                    "upsert_daily_sales",
-                                    {"p_data": data_to_save}
-                                ).execute()
 
                                 st.success(
                                     f"{report_date} 일일 판매 기록이 저장되었습니다! "
