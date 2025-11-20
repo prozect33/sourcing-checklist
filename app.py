@@ -218,6 +218,50 @@ def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
     else:
         return today, today # 기본값
 
+def backfill_daily_roi(supabase):
+    resp = supabase.table("daily_sales").select("*").execute()
+    rows = resp.data or []
+
+    for row in rows:
+        if row.get("daily_roi") not in [None, "", 0]:
+            continue
+
+        product_name = row.get("product_name")
+        qty = row.get("daily_sales_qty") or 0
+        profit = row.get("daily_profit") or 0
+
+        if not product_name or qty <= 0:
+            continue
+
+        prod_resp = (
+            supabase.table("products")
+            .select("*")
+            .eq("product_name", product_name)
+            .execute()
+        )
+        if not prod_resp.data:
+            continue
+
+        product_data = prod_resp.data[0]
+        quantity_val = product_data.get("quantity", 1) or 1
+        quantity_for_calc = quantity_val if quantity_val > 0 else 1
+
+        unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+        unit_logistics     = product_data.get("logistics_cost", 0) / quantity_for_calc
+        unit_customs       = product_data.get("customs_duty", 0) / quantity_for_calc
+        unit_etc           = product_data.get("etc_cost", 0) / quantity_for_calc
+
+        base_unit_cost = unit_purchase_cost + unit_logistics + unit_customs + unit_etc
+
+        invest = base_unit_cost * qty
+        roi = round(profit / invest * 100) if invest > 0 else 0
+
+        supabase.table("daily_sales") \
+            .update({"daily_roi": roi}) \
+            .eq("date", row["date"]) \
+            .eq("product_name", product_name) \
+            .execute()
+
 # Note: display_profit_metric 함수는 박스형 출력 요청이 없어 제거되었습니다.
 # --- [End of New Functions] ---
 
@@ -772,6 +816,13 @@ def main():
 
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
+        if st.button("ROI 과거 기록 전부 채우기"):
+            backfill_daily_roi(supabase)
+            st.success("과거 daily_sales 모든 행에 ROI 채웠습니다.")
+    c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
+    with c2:
+        ...
+ 
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
         with c2: 
             # 각 기간 계산
