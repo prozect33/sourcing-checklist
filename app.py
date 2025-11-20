@@ -913,8 +913,8 @@ def main():
                         df_display = df_paged.rename(columns={
                             "date": "날짜",
                             "product_name": "상품명",
-                            "daily_sales_qty": "전체 판매량",
-                            "daily_revenue": "전체 매출액",
+                            "daily_sales_qty": "판매량",
+                            "daily_revenue": "매출액",
                             "ad_sales_qty": "광고 수량",
                             "ad_revenue": "광고 매출액",
                             "organic_sales_qty": "자연 수량",
@@ -927,60 +927,85 @@ def main():
                         # 날짜 포맷: 25-11-19 형식
                         df_display['날짜'] = df_display['날짜'].dt.strftime('%y-%m-%d')
 
-                        # 최종 표시 컬럼 순서
+                        # 최종 표시 컬럼 순서 (제목 줄여서 폭 확보)
                         display_cols = [
                             '날짜',
                             '상품명',
-                            '전체 판매량',
-                            '전체 매출액',
+                            '판매량',
+                            '매출액',
                             '광고 매출액',
                             '자연 매출액',
                             '광고비',
                             '순이익',
                         ]
 
-                        # ── 계산용 원본 값들 (df_paged 기준, 숫자 유지) ──
+                        # ── 계산용 원본 값들 (df_paged 기준, 숫자 그대로 사용) ──
+                        sales_qty_vals       = df_paged["daily_sales_qty"].fillna(0)
                         total_revenue_vals   = df_paged["daily_revenue"].fillna(0)
                         ad_revenue_vals      = df_paged["ad_revenue"].fillna(0)
                         organic_revenue_vals = df_paged["organic_revenue"].fillna(0)
                         ad_cost_vals         = df_paged["daily_ad_cost"].fillna(0)
-                        sales_qty_vals       = df_paged["daily_sales_qty"].fillna(0)
                         profit_vals          = df_paged["daily_profit"].fillna(0)
 
-                        # 전체 판매량: 쉼표만
-                        df_display["전체 판매량"] = sales_qty_vals.astype(int).apply(
+                        # 판매량: 쉼표만
+                        df_display["판매량"] = sales_qty_vals.astype(int).apply(
                             lambda x: f"{x:,}"
                         )
 
-                        # 전체 매출액: 금액(원)만 콤마
-                        df_display["전체 매출액"] = total_revenue_vals.astype(int).apply(
+                        # 매출액: 금액(원)만 콤마
+                        df_display["매출액"] = total_revenue_vals.astype(int).apply(
                             lambda x: f"{x:,}"
                         )
 
                         # 광고 매출액: 금액 + 전체 매출 대비 비중
                         df_display["광고 매출액"] = [
-                            f"{int(ad):,}({round(ad / tot * 100, 1)}%)" if tot > 0 else f"{int(ad):,}(0%)"
+                            f"{int(ad):,}({round(ad / tot * 100) if tot > 0 else 0}%)"
                             for ad, tot in zip(ad_revenue_vals, total_revenue_vals)
                         ]
 
                         # 자연 매출액: 금액 + 전체 매출 대비 비중
                         df_display["자연 매출액"] = [
-                            f"{int(org):,}({round(org / tot * 100, 1)}%)" if tot > 0 else f"{int(org):,}(0%)"
+                            f"{int(org):,}({round(org / tot * 100) if tot > 0 else 0}%)"
                             for org, tot in zip(organic_revenue_vals, total_revenue_vals)
                         ]
 
                         # 광고비: 금액 + ROAS (광고 매출 / 광고비)
                         df_display["광고비"] = [
-                            f"{int(cost):,}({round(ad / cost * 100, 1)}%)" if cost > 0 else f"{int(cost):,}(0%)"
+                            f"{int(cost):,}({round(ad / cost * 100) if cost > 0 else 0}%)"
                             for cost, ad in zip(ad_cost_vals, ad_revenue_vals)
                         ]
 
-                        # 순이익: 금액(원)만 콤마
-                        df_display["순이익"] = profit_vals.astype(int).apply(
-                            lambda x: f"{x:,}"
-                        )
+                        # ── 순이익 + ROI(%) 표시 ──
+                        # ROI 계산식은 tab4 상단 총합 ROI 계산과 동일하게:
+                        #   ROI = 순이익 ÷ (매입 + 물류 + 관세 + 기타) × 100
+                        if selected_product_filter != "(상품을 선택해주세요)" and product_data:
+                            quantity_val = product_data.get("quantity", 1) or 1
+                            quantity_for_calc = quantity_val if quantity_val > 0 else 1
 
-                        # ROI / 마진율 포맷 (컬럼이 존재할 때만 처리)
+                            unit_purchase_cost = product_data.get("purchase_cost", 0) / quantity_for_calc
+                            unit_logistics     = product_data.get("logistics_cost", 0) / quantity_for_calc
+                            unit_customs       = product_data.get("customs_duty", 0) / quantity_for_calc
+                            unit_etc           = product_data.get("etc_cost", 0) / quantity_for_calc
+
+                            base_unit_cost = unit_purchase_cost + unit_logistics + unit_customs + unit_etc
+
+                            roi_vals = []
+                            for profit, qty in zip(profit_vals, sales_qty_vals):
+                                invest = base_unit_cost * qty
+                                if invest > 0:
+                                    roi_vals.append(round(profit / invest * 100))
+                                else:
+                                    roi_vals.append(0)
+                        else:
+                            # 상품 선택 안 했을 때는 ROI 0 처리
+                            roi_vals = [0] * len(profit_vals)
+
+                        df_display["순이익"] = [
+                            f"{int(p):,}({roi}%)"
+                            for p, roi in zip(profit_vals, roi_vals)
+                        ]
+
+                        # ROI / 마진율 컬럼이 따로 있을 경우 포맷 (있으면 그대로 유지)
                         for col in ['ROI', '마진율']:
                             if col in df_display.columns:
                                 df_display[col] = (
