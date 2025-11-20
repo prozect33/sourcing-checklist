@@ -878,7 +878,10 @@ def main():
                                 # ROI / 마진율 계산 (총 순이익 블록)
                                 roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
                                 margin = (total_profit_sum / total_revenue_sum * 100) if total_revenue_sum else 0
-                        
+                                
+                                # 👉 아래 한 줄 추가
+                                st.session_state["summary_roi_for_selected_product"] = roi            
+                                
                                 # 표시 블록 (세로 정렬)
                                 st.markdown(
                                     f"""
@@ -976,17 +979,15 @@ def main():
                         ]
 
                         # ── 순이익 + ROI(%) 표시 ──
-                        # 위에서 계산한 전체 기간 ROI(roi)를 그대로 사용
-                        try:
-                            roi_int = round(roi)
-                        except NameError:
-                            # 혹시라도 roi가 정의되지 않은 상황(상품 미선택 등) 대비
-                            roi_int = 0
+                        # 위에서 계산한 "해당 상품 전체 기간 ROI"를 그대로 사용
+                        summary_roi = st.session_state.get("summary_roi_for_selected_product", 0.0)
+                        roi_int = round(float(summary_roi))
 
                         df_display["순이익"] = [
                             f"{int(p):,}({roi_int}%)"
                             for p in profit_vals
                         ]
+
 
 
                         # ROI / 마진율 컬럼이 따로 있을 경우 포맷 (있으면 그대로 유지)
