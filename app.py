@@ -903,10 +903,7 @@ def main():
                                 # ROI / 마진율 계산 (총 순이익 블록)
                                 roi = (total_profit_sum / total_cost_sum * 100) if total_cost_sum else 0
                                 margin = (total_profit_sum / total_revenue_sum * 100) if total_revenue_sum else 0
-                                
-                                # 👉 아래 한 줄 추가
-                                st.session_state["summary_roi_for_selected_product"] = roi            
-                                
+                                                                
                                 # 표시 블록 (세로 정렬)
                                 st.markdown(
                                     f"""
@@ -1016,18 +1013,6 @@ def main():
                             df_display["순이익"] = profit_vals.astype(int).apply(
                                 lambda x: f"{x:,}"
                             )
-
-
-
-
-                        # ROI / 마진율 컬럼이 따로 있을 경우 포맷 (있으면 그대로 유지)
-                        for col in ['ROI', '마진율']:
-                            if col in df_display.columns:
-                                df_display[col] = (
-                                    df_display[col]
-                                    .fillna(0.0)
-                                    .apply(lambda x: f"{float(x):.2f}%")
-                                )
 
                         # 4. 최종 데이터프레임 출력
                         st.dataframe(
