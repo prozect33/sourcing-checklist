@@ -352,7 +352,8 @@ def main():
                     margin_ratio = round((margin_profit / supply_price2) * 100, 2)
                     roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                     roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
-                    roas = round((sell_price / ad) * 100, 2) if ad else 0
+                    margin_rate_decimal = margin_ratio / 100
+                    be_roas = round((1 / margin_rate_decimal) * 100, 2) if margin_rate_decimal > 0 else 0
 
                     col_title, col_button = st.columns([4,1])
                     with col_title:
@@ -366,7 +367,7 @@ def main():
                     st.markdown(f"- 📈 **마진율:** {margin_ratio:.2f}%")
                     st.markdown(f"- 🧾 **최소 이익:** {format_number(profit2)}원 / ROI: {roi:.2f}%")
                     st.markdown(f"- 📉 **최소마진율:** {(profit2/supply_price2*100):.2f}%")
-                    st.markdown(f"- 📊 **ROAS:** {roas:.2f}%")
+                    st.markdown(f"- 📊 **손익분기 ROAS:** {be_roas:.2f}%")
 
                     with st.expander("📦 상세 비용 항목 보기", expanded=False):
                         def styled_line(label, value):
