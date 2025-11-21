@@ -522,6 +522,7 @@ def main():
                         if validate_inputs():
                             try:
                                 data_to_save = {
+                                    "created_at": datetime.datetime.now().isoformat(),
                                     "product_name": st.session_state.product_name_input,
                                     "sell_price": safe_int(st.session_state.sell_price_input),
                                     "fee": safe_float(st.session_state.fee_rate_input),
