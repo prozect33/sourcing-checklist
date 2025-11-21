@@ -606,13 +606,22 @@ def main():
                 # 계산 로직: 입력 필드의 현재 세션 상태 값을 사용하여 계산
                 total_sales_qty = st.session_state.total_sales_qty
                 display_revenue = st.session_state.total_revenue
-                ad_revenue = st.session_state.ad_revenue
+                ad_sales_qty = st.session_state.ad_sales_qty
+                ad_revenue_input = st.session_state.ad_revenue
                 coupon_unit = st.session_state.get("coupon_unit", 0)
+
+                # 전체 매출에서 쿠폰 차감 → 실매출
                 coupon_total = coupon_unit * total_sales_qty
                 actual_revenue = max(display_revenue - coupon_total, 0)
 
-                organic_sales_qty_calc = max(total_sales_qty - st.session_state.ad_sales_qty, 0)
-                organic_revenue_calc = max(actual_revenue - ad_revenue, 0)
+                # 광고 쪽에 해당하는 쿠폰 금액 차감 → 광고 매출(쿠폰 반영 후)
+                ad_coupon_total = coupon_unit * ad_sales_qty
+                ad_revenue_after_coupon = max(ad_revenue_input - ad_coupon_total, 0)
+
+                # 자연 판매는 수량/매출 모두 '남은 것'으로 자동 계산
+                organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
+                organic_revenue_calc = max(actual_revenue - ad_revenue_after_coupon, 0)
+
                 
                 # 출력 필드: 계산된 값을 value로 설정하고 disabled=True
                 st.number_input(
@@ -717,6 +726,22 @@ def main():
                     else:
                         try:
                             current_total_sales_qty = st.session_state.total_sales_qty
+                            display_revenue = st.session_state.total_revenue
+                            ad_sales_qty = st.session_state.ad_sales_qty
+                            ad_revenue_input = st.session_state.ad_revenue
+                            coupon_unit = st.session_state.get("coupon_unit", 0)
+
+                            # 전체 실매출 (쿠폰 차감 후)
+                            coupon_total = coupon_unit * current_total_sales_qty
+                            current_total_revenue = max(display_revenue - coupon_total, 0)
+
+                            # 광고 매출도 쿠폰 반영 후 기준으로 보정
+                            ad_coupon_total = coupon_unit * ad_sales_qty
+                            ad_revenue_after_coupon = max(ad_revenue_input - ad_coupon_total, 0)
+
+                            # 자연 판매 수량/매출은 남은 값으로 계산
+                            organic_sales_qty = max(current_total_sales_qty - ad_sales_qty, 0)
+                            organic_revenue = max(current_total_revenue - ad_revenue_after_coupon, 0)
 
                             # ROI 계산용 단위 원가 (매입 + 물류 + 관세 + 기타)
                             quantity_val = product_data.get("quantity", 1) or 1
@@ -745,15 +770,16 @@ def main():
                                 "date": report_date.isoformat(),
                                 "product_name": selected_product_name,
                                 "daily_sales_qty": current_total_sales_qty,
-                                "daily_revenue": current_total_revenue,
-                                "ad_sales_qty": st.session_state.ad_sales_qty,
-                                "ad_revenue": st.session_state.ad_revenue,
-                                "organic_sales_qty": current_total_sales_qty - st.session_state.ad_sales_qty,
-                                "organic_revenue": max(current_total_revenue - st.session_state.ad_revenue, 0),
+                                "daily_revenue": current_total_revenue,      # 쿠폰 반영된 실매출
+                                "ad_sales_qty": ad_sales_qty,
+                                "ad_revenue": ad_revenue_after_coupon,      # ✅ 쿠폰 반영 후 광고 매출
+                                "organic_sales_qty": organic_sales_qty,
+                                "organic_revenue": organic_revenue,         # ✅ 쿠폰 반영 후 자연 매출
                                 "daily_ad_cost": st.session_state.ad_cost,
                                 "daily_profit": daily_profit,
-                                "daily_roi": daily_roi,   # ROI 같이 저장
+                                "daily_roi": daily_roi,
                             }
+
 
                             supabase.rpc(
                                 "upsert_daily_sales",
