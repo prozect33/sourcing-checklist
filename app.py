@@ -278,7 +278,7 @@ def main():
                         target_cost = max(0, int(raw_cost2))
                         yuan_cost = round((target_cost / config['EXCHANGE_RATE']) , 2)
                         profit = sell_price_val - (
-                            round(target_cost * vat) + fee + inout_cost + packaging_cost + gift_cost
+                            target_cost + fee + inout_cost + packaging_cost + gift_cost
                         )
                         margin_display.markdown(
                             f"""
