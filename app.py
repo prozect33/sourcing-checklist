@@ -348,7 +348,24 @@ def main():
                     margin_ratio = round((margin_profit / sell_price) * 100, 2)
                     roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                     roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
-                    margin_rate_decimal = margin_ratio / 100
+                    # 손익분기 ROAS를 탭3/일일정산 방식으로 다시 계산
+                    unit_cost_exact = unit_cost_val * qty
+                    fee_exact = sell_price * config["FEE_RATE"] / 100 * vat
+                    inout_exact = config["INOUT_COST"] * vat
+                    etc_exact = sell_price * config["ETC_RATE"] / 100 * vat
+                    packaging_exact = config["PACKAGING_COST"] * vat
+                    gift_exact = config["GIFT_COST"] * vat
+
+                    margin_profit_exact = sell_price - (
+                        unit_cost_exact
+                        + fee_exact
+                        + inout_exact
+                        + packaging_exact
+                        + gift_exact
+                        + etc_exact
+                    )
+
+                    margin_rate_decimal = margin_profit_exact / sell_price if sell_price > 0 else 0
                     be_roas = round((1 / margin_rate_decimal) * 100, 2) if margin_rate_decimal > 0 else 0
 
                     col_title, col_button = st.columns([4,1])
