@@ -568,32 +568,36 @@ def main():
                     if selected_product_name == "상품을 선택해주세요":
                         st.info("먼저 상품을 선택해주세요.")
                     elif product_data:
+                        # 기본 값들
                         display_qty = product_data.get('quantity') or 0
-                        qty_for_calc = display_qty if display_qty > 0 else 1
+                        qty = display_qty if display_qty > 0 else 1
 
                         sell_price = product_data.get("sell_price", 0) or 0
                         fee_rate = product_data.get("fee", 0.0) or 0.0
-                        unit_purchase = product_data.get("unit_purchase_cost", 0) or 0
                         inout_shipping = product_data.get("inout_shipping_cost", 0) or 0
-                        logistics_total = product_data.get("logistics_cost", 0) or 0
-                        customs_total = product_data.get("customs_duty", 0) or 0
 
-                        # 개당 물류비 / 개당 관세
-                        unit_logistics = logistics_total / qty_for_calc
-                        unit_customs = customs_total / qty_for_calc
+                        # 개당 비용들
+                        unit_purchase = product_data.get("unit_purchase_cost", 0) or 0
+                        unit_logistics = (product_data.get("logistics_cost", 0) or 0) / qty
+                        unit_customs = (product_data.get("customs_duty", 0) or 0) / qty
 
-                        # 광고 제외 마진 기준 손익분기 ROAS
+                        # VAT: 수수료, 입출고만 1.1
+                        fee_per_unit = sell_price * (fee_rate / 100) * 1.1
+                        inout_per_unit = inout_shipping * 1.1
+
+                        # 광고/반품/기타 제외 마진 (탭1 기준과 동일)
                         margin_profit_unit = sell_price - (
-                            sell_price * fee_rate / 100
-                            + inout_shipping
+                            fee_per_unit
+                            + inout_per_unit
                             + unit_purchase
                             + unit_logistics
                             + unit_customs
                         )
 
-                        margin_rate_unit = (margin_profit_unit / sell_price) if sell_price > 0 else 0
+                        margin_rate_unit = margin_profit_unit / sell_price if sell_price > 0 else 0
                         break_even_roas = round((1 / margin_rate_unit) * 100, 2) if margin_rate_unit > 0 else 0
 
+                        # 출력
                         st.markdown(f"**판매가:** {sell_price:,}원")
                         st.markdown(f"**수수료율:** {fee_rate:.2f}%")
                         st.markdown(f"**매입비:** {product_data.get('purchase_cost', 0):,}원")
@@ -604,9 +608,9 @@ def main():
                         st.markdown(f"**관세:** {product_data.get('customs_duty', 0):,}원")
                         st.markdown(f"**기타:** {product_data.get('etc_cost', 0):,}원")
                         st.markdown(f"**손익분기 ROAS:** {break_even_roas:.2f}%")
-
                     else:
                         st.info("선택된 상품의 상세 정보가 없습니다.")
+
                         
                 report_date = st.date_input("날짜 선택", datetime.date.today())
                 st.markdown("---")
