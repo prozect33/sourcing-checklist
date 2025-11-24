@@ -273,11 +273,8 @@ def main():
                         etc_cost = round(sell_price_val * config['ETC_RATE'] / 100)
                         packaging_cost = round(config['PACKAGING_COST'] * vat)
                         gift_cost = round(config['GIFT_COST'] * vat)
-                        supply_price = sell_price_val / vat
                         C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
-                        raw_cost2 = sell_price_val \
-                                    - supply_price * (target_margin / 100) \
-                                    - C_total_fixed_cost
+                        raw_cost2 = sell_price_val * (1 - target_margin / 100) - C_total_fixed_cost
                         target_cost = max(0, int(raw_cost2))
                         yuan_cost = round((target_cost / config['EXCHANGE_RATE']) , 2)
                         profit = sell_price_val - (
@@ -347,9 +344,8 @@ def main():
                     gift = round(config["GIFT_COST"] * vat)
                     total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                     profit2 = sell_price - total_cost
-                    supply_price2 = sell_price / vat
                     margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)
-                    margin_ratio = round((margin_profit / supply_price2) * 100, 2)
+                    margin_ratio = round((margin_profit / sell_price) * 100, 2)
                     roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
                     roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                     margin_rate_decimal = margin_ratio / 100
@@ -366,7 +362,7 @@ def main():
                     st.markdown(f"- 💰 **마진:** {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
                     st.markdown(f"- 📈 **마진율:** {margin_ratio:.2f}%")
                     st.markdown(f"- 🧾 **최소 이익:** {format_number(profit2)}원 / ROI: {roi:.2f}%")
-                    st.markdown(f"- 📉 **최소마진율:** {(profit2/supply_price2*100):.2f}%")
+                    st.markdown(f"- 📉 **최소마진율:** {(profit2 / sell_price * 100):.2f}%")
                     st.markdown(f"- 📊 **손익분기 ROAS:** {be_roas:.2f}%")
 
                     with st.expander("📦 상세 비용 항목 보기", expanded=False):
@@ -384,9 +380,8 @@ def main():
                         st.markdown(styled_line("포장비:", f"{format_number(packaging)}원"), unsafe_allow_html=True)
                         st.markdown(styled_line("사은품 비용:", f"{format_number(gift)}원"), unsafe_allow_html=True)
                         st.markdown(styled_line("총비용:", f"{format_number(total_cost)}원"), unsafe_allow_html=True)
-                        st.markdown(styled_line("공급가액:", f"{format_number(round(supply_price2))}원"), unsafe_allow_html=True)
                         st.markdown(styled_line("최소 이익:", f"{format_number(profit2)}원"), unsafe_allow_html=True)
-                        st.markdown(styled_line("최소마진율:", f"{(profit2/supply_price2*100):.2f}%"), unsafe_allow_html=True)
+                        st.markdown(styled_line("최소마진율:", f"{(profit2/sell_price*100):.2f}%"), unsafe_allow_html=True)
                         st.markdown(styled_line("투자수익률:", f"{roi:.2f}%"), unsafe_allow_html=True)
 
 
@@ -1078,4 +1073,4 @@ if __name__ == "__main__":
     if "unit_yuan" not in st.session_state: st.session_state["unit_yuan"] = ""
     if "unit_won" not in st.session_state: st.session_state["unit_won"] = ""
     if "qty_raw" not in st.session_state: st.session_state["qty_raw"] = ""
-    main()	
+    main()
