@@ -270,7 +270,7 @@ def main():
                         ad_fee = round((sell_price_val * config['AD_RATE'] / 100) * vat)
                         inout_cost = round(config['INOUT_COST'] * vat)
                         return_cost = round((config['PICKUP_COST'] + config['RESTOCK_COST']) * (config['RETURN_RATE'] / 100) * vat)
-                        etc_cost = round(sell_price_val * config['ETC_RATE'] / 100)
+                        etc_cost = round((sell_price_val * config['ETC_RATE'] / 100) * vat)
                         packaging_cost = round(config['PACKAGING_COST'] * vat)
                         gift_cost = round(config['GIFT_COST'] * vat)
                         C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
@@ -339,7 +339,7 @@ def main():
                     pickup = round(config["PICKUP_COST"])
                     restock = round(config["RESTOCK_COST"])
                     return_cost = round((pickup + restock) * (config["RETURN_RATE"] / 100) * vat)
-                    etc = round((sell_price * config["ETC_RATE"] / 100))
+                    etc = round((sell_price * config["ETC_RATE"] / 100) * vat)
                     packaging = round(config["PACKAGING_COST"] * vat)
                     gift = round(config["GIFT_COST"] * vat)
                     total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
