@@ -201,6 +201,10 @@ def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
         # 오늘 포함 7일: 오늘 - 6일 = 시작일
         start_date = today - datetime.timedelta(days=6)
         return start_date, today
+    elif period == "15days":
+        # 오늘 포함 15일: 오늘 - 14일 = 시작일
+        start_date = today - datetime.timedelta(days=14)
+        return start_date, today
     elif period == "30days":
         # 오늘 포함 30일: 오늘 - 29일 = 시작일
         start_date = today - datetime.timedelta(days=29)
@@ -850,6 +854,7 @@ def main():
                 "오늘": get_date_range("today"),
                 "어제": get_date_range("yesterday"),
                 "7일": get_date_range("7days"),
+                "15일": get_date_range("15days"),
                 "30일": get_date_range("30days"),
                 "90일": get_date_range("90days"),
                 "180일": get_date_range("180days"),
