@@ -629,6 +629,17 @@ def main():
                         st.markdown(f"**관세:** {product_data.get('customs_duty', 0):,}원")
                         st.markdown(f"**기타:** {product_data.get('etc_cost', 0):,}원")
                         st.markdown(f"**손익분기 ROAS:** {break_even_roas:.2f}%")
+                        target_margin_rate = 0.15
+
+                        target_profit_unit = sell_price * target_margin_rate
+                        allowable_ad_cost_unit = margin_profit_unit - target_profit_unit
+
+                        if allowable_ad_cost_unit > 0:
+                            target_roas_15 = int(round((sell_price / allowable_ad_cost_unit) * 100))
+                        else:
+                            target_roas_15 = 0
+
+                        st.markdown(f"**목표 ROAS (순익 15%) : {target_roas_15}%**")
                     else:
                         st.info("선택된 상품의 상세 정보가 없습니다.")
 
