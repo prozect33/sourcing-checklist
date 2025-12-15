@@ -389,19 +389,20 @@ def main():
                     total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                     profit2 = sell_price - total_cost  # 광고 포함 순이익(=최소 이익)
                     margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)  # 광고 제외 마진
-                    margin_ratio = round((margin_profit / sell_price) * 100, 2)
+                    margin_ratio = round((margin_profit / sell_price) * 100, 2) if sell_price > 0 else 0
                     min_margin_ratio = round((profit2 / sell_price) * 100, 2) if sell_price > 0 else 0
 
                     # 투자금액(분모): 상품에 묶이는 돈만 (광고비 제외)
                     roi_invest_base = unit_cost + packaging + gift + etc + return_cost
 
-                    # ROI(광고 없이): 광고비를 분자에서만 제거
-                    profit_no_ad = sell_price - (total_cost - ad)
+                    # ROI(광고 없이): profit2는 '광고 포함'이므로 ad만 되돌려서 광고 제거
+                    profit_no_ad = profit2 + ad
                     roi = round((profit_no_ad / roi_invest_base) * 100, 2) if roi_invest_base > 0 else 0
 
-                    # 최소 ROI(광고 포함): 광고비 포함 순이익(profit2)을 같은 분모로 나눔
+                    # 최소 ROI(광고 포함)
                     min_roi = round((profit2 / roi_invest_base) * 100, 2) if roi_invest_base > 0 else 0
-                    # 손익분기 ROAS를 탭3/일일정산 방식으로 다시 계산
+
+                    # 손익분기 ROAS: "정밀(exact)" 기준으로 통일 (혼합 제거)
                     unit_cost_exact = unit_cost_val * qty
                     fee_exact = sell_price * config["FEE_RATE"] / 100 * vat
                     inout_exact = config["INOUT_COST"] * vat
@@ -418,8 +419,8 @@ def main():
                         + etc_exact
                     )
 
-                    margin_rate_decimal = margin_profit_exact / sell_price if sell_price > 0 else 0
-                    be_roas = round((sell_price / margin_profit) * 100, 2) if margin_profit > 0 else 0
+                    be_roas = round((sell_price / margin_profit_exact) * 100, 2) if margin_profit_exact > 0 else 0
+
 
                     col_title, col_button = st.columns([4,1])
                     with col_title:
