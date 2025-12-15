@@ -1182,7 +1182,7 @@ def main():
 
         if uploaded:
             try:
-                df = pd.read_excel(uploaded)
+                df = pd.read_excel(uploaded, engine="openpyxl")
                 df = df.where(pd.notnull(df), None)  # NaN -> None
 
                 st.write("미리보기", df.head(10))
