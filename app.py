@@ -406,11 +406,12 @@ def main():
 
                     # 손익분기 ROAS: "정밀(exact)" 기준으로 통일 (혼합 제거)
                     unit_cost_exact = unit_cost_val * qty
-                    fee_exact = sell_price * config["FEE_RATE"] / 100 * vat
-                    inout_exact = config["INOUT_COST"] * vat
-                    etc_exact = sell_price * config["ETC_RATE"] / 100 * vat
-                    packaging_exact = config["PACKAGING_COST"] * vat
-                    gift_exact = config["GIFT_COST"] * vat
+                    fee_exact = won(sell_price * config["FEE_RATE"] / 100 * vat)
+                    inout_exact = won(config["INOUT_COST"] * vat)
+                    etc_exact = won(sell_price * config["ETC_RATE"] / 100 * vat)
+                    packaging_exact = won(config["PACKAGING_COST"] * vat)
+                    gift_exact = won(config["GIFT_COST"] * vat)
+
 
                     margin_profit_exact = sell_price - (
                         unit_cost_exact
