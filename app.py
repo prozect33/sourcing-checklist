@@ -1118,18 +1118,17 @@ def main():
 
                         # 광고 매출액: 금액 + 전체 매출 대비 비중
                         df_display["광고 매출액"] = [
-                            f"{int(ad):,}({round(ad / tot * 100, 2) if tot > 0 else 0:.2f}%)"
+                            f"{int(ad):,}({int(round(ad / tot * 100)) if tot > 0 else 0}%)"
                             for ad, tot in zip(ad_revenue_vals, total_revenue_vals)
                         ]
 
                         df_display["자연 매출액"] = [
-                            f"{int(org):,}({round(org / tot * 100, 2) if tot > 0 else 0:.2f}%)"
+                            f"{int(org):,}({int(round(org / tot * 100)) if tot > 0 else 0}%)"
                             for org, tot in zip(organic_revenue_vals, total_revenue_vals)
                         ]
 
-                        # 광고비: 금액 + ROAS (광고 매출 / 광고비)
                         df_display["광고비"] = [
-                            f"{int(cost):,}({round(ad / cost * 100) if cost > 0 else 0}%)"
+                            f"{int(cost):,}({int(round(ad / cost * 100)) if cost > 0 else 0}%)"
                             for cost, ad in zip(ad_cost_vals, ad_revenue_vals)
                         ]
 
@@ -1144,9 +1143,10 @@ def main():
 
                         else:
                             # daily_roi 컬럼이 아직 없거나 과거 데이터인 경우: 순이익만 표시
-                            df_display["순이익"] = profit_vals.astype(int).apply(
-                                lambda x: f"{x:,}"
-                            )
+                            df_display["순이익"] = [
+                                f"{int(p):,}({int(round(r))}%)"
+                                for p, r in zip(profit_vals, roi_vals)
+                            ]
 
                         # 4. 최종 데이터프레임 출력
                         st.dataframe(
