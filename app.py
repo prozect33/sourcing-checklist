@@ -370,7 +370,7 @@ def main():
                     )
 
                     margin_rate_decimal = margin_profit_exact / sell_price if sell_price > 0 else 0
-                    be_roas = round((1 / margin_rate_decimal) * 100, 2) if margin_rate_decimal > 0 else 0
+                    be_roas = round((sell_price / margin_profit) * 100, 2) if margin_profit > 0 else 0
 
                     col_title, col_button = st.columns([4,1])
                     with col_title:
@@ -617,8 +617,8 @@ def main():
                             + unit_etc
                         )
 
-                        margin_rate_unit = margin_profit_unit / sell_price if sell_price > 0 else 0
-                        margin_rate_pct = (margin_profit_unit / sell_price * 100) if sell_price > 0 else 0
+                        margin_profit_unit_int = int(round(margin_profit_unit))
+                        break_even_roas = round((sell_price / margin_profit_unit_int) * 100, 2) if margin_profit_unit_int > 0 else 0
                         break_even_roas = round((1 / margin_rate_unit) * 100, 2) if margin_rate_unit > 0 else 0
 
                         # 출력
