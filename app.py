@@ -734,7 +734,7 @@ def main():
                         - (unit_etc * current_total_sales_qty)
                         - (current_ad_cost * 1.1)
                     )
-                    daily_profit = round(daily_profit)
+                    daily_profit = won(daily_profit)
             
                     # --- 일일 순이익금 출력 ---
                     st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
