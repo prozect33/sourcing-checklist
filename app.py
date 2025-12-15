@@ -136,7 +136,7 @@ def load_product_data(selected_product_name):
 
 def safe_int(value):
     try:
-        return int(float(value)) if value else 0
+        return won(value) if value not in (None, "") else 0
     except (ValueError, TypeError):
         return 0
 
@@ -301,7 +301,7 @@ def main():
                 if sell_price_raw.strip():
                     try:
                         target_margin = 50.0
-                        sell_price_val = int(float(sell_price_raw))
+                        sell_price_val = safe_int(sell_price_raw)
                         vat = 1.1
                         fee = won((sell_price_val * config['FEE_RATE'] / 100) * vat)
                         ad_fee = won((sell_price_val * config['AD_RATE'] / 100) * vat)
@@ -348,8 +348,9 @@ def main():
                 # 탭 1 결과 출력 로직
                 if st.session_state["show_result"]:
                     try:
-                        sell_price = int(float(st.session_state.get("sell_price_raw", 0)))
-                        qty = int(float(st.session_state.get("qty_raw", 1))) if st.session_state.get("qty_raw") else 1
+                        sell_price = safe_int(st.session_state.get("sell_price_raw", 0))
+                        qty = safe_int(st.session_state.get("qty_raw", 1))
+                if st.session_state.get("qty_raw") else 1
                     except:
                         st.warning("판매가와 수량을 정확히 입력해주세요.")
                         return
