@@ -281,12 +281,13 @@ def main():
                         sell_price_val = int(float(sell_price_raw))
                         vat = 1.1
                         fee = round((sell_price_val * config['FEE_RATE'] / 100) * vat)
-                        ad_fee = round((sell_price_val * config['AD_RATE'] / 100) * vat)
-                        inout_cost = round(config['INOUT_COST'] * vat)
-                        return_cost = round((config['PICKUP_COST'] + config['RESTOCK_COST']) * (config['RETURN_RATE'] / 100) * vat)
-                        etc_cost = round((sell_price_val * config['ETC_RATE'] / 100) * vat)
-                        packaging_cost = round(config['PACKAGING_COST'] * vat)
-                        gift_cost = round(config['GIFT_COST'] * vat)
+                        fee = won((sell_price_val * config['FEE_RATE'] / 100) * vat)
+                        ad_fee = won((sell_price_val * config['AD_RATE'] / 100) * vat)
+                        inout_cost = won(config['INOUT_COST'] * vat)
+                        return_cost = won((config['PICKUP_COST'] + config['RESTOCK_COST']) * (config['RETURN_RATE'] / 100) * vat)
+                        etc_cost = won((sell_price_val * config['ETC_RATE'] / 100) * vat)
+                        packaging_cost = won(config['PACKAGING_COST'] * vat)
+                        gift_cost = won(config['GIFT_COST'] * vat)
                         C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                         raw_cost2 = sell_price_val * (1 - target_margin / 100) - C_total_fixed_cost
                         target_cost = max(0, int(raw_cost2))
@@ -351,12 +352,11 @@ def main():
                     
                     # 비용 계산
                     vat = 1.1
-                    unit_cost = round(unit_cost_val * qty)
                     fee = won((sell_price * config["FEE_RATE"] / 100) * vat)
                     ad = won((sell_price * config["AD_RATE"] / 100) * vat)
                     inout = won(config["INOUT_COST"] * vat)
-                    pickup = round(config["PICKUP_COST"])
-                    restock = round(config["RESTOCK_COST"])
+                    pickup = won(config["PICKUP_COST"])
+                    restock = won(config["RESTOCK_COST"])
                     return_cost = won((pickup + restock) * (config["RETURN_RATE"] / 100) * vat)
                     etc = won((sell_price * config["ETC_RATE"] / 100) * vat)
                     packaging = won(config["PACKAGING_COST"] * vat)
