@@ -1176,8 +1176,7 @@ def main():
                     st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
     with tab5:
-            uploaded = st.file_uploader("엑셀 파일 업로드 (.xlsx)", type=["xlsx"], key="ad_raw_uploader")
-
+        uploaded = st.file_uploader("엑셀 파일 업로드 (.xlsx)", type=["xlsx"], key="ad_raw_uploader")
         if uploaded:
             try:
                 df = pd.read_excel(uploaded, engine="openpyxl")
