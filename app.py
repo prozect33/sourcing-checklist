@@ -1185,9 +1185,6 @@ def main():
                 df = pd.read_excel(uploaded, engine="openpyxl")
                 df = df.where(pd.notnull(df), None)  # NaN -> None
 
-                st.write("미리보기", df.head(10))
-                st.caption(f"행: {len(df):,} / 컬럼: {len(df.columns):,}")
-
                 batch_id = str(uuid.uuid4())
 
                 if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
