@@ -1115,13 +1115,12 @@ def main():
 
                         # 광고 매출액: 금액 + 전체 매출 대비 비중
                         df_display["광고 매출액"] = [
-                            f"{int(ad):,}({round(ad / tot * 100) if tot > 0 else 0}%)"
+                            f"{int(ad):,}({round(ad / tot * 100, 2) if tot > 0 else 0:.2f}%)"
                             for ad, tot in zip(ad_revenue_vals, total_revenue_vals)
                         ]
 
-                        # 자연 매출액: 금액 + 전체 매출 대비 비중
                         df_display["자연 매출액"] = [
-                            f"{int(org):,}({round(org / tot * 100) if tot > 0 else 0}%)"
+                            f"{int(org):,}({round(org / tot * 100, 2) if tot > 0 else 0:.2f}%)"
                             for org, tot in zip(organic_revenue_vals, total_revenue_vals)
                         ]
 
