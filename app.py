@@ -349,11 +349,10 @@ def main():
         with c5:
                 # 탭 1 결과 출력 로직
                 if st.session_state["show_result"]:
-                    try:
-                        sell_price = safe_int(st.session_state.get("sell_price_raw", 0))
-                        qty = safe_int(st.session_state.get("qty_raw", 1))
-                if st.session_state.get("qty_raw") else 1
-                    except:
+                    sell_price = safe_int(st.session_state.get("sell_price_raw", 0))
+                    qty = safe_int(st.session_state.get("qty_raw", 1))
+
+                    if sell_price <= 0 or qty <= 0:
                         st.warning("판매가와 수량을 정확히 입력해주세요.")
                         return
                     
