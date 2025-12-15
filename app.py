@@ -1191,23 +1191,33 @@ def main():
                 batch_id = str(uuid.uuid4())
 
                 if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
-                    # jsonb_array_elements로 돌릴 'json 배열' 만들기: 각 원소가 '한 행'
+                if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
                     rows = [r.to_dict() for _, r in df.iterrows()]
 
-                    res = supabase.rpc(
-                        "insert_ad_raw_upload_batch",
-                        {
-                            "p_filename": uploaded.name,
-                            "p_batch_id": batch_id,
-                            "p_rows": rows
-                        }
-                    ).execute()
+                    CHUNK = 300
+                    total = len(rows)
+                    done = 0
 
-                    st.write(res)  # ← 이 줄 추가 (최초 1회 디버그용)
+                    st.write("저장 시작", batch_id, total)
 
+                    with st.spinner("Supabase에 저장 중..."):
+                        for start in range(0, total, CHUNK):
+                            batch = rows[start:start + CHUNK]
 
-                    saved_cnt = res.data if res.data is not None else 0
-                    st.success(f"저장 완료 ✅ batch_id={batch_id} / {saved_cnt:,} rows")
+                            res = supabase.rpc(
+                                "insert_ad_raw_upload_batch",
+                                {
+                                    "p_filename": uploaded.name,
+                                    "p_batch_id": batch_id,
+                                    "p_rows": batch,
+                                    "p_start_row_no": start
+                                }
+                            ).execute()
+
+                            done += (res.data or 0)
+
+                    st.write("마지막 응답", res)
+                    st.success(f"저장 완료 ✅ batch_id={batch_id} / {done:,} rows")
 
             except Exception as e:
                 st.error(f"업로드/저장 오류: {e}")
