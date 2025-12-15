@@ -390,18 +390,9 @@ def main():
                     profit2 = sell_price - total_cost
                     margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)
                     margin_ratio = round((margin_profit / sell_price) * 100, 2)
-                    # 반품 관련 비용은 '기대값'으로 1번만 포함(중복 방지)
-                    return_related_expected = (pickup + restock) * return_pct
-
-                    # 탭1 ROI 분모: 투자금액(소싱 전 상정 비용)
-                    roi_invest_cost = (
-                        unit_cost
-                        + packaging
-                        + gift
-                        + etc
-                        + return_related_expected
-                    )
-
+                    # ROI 분모(투자금액): 원가 + 포장 + 사은품 + 기타 + 반품(회수+재입고 기대값)
+                    # ※ pickup/restock은 return_cost에 기대값으로 이미 포함되어 있으므로 분모에 따로 더하지 않음(중복 방지)
+                    roi_invest_cost = unit_cost + packaging + gift + etc + return_cost
                     roi = round((profit2 / roi_invest_cost) * 100, 2) if roi_invest_cost > 0 else 0
                     roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                     # 손익분기 ROAS를 탭3/일일정산 방식으로 다시 계산
