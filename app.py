@@ -146,6 +146,16 @@ def safe_float(value):
     except (ValueError, TypeError):
         return 0.0
 
+def won(x) -> int:
+    """
+    원 단위 금액 정수 확정(반올림).
+    금액 라운딩은 전 탭에서 이것만 사용한다.
+    """
+    try:
+        return int(round(float(x)))
+    except (TypeError, ValueError):
+        return 0
+
 def validate_inputs():
     required_fields = {
         "product_name_input": "상품명",
@@ -325,27 +335,32 @@ def main():
                     unit_won_val = st.session_state.get("unit_won")
                     unit_yuan_val = st.session_state.get("unit_yuan")
 
+                    # 단가(실수 유지: 중간 라운딩 금지)
                     if unit_won_val and unit_won_val.strip() != "":
-                        unit_cost_val = round(float(unit_won_val))
+                        unit_cost_val = float(unit_won_val)
                         cost_display = ""
                     elif unit_yuan_val and unit_yuan_val.strip() != "":
-                        unit_cost_val = round(float(unit_yuan_val) * config['EXCHANGE_RATE'])
+                        unit_cost_val = float(unit_yuan_val) * config["EXCHANGE_RATE"]
                         cost_display = f"{unit_yuan_val}위안"
                     else:
-                        unit_cost_val = 0
+                        unit_cost_val = 0.0
+                        cost_display = ""
+
+                    # 총원가(여기서만 1회 원 단위 정수 확정)
+                    unit_cost = won(unit_cost_val * qty)
                     
                     # 비용 계산
                     vat = 1.1
                     unit_cost = round(unit_cost_val * qty)
-                    fee = round((sell_price * config["FEE_RATE"] / 100) * vat)
-                    ad = round((sell_price * config["AD_RATE"] / 100) * vat)
-                    inout = round(config["INOUT_COST"] * vat)
+                    fee = won((sell_price * config["FEE_RATE"] / 100) * vat)
+                    ad = won((sell_price * config["AD_RATE"] / 100) * vat)
+                    inout = won(config["INOUT_COST"] * vat)
                     pickup = round(config["PICKUP_COST"])
                     restock = round(config["RESTOCK_COST"])
-                    return_cost = round((pickup + restock) * (config["RETURN_RATE"] / 100) * vat)
-                    etc = round((sell_price * config["ETC_RATE"] / 100) * vat)
-                    packaging = round(config["PACKAGING_COST"] * vat)
-                    gift = round(config["GIFT_COST"] * vat)
+                    return_cost = won((pickup + restock) * (config["RETURN_RATE"] / 100) * vat)
+                    etc = won((sell_price * config["ETC_RATE"] / 100) * vat)
+                    packaging = won(config["PACKAGING_COST"] * vat)
+                    gift = won(config["GIFT_COST"] * vat)
                     total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                     profit2 = sell_price - total_cost
                     margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)
