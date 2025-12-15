@@ -1135,9 +1135,10 @@ def main():
                         if "daily_roi" in df_paged.columns:
                             roi_vals = df_paged["daily_roi"].fillna(0)
                             df_display["순이익"] = [
-                                f"{int(p):,}({int(round(r))}%)"
+                                f"{int(p):,}({round(r, 2):.2f}%)"
                                 for p, r in zip(profit_vals, roi_vals)
                             ]
+
                         else:
                             # daily_roi 컬럼이 아직 없거나 과거 데이터인 경우: 순이익만 표시
                             df_display["순이익"] = profit_vals.astype(int).apply(
