@@ -389,7 +389,8 @@ def main():
                     total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
                     profit2 = sell_price - total_cost  # 광고 포함 순이익(=최소 이익)
                     margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)  # 광고 제외 마진
-                    margin_ratio = round((margin_profit / sell_price) * 100, 2) if sell_price > 0 else 0
+                    margin_ratio = round((margin_profit / sell_price) * 100, 2)
+                    min_margin_ratio = round((profit2 / sell_price) * 100, 2) if sell_price > 0 else 0
 
                     # 투자금액(분모): 상품에 묶이는 돈만 (광고비 제외)
                     roi_invest_base = unit_cost + packaging + gift + etc + return_cost
