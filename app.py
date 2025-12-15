@@ -601,6 +601,7 @@ def main():
                         unit_purchase = product_data.get("unit_purchase_cost", 0) or 0
                         unit_logistics = (product_data.get("logistics_cost", 0) or 0) / qty
                         unit_customs = (product_data.get("customs_duty", 0) or 0) / qty
+                        unit_etc = (product_data.get("etc_cost", 0) or 0) / qty
 
                         # VAT: 수수료, 입출고만 1.1
                         fee_per_unit = sell_price * (fee_rate / 100) * 1.1
@@ -613,9 +614,11 @@ def main():
                             + unit_purchase
                             + unit_logistics
                             + unit_customs
+                            + unit_etc
                         )
 
                         margin_rate_unit = margin_profit_unit / sell_price if sell_price > 0 else 0
+                        margin_rate_pct = (margin_profit_unit / sell_price * 100) if sell_price > 0 else 0
                         break_even_roas = round((1 / margin_rate_unit) * 100, 2) if margin_rate_unit > 0 else 0
 
                         # 출력
@@ -628,18 +631,8 @@ def main():
                         st.markdown(f"**물류비:** {product_data.get('logistics_cost', 0):,}원")
                         st.markdown(f"**관세:** {product_data.get('customs_duty', 0):,}원")
                         st.markdown(f"**기타:** {product_data.get('etc_cost', 0):,}원")
+                        st.markdown(f"**마진율:** {margin_rate_pct:.2f}%")
                         st.markdown(f"**손익분기 ROAS:** {break_even_roas:.2f}%")
-                        target_margin_rate = 0.15
-
-                        target_profit_unit = sell_price * target_margin_rate
-                        allowable_ad_cost_unit = margin_profit_unit - target_profit_unit
-
-                        if allowable_ad_cost_unit > 0:
-                            target_roas_15 = int(round((sell_price / allowable_ad_cost_unit) * 100))
-                        else:
-                            target_roas_15 = 0
-
-                        st.markdown(f"**목표 ROAS (순익 15%) : {target_roas_15}%**")
                     else:
                         st.info("선택된 상품의 상세 정보가 없습니다.")
 
