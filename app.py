@@ -390,7 +390,16 @@ def main():
                     profit2 = sell_price - total_cost
                     margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)
                     margin_ratio = round((margin_profit / sell_price) * 100, 2)
-                    roi = round((profit2 / unit_cost) * 100, 2) if unit_cost else 0
+                    roi_invest_cost = (
+                        unit_cost
+                        + packaging_cost
+                        + gift_cost
+                        + restock_cost
+                        + return_cost
+                        + pickup_cost
+                        + etc_cost
+                    )
+                    roi = round((profit2 / roi_invest_cost) * 100, 2) if roi_invest_cost > 0 else 0
                     roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
                     # 손익분기 ROAS를 탭3/일일정산 방식으로 다시 계산
                     unit_cost_exact = unit_cost_val * qty
