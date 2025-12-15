@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 import datetime
+import uuid
 from supabase import create_client, Client
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
