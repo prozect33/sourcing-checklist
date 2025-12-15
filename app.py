@@ -156,6 +156,29 @@ def won(x) -> int:
     except (TypeError, ValueError):
         return 0
 
+def cny_to_krw_float(cny_str: str, exchange_rate: float) -> float:
+    """
+    위안화 입력 → 원화 환산만 수행 (float 유지)
+    중간 round / int / won 절대 금지
+    """
+    try:
+        if cny_str is None:
+            return 0.0
+        s = str(cny_str).strip()
+        if s == "":
+            return 0.0
+        return float(s) * float(exchange_rate)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def cny_total_cost_krw(cny_str: str, exchange_rate: float, qty: int) -> int:
+    """
+    위안화 기준 총원가
+    원 단위 정수 확정(won)은 여기서 단 1회만
+    """
+    return won(cny_to_krw_float(cny_str, exchange_rate) * int(qty))
+
 def validate_inputs():
     required_fields = {
         "product_name_input": "상품명",
@@ -340,14 +363,17 @@ def main():
                         unit_cost_val = float(unit_won_val)
                         cost_display = ""
                     elif unit_yuan_val and unit_yuan_val.strip() != "":
-                        unit_cost_val = float(unit_yuan_val) * config["EXCHANGE_RATE"]
+                        unit_cost_val = cny_to_krw_float(unit_yuan_val, config["EXCHANGE_RATE"])  # 환산만(float)
                         cost_display = f"{unit_yuan_val}위안"
                     else:
                         unit_cost_val = 0.0
                         cost_display = ""
 
-                    # 총원가(여기서만 1회 원 단위 정수 확정)
-                    unit_cost = won(unit_cost_val * qty)
+                    # 총원가: 원화 확정은 한 곳에서 단 1회만
+                    unit_cost = won(unit_cost_val * qty)  # 기존 라인 유지(결과 동일)
+                    # 또는 아래로 완전 고정(추천: 실수로 다른 곳에서 won 하지 못하게)
+                    # unit_cost = cny_total_cost_krw(unit_yuan_val, config["EXCHANGE_RATE"], qty) if (unit_yuan_val and unit_yuan_val.strip() != "" and not (unit_won_val and unit_won_val.strip() != "")) else won(unit_cost_val * qty)
+
                     
                     # 비용 계산
                     vat = 1.1
