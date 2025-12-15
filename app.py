@@ -387,14 +387,19 @@ def main():
                     packaging = won(config["PACKAGING_COST"] * vat)
                     gift = won(config["GIFT_COST"] * vat)
                     total_cost = unit_cost + fee + ad + inout + return_cost + etc + packaging + gift
-                    profit2 = sell_price - total_cost
-                    margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)
-                    margin_ratio = round((margin_profit / sell_price) * 100, 2)
-                    # ROI 분모(투자금액): 원가 + 포장 + 사은품 + 기타 + 반품(회수+재입고 기대값)
-                    # ※ pickup/restock은 return_cost에 기대값으로 이미 포함되어 있으므로 분모에 따로 더하지 않음(중복 방지)
-                    roi_invest_cost = unit_cost + packaging + gift + etc + return_cost
-                    roi = round((profit2 / roi_invest_cost) * 100, 2) if roi_invest_cost > 0 else 0
-                    roi_margin = round((margin_profit / unit_cost) * 100, 2) if unit_cost else 0
+                    profit2 = sell_price - total_cost  # 광고 포함 순이익(=최소 이익)
+                    margin_profit = sell_price - (unit_cost + fee + inout + packaging + gift + etc)  # 광고 제외 마진
+                    margin_ratio = round((margin_profit / sell_price) * 100, 2) if sell_price > 0 else 0
+
+                    # 투자금액(분모): 상품에 묶이는 돈만 (광고비 제외)
+                    roi_invest_base = unit_cost + packaging + gift + etc + return_cost
+
+                    # ROI(광고 없이): 광고비를 분자에서만 제거
+                    profit_no_ad = sell_price - (total_cost - ad)
+                    roi = round((profit_no_ad / roi_invest_base) * 100, 2) if roi_invest_base > 0 else 0
+
+                    # 최소 ROI(광고 포함): 광고비 포함 순이익(profit2)을 같은 분모로 나눔
+                    min_roi = round((profit2 / roi_invest_base) * 100, 2) if roi_invest_base > 0 else 0
                     # 손익분기 ROAS를 탭3/일일정산 방식으로 다시 계산
                     unit_cost_exact = unit_cost_val * qty
                     fee_exact = sell_price * config["FEE_RATE"] / 100 * vat
@@ -423,9 +428,9 @@ def main():
                         st.markdown(f"- 🏷️ **원가:** {format_number(unit_cost)}원 ({cost_display})" if unit_cost > 0 else f"- 🏷️ **원가:** {format_number(unit_cost)}원")
                     else:
                         st.markdown(f"- 🏷️ **원가:** {format_number(unit_cost)}원")
-                    st.markdown(f"- 💰 **마진:** {format_number(margin_profit)}원 / ROI: {roi_margin:.2f}%")
+                    st.markdown(f"- 💰 **마진:** {format_number(margin_profit)}원 / ROI: {roi:.2f}%")
                     st.markdown(f"- 📈 **마진율:** {margin_ratio:.2f}%")
-                    st.markdown(f"- 🧾 **최소 이익:** {format_number(profit2)}원 / ROI: {roi:.2f}%")
+                    st.markdown(f"- 🧾 **최소 이익:** {format_number(profit2)}원 / ROI: {min_roi:.2f}%")
                     st.markdown(f"- 📉 **최소마진율:** {(profit2 / sell_price * 100):.2f}%")
                     st.markdown(f"- 📊 **손익분기 ROAS:** {be_roas:.2f}%")
 
