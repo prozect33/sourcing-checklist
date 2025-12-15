@@ -619,7 +619,7 @@ def main():
 
                         margin_profit_unit_int = int(round(margin_profit_unit))
                         break_even_roas = round((sell_price / margin_profit_unit_int) * 100, 2) if margin_profit_unit_int > 0 else 0
-                        break_even_roas = round((1 / margin_rate_unit) * 100, 2) if margin_rate_unit > 0 else 0
+
 
                         # 출력
                         st.markdown(f"**판매가:** {sell_price:,}원")
