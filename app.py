@@ -608,7 +608,6 @@ def main():
                         inout_per_unit = int(round(inout_shipping))
 
                         # 광고/반품/기타 제외 마진 (탭1 기준과 동일)
-                        margin_profit_unit_int = sell_price - (     
                         margin_profit_unit = sell_price - (
                             fee_per_unit
                             + inout_per_unit
