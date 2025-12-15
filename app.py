@@ -280,7 +280,6 @@ def main():
                         target_margin = 50.0
                         sell_price_val = int(float(sell_price_raw))
                         vat = 1.1
-                        fee = round((sell_price_val * config['FEE_RATE'] / 100) * vat)
                         fee = won((sell_price_val * config['FEE_RATE'] / 100) * vat)
                         ad_fee = won((sell_price_val * config['AD_RATE'] / 100) * vat)
                         inout_cost = won(config['INOUT_COST'] * vat)
@@ -290,7 +289,7 @@ def main():
                         gift_cost = won(config['GIFT_COST'] * vat)
                         C_total_fixed_cost = fee + inout_cost + packaging_cost + gift_cost
                         raw_cost2 = sell_price_val * (1 - target_margin / 100) - C_total_fixed_cost
-                        target_cost = max(0, int(raw_cost2))
+                        target_cost = max(0, won(raw_cost2))
                         yuan_cost = round((target_cost / config['EXCHANGE_RATE']) , 2)
                         profit = sell_price_val - (
                             target_cost + fee + inout_cost + packaging_cost + gift_cost
@@ -761,13 +760,14 @@ def main():
                         unit_etc = product_data.get("etc_cost", 0) / quantity_for_calc
 
                         # 3. 총 비용 항목 계산 (daily_profit 계산의 개별 비용 항목)
-                        fee_cost = round(current_total_revenue * fee_rate_db / 100 * vat)
-                        purchase_cost_total = round(unit_purchase_cost * current_total_sales_qty)
-                        inout_shipping_cost_total = round(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
-                        logistics_cost_total = round(unit_logistics * current_total_sales_qty)
-                        customs_cost_total = round(unit_customs * current_total_sales_qty)
-                        etc_cost_total = round(unit_etc * current_total_sales_qty)
-                        ad_cost_total = round(current_ad_cost * vat)
+                        fee_cost = won(current_total_revenue * fee_rate_db / 100 * vat)
+                        purchase_cost_total = won(unit_purchase_cost * current_total_sales_qty)
+                        inout_shipping_cost_total = won(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
+                        logistics_cost_total = won(unit_logistics * current_total_sales_qty)
+                        customs_cost_total = won(unit_customs * current_total_sales_qty)
+                        etc_cost_total = won(unit_etc * current_total_sales_qty)
+                        ad_cost_total = won(current_ad_cost * vat)
+
 
                         # 4. HTML과 Markdown을 결합하여 작은 글씨로 상세 출력 (제목 없이 항목만 세로 나열)
                         st.markdown(
