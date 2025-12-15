@@ -598,17 +598,17 @@ def main():
                         inout_shipping = product_data.get("inout_shipping_cost", 0) or 0
 
                         # 개당 비용들
-                        unit_purchase = product_data.get("unit_purchase_cost", 0) or 0
-                        unit_logistics = (product_data.get("logistics_cost", 0) or 0) / qty
-                        unit_customs = (product_data.get("customs_duty", 0) or 0) / qty
-                        unit_etc = (product_data.get("etc_cost", 0) or 0) / qty
+                        unit_purchase = int(round(product_data.get("unit_purchase_cost", 0) or 0))
+                        unit_logistics = int(round((product_data.get("logistics_cost", 0) or 0) / qty))
+                        unit_customs = int(round((product_data.get("customs_duty", 0) or 0) / qty))
+                        unit_etc = int(round((product_data.get("etc_cost", 0) or 0) / qty))
 
                         # VAT: 수수료, 입출고만 1.1
-                        fee_per_unit = sell_price * (fee_rate / 100) * 1.1
-                        inout_per_unit = inout_shipping * 1.1
+                        fee_per_unit = int(round(sell_price * (fee_rate / 100)))
+                        inout_per_unit = int(round(inout_shipping))
 
                         # 광고/반품/기타 제외 마진 (탭1 기준과 동일)
-                        margin_profit_unit = sell_price - (
+                        margin_profit_unit_int = sell_price - (     
                             fee_per_unit
                             + inout_per_unit
                             + unit_purchase
