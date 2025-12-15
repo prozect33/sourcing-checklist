@@ -1257,7 +1257,6 @@ def main():
 
                 # 전부 통과
                 st.success("✅ 저장 완료")
-                st.session_state["ad_raw_uploader"] = None
 
             except Exception as e:
                 st.error(f"업로드/저장 오류: {e}")
