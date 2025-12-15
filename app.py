@@ -1176,49 +1176,90 @@ def main():
                     st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
     with tab5:
-        uploaded = st.file_uploader("엑셀 파일 업로드 (.xlsx)", type=["xlsx"], key="ad_raw_uploader")
+        st.subheader("광고분석 - 로우데이터 업로드")
+
+        uploaded = st.file_uploader(
+            "엑셀 파일 업로드 (.xlsx)",
+            type=["xlsx"],
+            key="ad_raw_uploader"
+        )
+
         if uploaded:
             try:
+                import hashlib
+
+                # 1) 엑셀 로드
                 df = pd.read_excel(uploaded, engine="openpyxl")
-                df = df.where(pd.notnull(df), None)  # NaN -> None
+                df = df.replace({pd.NA: None, float("nan"): None})
+
+                rows = df.to_dict(orient="records")
+                excel_row_cnt = len(rows)
+                excel_col_cnt = len(df.columns)
 
                 batch_id = str(uuid.uuid4())
 
-                if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
-                    rows = (
-                        df
-                        .replace({pd.NA: None, float("nan"): None})
-                        .to_dict(orient="records")
-                    )
+                # 2) 업로드 즉시 저장 (버튼 없음)
+                CHUNK = 300
+                saved_cnt = 0
 
-                    CHUNK = 300
-                    total = len(rows)
-                    done = 0
+                for start in range(0, excel_row_cnt, CHUNK):
+                    batch = rows[start:start + CHUNK]
 
-                    st.write("저장 시작", batch_id, total)
+                    res = supabase.rpc(
+                        "insert_ad_raw_upload_batch",
+                        {
+                            "p_filename": uploaded.name,
+                            "p_batch_id": batch_id,
+                            "p_rows": batch,
+                            "p_start_row_no": start
+                        }
+                    ).execute()
 
-                    with st.spinner("Supabase에 저장 중..."):
-                        for start in range(0, total, CHUNK):
-                            batch = rows[start:start + CHUNK]
+                    saved_cnt += (res.data or 0)
 
-                            res = supabase.rpc(
-                                "insert_ad_raw_upload_batch",
-                                {
-                                    "p_filename": uploaded.name,
-                                    "p_batch_id": batch_id,
-                                    "p_rows": batch,
-                                    "p_start_row_no": start
-                                }
-                            ).execute()
+                # 3) DB에서 일부 로우 조회 (검증용)
+                db_rows = (
+                    supabase
+                    .table("ad_raw_uploads")
+                    .select("row_no, row_data")
+                    .eq("batch_id", batch_id)
+                    .order("row_no")
+                    .limit(5)
+                    .execute()
+                    .data
+                )
 
-                            done += (res.data or 0)
+                # 검증 ① 행 수
+                if saved_cnt != excel_row_cnt:
+                    st.error("❌ 저장 실패: 행 수 불일치")
+                    st.stop()
 
-                    st.write("마지막 응답", res)
-                    st.success(f"저장 완료 ✅ batch_id={batch_id} / {done:,} rows")
+                # 검증 ② row_no 연속성 (샘플 기준)
+                if [r["row_no"] for r in db_rows] != list(range(1, len(db_rows) + 1)):
+                    st.error("❌ 저장 실패: row_no 불연속")
+                    st.stop()
+
+                # 검증 ③ 컬럼 수
+                if len(db_rows[0]["row_data"].keys()) != excel_col_cnt:
+                    st.error("❌ 저장 실패: 컬럼 수 불일치")
+                    st.stop()
+
+                # 검증 ④ 데이터 해시 (샘플 5행)
+                def row_hash(row):
+                    return hashlib.sha256(
+                        str(sorted(row.items())).encode()
+                    ).hexdigest()
+
+                for i, r in enumerate(db_rows):
+                    if row_hash(rows[i]) != row_hash(r["row_data"]):
+                        st.error("❌ 저장 실패: 데이터 불일치")
+                        st.stop()
+
+                # 전부 통과
+                st.success("✅ 저장 완료")
 
             except Exception as e:
                 st.error(f"업로드/저장 오류: {e}")
-
 
 if __name__ == "__main__":
     # 메인 실행 전에 탭 1의 세션 상태 키 초기화 보장
