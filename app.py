@@ -866,7 +866,7 @@ def main():
                             invest_for_day = base_unit_cost * current_total_sales_qty
 
                             if invest_for_day > 0:
-                                daily_roi = round(daily_profit / invest_for_day * 100)
+                                daily_roi = round(daily_profit / invest_for_day * 100, 2)
                             else:
                                 daily_roi = 0
 
