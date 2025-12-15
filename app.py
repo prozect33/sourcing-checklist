@@ -1203,6 +1203,9 @@ def main():
                         }
                     ).execute()
 
+                    st.write(res)  # ← 이 줄 추가 (최초 1회 디버그용)
+
+
                     saved_cnt = res.data if res.data is not None else 0
                     st.success(f"저장 완료 ✅ batch_id={batch_id} / {saved_cnt:,} rows")
 
