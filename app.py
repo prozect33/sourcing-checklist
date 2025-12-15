@@ -265,7 +265,7 @@ def main():
         st.session_state.show_product_info = False
 
     # 원본 파일의 코드를 4개의 탭으로 분리했습니다.
-    tab1, tab2, tab3, tab4 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석"])
 
     with tab1:  # 간단 마진 계산기 탭
 
@@ -1173,6 +1173,40 @@ def main():
                         st.info("아직 저장된 판매 기록이 없습니다.")
                 except Exception as e:
                     st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
+
+    with tab5:
+        st.subheader("광고분석 - 로우데이터 업로드")
+    
+        uploaded = st.file_uploader("엑셀 파일 업로드 (.xlsx)", type=["xlsx"], key="ad_raw_uploader")
+
+        if uploaded:
+            try:
+                df = pd.read_excel(uploaded)
+                df = df.where(pd.notnull(df), None)  # NaN -> None
+
+                st.write("미리보기", df.head(10))
+                st.caption(f"행: {len(df):,} / 컬럼: {len(df.columns):,}")
+
+                batch_id = str(uuid.uuid4())
+
+                if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
+                    # jsonb_array_elements로 돌릴 'json 배열' 만들기: 각 원소가 '한 행'
+                    rows = [r.to_dict() for _, r in df.iterrows()]
+
+                    res = supabase.rpc(
+                        "insert_ad_raw_upload_batch",
+                        {
+                            "p_filename": uploaded.name,
+                            "p_batch_id": batch_id,
+                            "p_rows": rows
+                        }
+                    ).execute()
+
+                    saved_cnt = res.data if res.data is not None else 0
+                    st.success(f"저장 완료 ✅ batch_id={batch_id} / {saved_cnt:,} rows")
+
+            except Exception as e:
+                st.error(f"업로드/저장 오류: {e}")
 
 
 if __name__ == "__main__":
