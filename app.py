@@ -1191,7 +1191,6 @@ def main():
                 batch_id = str(uuid.uuid4())
 
                 if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
-                if st.button("Supabase에 로우데이터 저장", key="btn_save_ad_raw"):
                     rows = [r.to_dict() for _, r in df.iterrows()]
 
                     CHUNK = 300
