@@ -637,16 +637,15 @@ def main():
                         fee_rate = product_data.get("fee", 0.0) or 0.0
                         inout_shipping = product_data.get("inout_shipping_cost", 0) or 0
 
-                        # 개당 비용들
                         # 개당 비용들 (전부 원 단위 정수로 확정)
-                        unit_purchase  = int(round(product_data.get("unit_purchase_cost", 0) or 0))
-                        unit_logistics = int(round((product_data.get("logistics_cost", 0) or 0) / qty))
-                        unit_customs   = int(round((product_data.get("customs_duty", 0) or 0) / qty))
-                        unit_etc       = int(round((product_data.get("etc_cost", 0) or 0) / qty))
+                        unit_purchase  = won(product_data.get("unit_purchase_cost", 0) or 0)
+                        unit_logistics = won((product_data.get("logistics_cost", 0) or 0) / qty)
+                        unit_customs   = won((product_data.get("customs_duty", 0) or 0) / qty)
+                        unit_etc       = won((product_data.get("etc_cost", 0) or 0) / qty)
 
-                        # 수수료/입출고 (여기도 원 단위 정수로 확정)
-                        fee_per_unit   = int(round(sell_price * (fee_rate / 100) * 1.1))
-                        inout_per_unit = int(round(inout_shipping * 1.1))
+                        fee_per_unit   = won(sell_price * (fee_rate / 100) * 1.1)
+                        inout_per_unit = won(inout_shipping * 1.1)
+
 
                         # 마진(원) = 정수 항목 합으로 계산 → 결과도 자동으로 정수
                         margin_profit_unit = sell_price - (
