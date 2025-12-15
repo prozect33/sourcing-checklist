@@ -136,7 +136,9 @@ def load_product_data(selected_product_name):
 
 def safe_int(value):
     try:
-        return won(value) if value not in (None, "") else 0
+        if value in (None, ""):
+            return 0
+        return won(float(value))
     except (ValueError, TypeError):
         return 0
 
