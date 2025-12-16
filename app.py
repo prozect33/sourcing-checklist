@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import datetime
 import uuid
+from ad_analysis_tab import render_ad_analysis_tab
 from supabase import create_client, Client
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
@@ -1176,8 +1177,7 @@ def main():
                     st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
     with tab5:
-        st.subheader("광고분석")
-        st.info("리셋 완료 후 새로 구성 예정")
+        render_ad_analysis_tab(supabase)
 
 if __name__ == "__main__":
     # 메인 실행 전에 탭 1의 세션 상태 키 초기화 보장
