@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import uuid
 import hashlib
-import matplotlib.pyplot as plt
+import altair as alt
 
 # ====== 고정 컬럼(대표님 확정: 총(14일)) ======
 DATE_COL = "날짜"
@@ -246,15 +246,21 @@ def render_ad_analysis_tab(supabase):
 
         # 그래프 (matplotlib: 세로선 표시)
         st.markdown("### 3) CPC-누적매출 비중 곡선 + 횡보 시작점(CPC_cut)")
-        fig, ax = plt.subplots()
-        ax.plot(conv["cpc"], conv["cum_rev_share"])
-        ax.axvline(x=cpc_cut, linestyle="--")
-        ax.set_xlabel("CPC")
-        ax.set_ylabel("누적 매출 비중")
-        ax.set_title(f"CPC_cut = {cpc_cut}")
-        st.pyplot(fig)
 
-        curve_payload = conv[["keyword", "cpc", "revenue_14d", "cum_rev_share"]].to_dict(orient="records")
+        chart_df = conv[["cpc", "cum_rev_share"]].copy()
+
+        line = alt.Chart(chart_df).mark_line().encode(
+            x=alt.X("cpc:Q", title="CPC"),
+            y=alt.Y("cum_rev_share:Q", title="누적 매출 비중")
+        )
+
+        vline = alt.Chart(
+            pd.DataFrame({"cpc_cut": [cpc_cut]})
+        ).mark_rule(strokeDash=[6, 4]).encode(
+            x="cpc_cut:Q"
+        )
+
+        st.altair_chart(line + vline, use_container_width=True)
 
     st.write({"CPC_cut": cpc_cut})
 
