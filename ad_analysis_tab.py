@@ -225,39 +225,42 @@ def render_ad_analysis_tab(supabase):
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
     def calc_min_order_threshold_from_first_conversion(df):
+    def calc_min_order_threshold_from_first_conversion(df):
         rows = []
 
-    for kwd, g in df.groupby("keyword"):
-        g = g.sort_values("date").copy()
+        for kwd, g in df.groupby("keyword"):
+            g = g.sort_values("date").copy()
 
-        g["cum_orders"] = g["orders_14d"].cumsum()
-        g["active_flag"] = (g["impressions"] > 0).astype(int)
-        g["cum_active_days"] = g["active_flag"].cumsum()
-        g["cum_impr"] = g["impressions"].cumsum()
-        g["cum_clicks"] = g["clicks"].cumsum()
+            if g["orders_14d"].sum() > 0:
+            g["active_flag"] = (g["impressions"] > 0).astype(int)
+            g["cum_active_days"] = g["active_flag"].cumsum()
+            g["cum_impr"] = g["impressions"].cumsum()
+            g["cum_clicks"] = g["clicks"].cumsum()
 
-        hit = g[g["cum_orders"] >= 1]
-        if hit.empty:
-            continue
+            hit = g[g["cum_orders"] >= 1]
+            if hit.empty:
+                continue
 
-        first = hit.iloc[0]
-        rows.append({
-            "active_days": first["cum_active_days"],
-            "impressions": first["cum_impr"],
-            "clicks": first["cum_clicks"],
-        })
+            first = hit.iloc[0]
+            rows.append({
+                "active_days": first["cum_active_days"],
+                "impressions": first["cum_impr"],
+                "clicks": first["cum_clicks"],
+            })
 
-    if not rows:
-        return {"active_days": 0, "impressions": 0, "clicks": 0}
-
-    tdf = pd.DataFrame(rows)
-    return {
-        "active_days": int(tdf["active_days"].median()),
-        "impressions": int(tdf["impressions"].median()),
-        "clicks": int(tdf["clicks"].median()),
-    }
+        if not rows:
+            return {"active_days": 0, "impressions": 0, "clicks": 0}
+    
+        tdf = pd.DataFrame(rows)
+        return {
+            "active_days": int(tdf["active_days"].median()),
+            "impressions": int(tdf["impressions"].median()),
+            "clicks": int(tdf["clicks"].median()),
+        }
 
     # ====== (C) CPC 누적매출 비중 + CPC_cut ======
+    curve_payload = []
+
     conv = kw[kw["orders_14d"] > 0].copy()
     conv = conv.sort_values("cpc", ascending=True)
 
@@ -302,7 +305,7 @@ def render_ad_analysis_tab(supabase):
     # b) 운영≥7일 & 전환 있음 & ROAS < 손익분기
     ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
 
-   # c) 전환0인데 "다음 1클릭 + 다음 1주문"이 발생해도 ROAS ≤ 손익분기
+    # c) 전환0인데 "다음 1클릭 + 다음 1주문"이 발생해도 ROAS ≤ 손익분기
     # - 현재 전환 0 키워드이므로 "현재 매출"은 0으로 가정 (분자에 기존 매출 포함 X)
     # - 다음 1클릭 비용은 (키워드 CPC > 0이면 그 CPC), 아니면 전체 중앙값 CPC 사용
     # - 다음 1주문 매출은 전환키워드의 주문당매출(rev/orders) P50로 가정
@@ -423,7 +426,6 @@ def render_ad_analysis_tab(supabase):
                     "date_max": str(date_max),
                     "file_sha1": file_sha1
                 }},
-                {"run_id": run_id, "artifact_key": "chart_cpc_cumrev", "payload": curve_payload},
                 {"run_id": run_id, "artifact_key": "exclusions", "payload": {
                     "a": ex_a["keyword"].tolist(),
                     "b": ex_b["keyword"].tolist(),
