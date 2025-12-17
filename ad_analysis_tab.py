@@ -345,7 +345,7 @@ def render_ad_analysis_tab(supabase):
         f"""
     **최소 주문 조건**
 
-    - 운영: {best_th["active_days"]}일  
+    - 운영일: {best_th["active_days"]}일  
     - 조회수: {best_th["impressions"]}회  
     - 클릭수: {best_th["clicks"]}회
     """
