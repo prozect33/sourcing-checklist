@@ -225,7 +225,7 @@ def render_ad_analysis_tab(supabase):
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
     def calc_min_order_threshold_from_first_conversion(df):
-    rows = []
+        rows = []
 
     for kwd, g in df.groupby("keyword"):
         g = g.sort_values("date").copy()
@@ -373,7 +373,7 @@ def render_ad_analysis_tab(supabase):
     show_df("a) CPC_cut 이상 전환 0", ex_a)
     show_df("b) 운영일 7일 이상 손익분기 미달", ex_b)
     show_df("c) 전환 시 손익분기 미달", ex_c, extra_cols=["roas_if_1_order"])
-    show_df(f'd) 최소 주문조건 초과 전환 0 / 운영일{best_th["active_days"]}, 조회수{best_th["impressions"]}, 클릭수{best_th["clicks"]}', ex_d)
+    show_df( f'd) 최소 주문조건 초과 전환 0 / 운영일{t["active_days"]}, 조회수{t["impressions"]}, 클릭수{t["clicks"]}',ex_d)
 
     # ====== (E) 저장 ======
     st.markdown("### 5) Supabase 저장")
@@ -419,7 +419,6 @@ def render_ad_analysis_tab(supabase):
                     "breakeven_roas": float(breakeven_roas),
                     "cpc_cut": float(cpc_cut),
                     "aov_p50": float(aov_p50),
-                    "best_threshold_d": best_th,
                     "date_min": str(date_min),
                     "date_max": str(date_max),
                     "file_sha1": file_sha1
