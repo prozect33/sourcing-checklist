@@ -324,6 +324,10 @@ def render_ad_analysis_tab(supabase):
         aov_p50 = float(aov.quantile(0.5))
     else:
         aov_p50 = 0.0
+    st.write("DEBUG aov_p50:", aov_p50)
+    st.write("DEBUG breakeven_roas:", breakeven_roas)
+    st.write("DEBUG ex_c cost p50/p90:", kw[kw["orders_14d"] == 0]["cost"].quantile([0.5, 0.9]).to_dict())
+
 
     ex_c = kw[kw["orders_14d"] == 0].copy()
     ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
