@@ -133,6 +133,8 @@ def choose_threshold_d(converted: pd.DataFrame, nonconv: pd.DataFrame):
                         best = cand
 
     return best or {"active_days": 0, "impressions": 0, "clicks": 0, "tpr": 0.0, "fpr": 0.0, "j": 0.0}
+    st.write("✅ TAB5 BUILD = 2025-12-17-01")
+    st.write("✅ ad_analysis_tab.py =", __file__)
 
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
