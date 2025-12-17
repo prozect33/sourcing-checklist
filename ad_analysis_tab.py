@@ -198,42 +198,68 @@ def render_ad_analysis_tab(supabase):
     total_orders = int(df["orders_14d"].sum())
     total_roas = round(_safe_div(total_rev, total_cost, 0) * 100, 2)
 
-    perf_rate = 0.0 if target_roas == 0 else round(total_roas / float(target_roas), 4)
+    st.markdown("### 1) 기본 성과 지표")
+    st.caption(f"기간: {date_min} ~ {date_max}")
 
-    st.markdown("### 1) 기본 성과 지표(전체)")
+    # 검색/비검색 분리
+    df_search = df[df["is_search"] == True]
+    df_non = df[df["is_search"] == False]
+
+    def agg(sub):
+        c = int(sub["cost"].sum())
+        r = int(sub["revenue_14d"].sum())
+        o = int(sub["orders_14d"].sum())
+        ro = round(_safe_div(r, c, 0) * 100, 2)
+        return c, r, o, ro
+
+    s_cost, s_rev, s_orders, s_roas = agg(df_search)
+    n_cost, n_rev, n_orders, n_roas = agg(df_non)
+
+    # 비율 계산
+    def pct(part, whole):
+        return round(_safe_div(part, whole, 0) * 100, 2)
+
+    rows = [
+        {
+            "영역": "전체",
+            "광고비": total_cost,
+            "광고비비율(%)": 100.00,
+            "매출": total_rev,
+            "매출비율(%)": 100.00,
+            "주문": total_orders,
+            "주문비율(%)": 100.00,
+            "ROAS": total_roas,
+        },
+        {
+            "영역": "검색",
+            "광고비": s_cost,
+            "광고비비율(%)": pct(s_cost, total_cost),
+            "매출": s_rev,
+            "매출비율(%)": pct(s_rev, total_rev),
+            "주문": s_orders,
+            "주문비율(%)": pct(s_orders, total_orders),
+            "ROAS": s_roas,
+        },
+        {
+            "영역": "비검색",
+            "광고비": n_cost,
+            "광고비비율(%)": pct(n_cost, total_cost),
+            "매출": n_rev,
+            "매출비율(%)": pct(n_rev, total_rev),
+            "주문": n_orders,
+            "주문비율(%)": pct(n_orders, total_orders),
+            "ROAS": n_roas,
+        },
+    ]
+
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    perf_rate = 0.0 if target_roas == 0 else round(total_roas / float(target_roas), 4)
     st.write({
-        "기간": f"{date_min} ~ {date_max}",
-        "총 광고비": f"{total_cost:,}",
-        "총 매출(14일)": f"{total_rev:,}",
-        "총 주문(14일)": f"{total_orders:,}",
-        "ROAS": total_roas,
         "목표 ROAS": float(target_roas),
         "목표 대비 성과율(ROAS/목표ROAS)": perf_rate,
         "손익분기 ROAS": float(breakeven_roas),
     })
-
-    st.markdown("### 1-1) 검색 vs 비검색")
-    def agg(sub):
-        c = int(sub["cost"].sum())
-        r = int(sub["revenue_14d"].sum())
-        ro = round(_safe_div(r, c, 0) * 100, 2)
-        return c, r, ro
-
-    df_search = df[df["is_search"] == True]
-    df_non = df[df["is_search"] == False]
-
-    s_cost, s_rev, s_roas = agg(df_search)
-    n_cost, n_rev, n_roas = agg(df_non)
-
-    s_cost_ratio = round(_safe_div(s_cost, total_cost, 0) * 100, 2)
-    n_cost_ratio = round(_safe_div(n_cost, total_cost, 0) * 100, 2)
-    s_rev_ratio = round(_safe_div(s_rev, total_rev, 0) * 100, 2)
-    n_rev_ratio = round(_safe_div(n_rev, total_rev, 0) * 100, 2)
-
-    st.dataframe(pd.DataFrame([
-        {"영역": "검색", "광고비": s_cost, "광고비비율(%)": s_cost_ratio, "매출": s_rev, "매출비율(%)": s_rev_ratio, "ROAS": s_roas},
-        {"영역": "비검색", "광고비": n_cost, "광고비비율(%)": n_cost_ratio, "매출": n_rev, "매출비율(%)": n_rev_ratio, "ROAS": n_roas},
-    ]), use_container_width=True, hide_index=True)
 
     # ====== (B) 키워드 집계 ======
     kw = (
