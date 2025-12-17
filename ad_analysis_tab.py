@@ -225,24 +225,45 @@ def render_ad_analysis_tab(supabase):
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
     def calc_min_order_threshold_from_first_conversion(df):
+    def calc_min_order_threshold_from_first_conversion(df: pd.DataFrame):
+        """
+        목표:
+        - '누적 전환 >= 1'이 처음 되는 시점의 운영일(active_days) 중앙값을 구한다.
+        - 같은 시점까지의 누적 노출/클릭 중앙값도 같이 구한다.
+
+        주의:
+        - orders_14d는 '14일 합계'라 일자별 주문이 아니므로,
+          orders_14d의 일자 간 증가분을 daily_orders_proxy로 근사한다.
+        """
         rows = []
 
         for kwd, g in df.groupby("keyword"):
             g = g.sort_values("date").copy()
 
-            # ⚠️ orders_14d는 일자별 데이터가 아니므로
-            # "첫 전환이 관측된 날"을 흉내내기 위해
-            # orders_14d > 0 이 처음 등장한 행을 사용
-            hit = g[g["orders_14d"] > 0]
+            # orders_14d 증가분을 일 주문 근사치로 사용(음수는 0 처리)
+            o = pd.to_numeric(g["orders_14d"], errors="coerce").fillna(0)
+            daily_orders_proxy = o.diff().fillna(o.iloc[0]).clip(lower=0)
+
+            g["daily_orders_proxy"] = daily_orders_proxy
+            g["cum_orders_proxy"] = g["daily_orders_proxy"].cumsum()
+
+            # 누적 전환(근사) >= 1이 처음 되는 행
+            hit = g[g["cum_orders_proxy"] >= 1]
             if hit.empty:
                 continue
 
-            first = hit.iloc[0]
+            first_idx = hit.index[0]
+
+            # 그 시점까지의 운영일/노출/클릭 누적
+            upto = g.loc[:first_idx]
+            active_days = int((upto["impressions"] > 0).sum())
+            impr_sum = int(upto["impressions"].sum())
+            clk_sum = int(upto["clicks"].sum())
 
             rows.append({
-                "active_days": (g.loc[:first.name, "impressions"] > 0).sum(),
-                "impressions": g.loc[:first.name, "impressions"].sum(),
-                "clicks": g.loc[:first.name, "clicks"].sum(),
+                "active_days": active_days,
+                "impressions": impr_sum,
+                "clicks": clk_sum,
             })
 
         if not rows:
@@ -254,6 +275,7 @@ def render_ad_analysis_tab(supabase):
             "impressions": int(tdf["impressions"].median()),
             "clicks": int(tdf["clicks"].median()),
         }
+
 
     # ====== (C) CPC 누적매출 비중 + CPC_cut ======
     curve_payload = []
