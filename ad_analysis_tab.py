@@ -86,54 +86,6 @@ def find_cpc_cut_kneedle_like(df_conv_sorted: pd.DataFrame) -> float:
     idx = int(np.argmax(diff))
     return float(x[idx])
 
-def choose_threshold_d(converted: pd.DataFrame, nonconv: pd.DataFrame):
-    """
-    d) 전환경향 임계치(운영일/노출/클릭) 조합 선택
-    - 후보값: 전환키워드 분포의 분위수 기반(25/50/75) + 운영일수 7 포함
-    - 목적함수: Youden's J = TPR - FPR 최대
-      (동점이면 TPR 큰 것, FPR 작은 것 선호)
-    """
-    if converted.empty:
-        return {"active_days": 0, "impressions": 0, "clicks": 0, "tpr": 0.0, "fpr": 0.0, "j": 0.0}
-
-    def qvals(s):
-        # 정수 후보 임계치 세트
-        qs = s.quantile([0.25, 0.5, 0.75]).round(0).astype(int).tolist()
-        qs = [int(x) for x in qs if int(x) >= 0]
-        return sorted(list(set(qs)))
-
-    cand_days = sorted(list(set(qvals(converted["active_days"]) + [7])))
-    cand_imp = qvals(converted["impressions"])
-    cand_clk = qvals(converted["clicks"])
-
-    # 후보가 너무 빈약하면 최소 0 보강
-    if not cand_imp: cand_imp = [0]
-    if not cand_clk: cand_clk = [0]
-
-    best = None
-    for d in cand_days:
-        for i in cand_imp:
-            for c in cand_clk:
-                tp = ((converted["active_days"] >= d) &
-                      (converted["impressions"] >= i) &
-                      (converted["clicks"] >= c)).mean()  # TPR
-                fp = ((nonconv["active_days"] >= d) &
-                      (nonconv["impressions"] >= i) &
-                      (nonconv["clicks"] >= c)).mean() if not nonconv.empty else 0.0  # FPR
-                j = tp - fp
-                cand = {"active_days": int(d), "impressions": int(i), "clicks": int(c),
-                        "tpr": float(tp), "fpr": float(fp), "j": float(j)}
-                if best is None:
-                    best = cand
-                else:
-                    # maximize J, tie-break: higher TPR, then lower FPR
-                    if (cand["j"] > best["j"]) or \
-                       (cand["j"] == best["j"] and cand["tpr"] > best["tpr"]) or \
-                       (cand["j"] == best["j"] and cand["tpr"] == best["tpr"] and cand["fpr"] < best["fpr"]):
-                        best = cand
-
-    return best or {"active_days": 0, "impressions": 0, "clicks": 0, "tpr": 0.0, "fpr": 0.0, "j": 0.0}
-
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
 
@@ -272,6 +224,39 @@ def render_ad_analysis_tab(supabase):
     kw["cvr"] = (kw["orders_14d"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
+    def calc_min_order_threshold_from_first_conversion(df):
+    rows = []
+
+    for kwd, g in df.groupby("keyword"):
+        g = g.sort_values("date").copy()
+
+        g["cum_orders"] = g["orders_14d"].cumsum()
+        g["active_flag"] = (g["impressions"] > 0).astype(int)
+        g["cum_active_days"] = g["active_flag"].cumsum()
+        g["cum_impr"] = g["impressions"].cumsum()
+        g["cum_clicks"] = g["clicks"].cumsum()
+
+        hit = g[g["cum_orders"] >= 1]
+        if hit.empty:
+            continue
+
+        first = hit.iloc[0]
+        rows.append({
+            "active_days": first["cum_active_days"],
+            "impressions": first["cum_impr"],
+            "clicks": first["cum_clicks"],
+        })
+
+    if not rows:
+        return {"active_days": 0, "impressions": 0, "clicks": 0}
+
+    tdf = pd.DataFrame(rows)
+    return {
+        "active_days": int(tdf["active_days"].median()),
+        "impressions": int(tdf["impressions"].median()),
+        "clicks": int(tdf["clicks"].median()),
+    }
+
     # ====== (C) CPC 누적매출 비중 + CPC_cut ======
     conv = kw[kw["orders_14d"] > 0].copy()
     conv = conv.sort_values("cpc", ascending=True)
@@ -366,16 +351,14 @@ def render_ad_analysis_tab(supabase):
     # 제거 조건: 다음 1클릭+1주문이 발생해도 손익분기 ROAS 이하이면 제외
     ex_c = ex_c[ex_c["roas_if_1_order_after_1click"] <= float(breakeven_roas)].copy()
 
-    # d) 전환경향 임계치 충족 & 전환0
-    converted = kw[kw["orders_14d"] > 0][["keyword", "active_days", "impressions", "clicks"]].copy()
-    nonconv = kw[kw["orders_14d"] == 0][["keyword", "active_days", "impressions", "clicks"]].copy()
+    # d) 최소 주문조건 초과 & 전환 0
+    t = calc_min_order_threshold_from_first_conversion(df)
 
-    best_th = choose_threshold_d(converted, nonconv)
     ex_d = kw[
         (kw["orders_14d"] == 0) &
-        (kw["active_days"] >= best_th["active_days"]) &
-        (kw["impressions"] >= best_th["impressions"]) &
-        (kw["clicks"] >= best_th["clicks"])
+        (kw["active_days"] >= t["active_days"]) &
+        (kw["impressions"] >= t["impressions"]) &
+        (kw["clicks"] >= t["clicks"])
     ].copy()
 
     # 출력 표(각 그룹)
