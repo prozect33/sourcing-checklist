@@ -341,16 +341,6 @@ def render_ad_analysis_tab(supabase):
         (kw["clicks"] >= best_th["clicks"])
     ].copy()
 
-    st.markdown(
-        f"""
-    **최소 주문 조건**
-
-    - 운영일: {best_th["active_days"]}일  
-    - 조회수: {best_th["impressions"]}회  
-    - 클릭수: {best_th["clicks"]}회
-    """
-    )
-
     # 출력 표(각 그룹)
     def show_df(title, dff, extra_cols=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
@@ -363,7 +353,7 @@ def render_ad_analysis_tab(supabase):
     show_df("a) CPC_cut 이상 전환 0", ex_a)
     show_df("b) 운영일 7일 이상 손익분기 미달 전환", ex_b)
     show_df("c) 1 전환 시 손익분기 미달", ex_c, extra_cols=["roas_if_1_order"])
-    show_df("d) 최소 주문조건 초과 전환 0", ex_d)
+    show_df(f'd) 최소 주문조건 초과 전환 0 / 운영일{best_th["active_days"]}, 조회수{best_th["impressions"]}, 클릭수{best_th["clicks"]}', ex_d)
 
     # ====== (E) 저장 ======
     st.markdown("### 5) Supabase 저장")
