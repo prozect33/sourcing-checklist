@@ -317,21 +317,54 @@ def render_ad_analysis_tab(supabase):
     # b) 운영≥7일 & 전환 있음 & ROAS < 손익분기
     ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
 
-    # c) 전환0인데 1건 전환 가정 시 ROAS ≤ 손익분기
-    # - 1건 매출은 "전환된 키워드의 주문당 매출(rev/orders) P50"로 가정
+   # c) 전환0인데 "다음 1클릭 + 다음 1주문"이 발생해도 ROAS ≤ 손익분기
+    # - 현재 전환 0 키워드이므로 "현재 매출"은 0으로 가정 (분자에 기존 매출 포함 X)
+    # - 다음 1클릭 비용은 (키워드 CPC > 0이면 그 CPC), 아니면 전체 중앙값 CPC 사용
+    # - 다음 1주문 매출은 전환키워드의 주문당매출(rev/orders) P50로 가정
+
+    # 1) 1건 주문 매출 가정치(P50)
     if not conv.empty:
-        aov = (conv["revenue_14d"] / conv["orders_14d"]).replace([np.inf, -np.inf], 0).fillna(0)
-        aov_p50 = float(aov.quantile(0.5))
+        aov = (conv["revenue_14d"] / conv["orders_14d"]).replace([np.inf, -np.inf], np.nan).dropna()
+        aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
     else:
         aov_p50 = 0.0
-    st.write("DEBUG aov_p50:", aov_p50)
-    st.write("DEBUG breakeven_roas:", breakeven_roas)
-    st.write("DEBUG ex_c cost p50/p90:", kw[kw["orders_14d"] == 0]["cost"].quantile([0.5, 0.9]).to_dict())
 
+    # 2) 다음 1클릭 비용 가정치(전체 CPC 중앙값)
+    if (kw["clicks"] > 0).any():
+        cpc_global_p50 = float(
+            kw.loc[kw["clicks"] > 0, "cpc"]
+              .replace([np.inf, -np.inf], np.nan)
+              .dropna()
+              .quantile(0.5)
+        )
+    else:
+        cpc_global_p50 = 0.0
 
+    # 3) c) 대상: 전환 0 키워드
     ex_c = kw[kw["orders_14d"] == 0].copy()
-    ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
+
+    # 다음 1클릭 비용 = 키워드 CPC(가능하면) else 전체 CPC 중앙값
+    ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
+
+    # 다음 1클릭까지 포함한 총 광고비
+    ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
+
+    # ✅ 현재 매출은 0으로 가정 → 분자 = aov_p50만
+    ex_c["roas_if_1_order_after_1click"] = np.where(
+        ex_c["cost_after_1click"] > 0,
+        (aov_p50 / ex_c["cost_after_1click"] * 100),
+        np.inf
+    )
+
+    ex_c["roas_if_1_order_after_1click"] = (
+        pd.to_numeric(ex_c["roas_if_1_order_after_1click"], errors="coerce")
+          .replace([np.inf, -np.inf], np.nan)
+          .fillna(np.inf)
+          .round(2)
+    )
+
+    # 제거 조건: 다음 1클릭+1주문이 발생해도 손익분기 ROAS 이하이면 제외
+    ex_c = ex_c[ex_c["roas_if_1_order_after_1click"] <= float(breakeven_roas)].copy()
 
     # d) 전환경향 임계치 충족 & 전환0
     converted = kw[kw["orders_14d"] > 0][["keyword", "active_days", "impressions", "clicks"]].copy()
