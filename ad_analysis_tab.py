@@ -253,6 +253,16 @@ def render_ad_analysis_tab(supabase):
     ]
 
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    perf_rate = 0.0 if target_roas == 0 else round(total_roas / float(target_roas), 4)
+
+    st.markdown(
+        f"""
+    **목표 ROAS**: {target_roas}  
+    **목표 대비 성과율**: {perf_rate}  
+    **손익분기 ROAS**: {breakeven_roas}
+    """
+    )
+
 
     # ====== (B) 키워드 집계 ======
     kw = (
