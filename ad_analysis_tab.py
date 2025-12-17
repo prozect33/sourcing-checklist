@@ -133,8 +133,6 @@ def choose_threshold_d(converted: pd.DataFrame, nonconv: pd.DataFrame):
                         best = cand
 
     return best or {"active_days": 0, "impressions": 0, "clicks": 0, "tpr": 0.0, "fpr": 0.0, "j": 0.0}
-    st.write("✅ TAB5 BUILD = 2025-12-17-01")
-    st.write("✅ ad_analysis_tab.py =", __file__)
 
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
@@ -256,13 +254,6 @@ def render_ad_analysis_tab(supabase):
 
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    perf_rate = 0.0 if target_roas == 0 else round(total_roas / float(target_roas), 4)
-    st.write({
-        "목표 ROAS": float(target_roas),
-        "목표 대비 성과율(ROAS/목표ROAS)": perf_rate,
-        "손익분기 ROAS": float(breakeven_roas),
-    })
-
     # ====== (B) 키워드 집계 ======
     kw = (
         df.groupby(["keyword", "is_search"], as_index=False)[
@@ -280,13 +271,6 @@ def render_ad_analysis_tab(supabase):
     kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     kw["cvr"] = (kw["orders_14d"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-
-    st.markdown("### 2) 키워드 요약 TOP 50 (비용 기준)")
-    st.dataframe(
-        kw.sort_values(["cost", "revenue_14d"], ascending=[False, False]).head(50),
-        use_container_width=True,
-        hide_index=True
-    )
 
     # ====== (C) CPC 누적매출 비중 + CPC_cut ======
     conv = kw[kw["orders_14d"] > 0].copy()
@@ -320,7 +304,7 @@ def render_ad_analysis_tab(supabase):
 
         st.altair_chart(line + vline, use_container_width=True)
 
-    st.write({"CPC_cut": cpc_cut})
+    st.caption(f"CPC_cut: {cpc_cut}")
 
     # ====== (D) 제외 키워드 4종 ======
     st.markdown("### 4) 제외 키워드")
