@@ -359,9 +359,9 @@ def render_ad_analysis_tab(supabase):
         st.dataframe(dff.sort_values("cost", ascending=False)[exist].head(200), use_container_width=True, hide_index=True)
 
     show_df("a) CPC_cut 이상 전환 0", ex_a)
-    show_df("b) 운영일 7일 이상 손익분기 미달", ex_b)
+    show_df("b) 운영일 7일 이상 손익분기 미달 전환", ex_b)
     show_df("c) 1 전환 시 손익분기 미달", ex_c, extra_cols=["roas_if_1_order"])
-    show_df("d) 최소 주문조건 미달 전환 0", ex_d)
+    show_df("d) 최소 주문조건 초과 전환 0", ex_d)
 
     # ====== (E) 저장 ======
     st.markdown("### 5) Supabase 저장")
