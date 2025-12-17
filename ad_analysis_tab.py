@@ -224,26 +224,53 @@ def render_ad_analysis_tab(supabase):
     kw["cvr"] = (kw["orders_14d"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
-    def calc_min_order_threshold_from_first_conversion(df):
-    def calc_first_conv_active_days_median(df):
-        days = []
+def calc_min_order_threshold_from_first_conversion(df):
+    rows = []
 
-        for kwd, g in df.groupby("keyword"):
-            g = g.sort_values("date").copy()
+    for kwd, g in df.groupby("keyword"):
+        g = g.sort_values("date").copy()
 
-            # 전환 발생 키워드만
-            hit = g[g["orders_14d"] > 0]
-            if hit.empty:
-                continue
+        hit = g[g["orders_14d"] > 0]
+        if hit.empty:
+            continue
 
-            first = hit.iloc[0]
-            active_days_until = (g.loc[:first.name, "impressions"] > 0).sum()
-            days.append(active_days_until)
+        first = hit.iloc[0]
 
-        if not days:
-            return 0
+        rows.append({
+            "active_days": (g.loc[:first.name, "impressions"] > 0).sum(),
+            "impressions": g.loc[:first.name, "impressions"].sum(),
+            "clicks": g.loc[:first.name, "clicks"].sum(),
+        })
 
-        return int(pd.Series(days).median())
+    if not rows:
+        return {"active_days": 0, "impressions": 0, "clicks": 0}
+
+    tdf = pd.DataFrame(rows)
+    return {
+        "active_days": int(tdf["active_days"].median()),
+        "impressions": int(tdf["impressions"].median()),
+        "clicks": int(tdf["clicks"].median()),
+    }
+
+
+def calc_first_conv_active_days_median(df):
+    days = []
+
+    for kwd, g in df.groupby("keyword"):
+        g = g.sort_values("date").copy()
+
+        hit = g[g["orders_14d"] > 0]
+        if hit.empty:
+            continue
+
+        first = hit.iloc[0]
+        active_days_until = (g.loc[:first.name, "impressions"] > 0).sum()
+        days.append(active_days_until)
+
+    if not days:
+        return 0
+
+    return int(pd.Series(days).median())
 
 
 
