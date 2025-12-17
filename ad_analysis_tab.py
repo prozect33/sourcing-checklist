@@ -225,32 +225,29 @@ def render_ad_analysis_tab(supabase):
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
     def calc_min_order_threshold_from_first_conversion(df):
-    def calc_min_order_threshold_from_first_conversion(df):
         rows = []
 
         for kwd, g in df.groupby("keyword"):
             g = g.sort_values("date").copy()
 
-            if g["orders_14d"].sum() > 0:
-            g["active_flag"] = (g["impressions"] > 0).astype(int)
-            g["cum_active_days"] = g["active_flag"].cumsum()
-            g["cum_impr"] = g["impressions"].cumsum()
-            g["cum_clicks"] = g["clicks"].cumsum()
-
-            hit = g[g["cum_orders"] >= 1]
+            # ⚠️ orders_14d는 일자별 데이터가 아니므로
+            # "첫 전환이 관측된 날"을 흉내내기 위해
+            # orders_14d > 0 이 처음 등장한 행을 사용
+            hit = g[g["orders_14d"] > 0]
             if hit.empty:
                 continue
 
             first = hit.iloc[0]
+
             rows.append({
-                "active_days": first["cum_active_days"],
-                "impressions": first["cum_impr"],
-                "clicks": first["cum_clicks"],
+                "active_days": (g.loc[:first.name, "impressions"] > 0).sum(),
+                "impressions": g.loc[:first.name, "impressions"].sum(),
+                "clicks": g.loc[:first.name, "clicks"].sum(),
             })
 
         if not rows:
             return {"active_days": 0, "impressions": 0, "clicks": 0}
-    
+
         tdf = pd.DataFrame(rows)
         return {
             "active_days": int(tdf["active_days"].median()),
