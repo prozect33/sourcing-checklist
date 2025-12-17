@@ -19,7 +19,22 @@ def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
 def _to_date(s: pd.Series) -> pd.Series:
-    return pd.to_datetime(s, errors="coerce").dt.date
+    # 엑셀 날짜(시리얼) + 문자열 날짜 모두 대응
+    ss = s.copy()
+
+    # 1) 숫자(엑셀 시리얼)인 경우: 1899-12-30 기준
+    if pd.api.types.is_numeric_dtype(ss):
+        dt = pd.to_datetime(ss, unit="D", origin="1899-12-30", errors="coerce")
+        return dt.dt.date
+
+    # 2) 문자열/혼합인 경우: 일반 파싱 (점/슬래시 등 포함)
+    txt = ss.astype(str).str.strip()
+    dt = pd.to_datetime(txt, errors="coerce")
+    # 혹시 전부 NaT면 dayfirst로 한번 더 시도
+    if dt.isna().all():
+        dt = pd.to_datetime(txt, errors="coerce", dayfirst=True)
+
+    return dt.dt.date
 
 def _is_search_keyword(x: str) -> bool:
     if x is None:
