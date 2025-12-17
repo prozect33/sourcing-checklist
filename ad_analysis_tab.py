@@ -14,82 +14,83 @@ COST_COL = "광고비"
 ORD_COL = "총 주문수(14일)"
 REV_COL = "총 전환매출액(14일)"
 
-# ====== 유틸 ======
+# ====== 유틸 함수 ======
 def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
 def _to_date(s: pd.Series) -> pd.Series:
     ss = s.copy()
-
-    # 문자열화(혼합형 대비)
     txt = ss.astype(str).str.strip()
-
-    # 1) 일반 파싱(YYYY-MM-DD, YYYY/MM/DD, datetime 등)
     dt_general = pd.to_datetime(txt, errors="coerce")
-
-    # 2) 숫자만 추출해서 8자리/6자리 날짜 처리 (예: 20251216, 251216)
     digits = txt.str.replace(r"[^0-9]", "", regex=True)
-
-    dt_8 = pd.to_datetime(
-        digits.where(digits.str.len() == 8),
-        format="%Y%m%d",
-        errors="coerce"
-    )
-    dt_6 = pd.to_datetime(
-        digits.where(digits.str.len() == 6),
-        format="%y%m%d",
-        errors="coerce"
-    )
-
-    # 3) 엑셀 시리얼 처리 (범위 제한: 너무 큰 숫자는 날짜가 아니라 코드값일 가능성 큼)
+    dt_8 = pd.to_datetime(digits.where(digits.str.len() == 8), format="%Y%m%d", errors="coerce")
+    dt_6 = pd.to_datetime(digits.where(digits.str.len() == 6), format="%y%m%d", errors="coerce")
     num = pd.to_numeric(txt, errors="coerce")
-    num = num.where(num.between(20000, 60000))  # 대략 1954~2064 범위
+    num = num.where(num.between(20000, 60000))
     dt_serial = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
-
-    # 우선순위: 일반 → 8자리 → 6자리 → 시리얼
     dt = dt_general.fillna(dt_8).fillna(dt_6).fillna(dt_serial)
-
     return dt.dt.date
 
 def _is_search_keyword(x: str) -> bool:
-    if x is None:
-        return False
+    if x is None: return False
     t = str(x).strip()
-    if t == "" or t == "-" or t.lower() == "nan":
-        return False
-    if "비검색" in t:
-        return False
+    if t == "" or t == "-" or t.lower() == "nan": return False
+    if "비검색" in t: return False
     return True
 
 def _safe_div(a, b, default=0.0):
-    a = float(a)
-    b = float(b)
+    a, b = float(a), float(b)
     return default if b == 0 else a / b
 
-# Kneedle “유사” 방식(누적곡선에서 횡보 시작점): y-x 최대점
 def find_cpc_cut_kneedle_like(df_conv_sorted: pd.DataFrame) -> float:
-    # df_conv_sorted: CPC 오름차순, columns: cpc, cum_rev_share
-    if df_conv_sorted.empty:
-        return 0.0
+    if df_conv_sorted.empty: return 0.0
     x = df_conv_sorted["cpc"].to_numpy(dtype=float)
     y = df_conv_sorted["cum_rev_share"].to_numpy(dtype=float)
-
-    if len(x) < 3:
-        return float(x[-1])
-
-    # normalize to 0~1
+    if len(x) < 3: return float(x[-1])
     x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-
-    # knee index = argmax(y - x)
     diff = y_n - x_n
     idx = int(np.argmax(diff))
     return float(x[idx])
 
+# ====== 분석용 내부 계산 함수 ======
+def calc_min_order_threshold_from_first_conversion(df):
+    rows = []
+    for kwd, g in df.groupby("keyword"):
+        g = g.sort_values("date").copy()
+        hit = g[g["orders_14d"] > 0]
+        if hit.empty: continue
+        first = hit.iloc[0]
+        rows.append({
+            "active_days": (g.loc[:first.name, "impressions"] > 0).sum(),
+            "impressions": g.loc[:first.name, "impressions"].sum(),
+            "clicks": g.loc[:first.name, "clicks"].sum(),
+        })
+    if not rows:
+        return {"active_days": 0, "impressions": 0, "clicks": 0}
+    tdf = pd.DataFrame(rows)
+    return {
+        "active_days": int(tdf["active_days"].median()),
+        "impressions": int(tdf["impressions"].median()),
+        "clicks": int(tdf["clicks"].median()),
+    }
+
+def calc_first_conv_active_days_median(df):
+    days = []
+    for kwd, g in df.groupby("keyword"):
+        g = g.sort_values("date").copy()
+        hit = g[g["orders_14d"] > 0]
+        if hit.empty: continue
+        first = hit.iloc[0]
+        active_days_until = (g.loc[:first.name, "impressions"] > 0).sum()
+        days.append(active_days_until)
+    if not days: return 0
+    return int(pd.Series(days).median())
+
+# ====== 메인 렌더링 함수 ======
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
 
-    # (1) 업로드 + 입력
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     if up is None:
         st.info("파일 업로드 후 분석 폼이 생성됩니다.")
@@ -109,351 +110,139 @@ def render_ad_analysis_tab(supabase):
         st.warning("상품명을 입력하세요.")
         return
 
-    # (2) 로드
     try:
-        if up.name.lower().endswith(".csv"):
-            df_raw = pd.read_csv(up)
-        else:
-            df_raw = pd.read_excel(up)
+        df_raw = pd.read_csv(up) if up.name.lower().endswith(".csv") else pd.read_excel(up)
     except Exception as e:
         st.error(f"파일 로드 실패: {e}")
         return
 
-    # (3) 필수 컬럼 확인
     required = [DATE_COL, KW_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
     missing = [c for c in required if c not in df_raw.columns]
     if missing:
         st.error(f"필수 컬럼 누락: {missing}")
-        st.dataframe(pd.DataFrame({"현재 컬럼": df_raw.columns}))
         return
 
-    # (4) 정제
     df = df_raw.copy()
     df["date"] = _to_date(df[DATE_COL])
     df = df[df["date"].notna()].copy()
-
     df["keyword"] = df[KW_COL].astype(str).fillna("").str.strip()
     df["is_search"] = df["keyword"].map(_is_search_keyword)
-
     df["impressions"] = _to_int(df[IMP_COL])
     df["clicks"] = _to_int(df[CLK_COL])
     df["cost"] = _to_int(df[COST_COL])
     df["orders_14d"] = _to_int(df[ORD_COL])
     df["revenue_14d"] = _to_int(df[REV_COL])
 
-    date_min = df["date"].min()
-    date_max = df["date"].max()
+    date_min, date_max = df["date"].min(), df["date"].max()
 
-    # ====== (A) 전체 성과 + 검색/비검색 ======
-    total_cost = int(df["cost"].sum())
-    total_rev = int(df["revenue_14d"].sum())
-    total_orders = int(df["orders_14d"].sum())
-    total_roas = round(_safe_div(total_rev, total_cost, 0) * 100, 2)
-
+    # 1) 기본 성과 지표
     st.markdown("### 1) 기본 성과 지표")
     st.caption(f"기간: {date_min} ~ {date_max}")
 
-    # 검색/비검색 분리
-    df_search = df[df["is_search"] == True]
-    df_non = df[df["is_search"] == False]
+    total_cost, total_rev, total_orders = int(df["cost"].sum()), int(df["revenue_14d"].sum()), int(df["orders_14d"].sum())
+    total_roas = round(_safe_div(total_rev, total_cost, 0) * 100, 2)
 
-    def agg(sub):
-        c = int(sub["cost"].sum())
-        r = int(sub["revenue_14d"].sum())
-        o = int(sub["orders_14d"].sum())
-        ro = round(_safe_div(r, c, 0) * 100, 2)
-        return c, r, o, ro
-
-    s_cost, s_rev, s_orders, s_roas = agg(df_search)
-    n_cost, n_rev, n_orders, n_roas = agg(df_non)
-
-    # 비율 계산
-    def pct(part, whole):
-        return round(_safe_div(part, whole, 0) * 100, 2)
+    df_search, df_non = df[df["is_search"]], df[~df["is_search"]]
+    
+    def get_row(name, sub, t_cost, t_rev, t_ord):
+        c, r, o = int(sub["cost"].sum()), int(sub["revenue_14d"].sum()), int(sub["orders_14d"].sum())
+        return {
+            "영역": name, "광고비": c, "광고비비율(%)": round(_safe_div(c, t_cost)*100, 2),
+            "매출": r, "매출비율(%)": round(_safe_div(r, t_rev)*100, 2),
+            "주문": o, "주문비율(%)": round(_safe_div(o, t_ord)*100, 2),
+            "ROAS": round(_safe_div(r, c)*100, 2)
+        }
 
     rows = [
-        {
-            "영역": "전체",
-            "광고비": total_cost,
-            "광고비비율(%)": 100.00,
-            "매출": total_rev,
-            "매출비율(%)": 100.00,
-            "주문": total_orders,
-            "주문비율(%)": 100.00,
-            "ROAS": total_roas,
-        },
-        {
-            "영역": "검색",
-            "광고비": s_cost,
-            "광고비비율(%)": pct(s_cost, total_cost),
-            "매출": s_rev,
-            "매출비율(%)": pct(s_rev, total_rev),
-            "주문": s_orders,
-            "주문비율(%)": pct(s_orders, total_orders),
-            "ROAS": s_roas,
-        },
-        {
-            "영역": "비검색",
-            "광고비": n_cost,
-            "광고비비율(%)": pct(n_cost, total_cost),
-            "매출": n_rev,
-            "매출비율(%)": pct(n_rev, total_rev),
-            "주문": n_orders,
-            "주문비율(%)": pct(n_orders, total_orders),
-            "ROAS": n_roas,
-        },
+        {"영역": "전체", "광고비": total_cost, "광고비비율(%)": 100.0, "매출": total_rev, "매출비율(%)": 100.0, "주문": total_orders, "주문비율(%)": 100.0, "ROAS": total_roas},
+        get_row("검색", df_search, total_cost, total_rev, total_orders),
+        get_row("비검색", df_non, total_cost, total_rev, total_orders)
     ]
-
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    # ====== (B) 키워드 집계 ======
-    kw = (
-        df.groupby(["keyword", "is_search"], as_index=False)[
-            ["impressions", "clicks", "cost", "orders_14d", "revenue_14d"]
-        ].sum()
-    )
-
-    # active_days: 노출수>0인 날짜 수
+    # 2) 키워드 집계
+    kw = df.groupby(["keyword", "is_search"], as_index=False)[["impressions", "clicks", "cost", "orders_14d", "revenue_14d"]].sum()
     df_imp_pos = df[df["impressions"] > 0]
     days = df_imp_pos.groupby("keyword")["date"].nunique().reset_index(name="active_days")
     kw = kw.merge(days, on="keyword", how="left").fillna({"active_days": 0})
     kw["active_days"] = kw["active_days"].astype(int)
-
-    kw["ctr"] = (kw["clicks"] / kw["impressions"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
+    kw["ctr"] = (kw["clicks"] / kw["impressions"]).fillna(0).round(6)
     kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-    kw["cvr"] = (kw["orders_14d"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
-def calc_min_order_threshold_from_first_conversion(df):
-    rows = []
-
-    for kwd, g in df.groupby("keyword"):
-        g = g.sort_values("date").copy()
-
-        hit = g[g["orders_14d"] > 0]
-        if hit.empty:
-            continue
-
-        first = hit.iloc[0]
-
-        rows.append({
-            "active_days": (g.loc[:first.name, "impressions"] > 0).sum(),
-            "impressions": g.loc[:first.name, "impressions"].sum(),
-            "clicks": g.loc[:first.name, "clicks"].sum(),
-        })
-
-    if not rows:
-        return {"active_days": 0, "impressions": 0, "clicks": 0}
-
-    tdf = pd.DataFrame(rows)
-    return {
-        "active_days": int(tdf["active_days"].median()),
-        "impressions": int(tdf["impressions"].median()),
-        "clicks": int(tdf["clicks"].median()),
-    }
-
-
-def calc_first_conv_active_days_median(df):
-    days = []
-
-    for kwd, g in df.groupby("keyword"):
-        g = g.sort_values("date").copy()
-
-        hit = g[g["orders_14d"] > 0]
-        if hit.empty:
-            continue
-
-        first = hit.iloc[0]
-        active_days_until = (g.loc[:first.name, "impressions"] > 0).sum()
-        days.append(active_days_until)
-
-    if not days:
-        return 0
-
-    return int(pd.Series(days).median())
-
-
-
-    # ====== (C) CPC 누적매출 비중 + CPC_cut ======
-    curve_payload = []
-
-    conv = kw[kw["orders_14d"] > 0].copy()
-    conv = conv.sort_values("cpc", ascending=True)
+    # 3) CPC 누적매출 비중 + CPC_cut
+    cpc_cut, cut_rev_share, aov_p50 = 0.0, 0.0, 0.0
+    conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
 
     if conv.empty:
-        cpc_cut = 0.0
         st.warning("전환 발생 키워드가 없습니다. CPC_cut을 0으로 처리합니다.")
-        curve_payload = []
     else:
         total_conv_rev = conv["revenue_14d"].sum()
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
-        conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1)).clip(0, 1)
+        conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
         cpc_cut = round(find_cpc_cut_kneedle_like(conv[["cpc", "cum_rev_share"]]), 2)
         rev_above_cut = conv.loc[conv["cpc"] >= cpc_cut, "revenue_14d"].sum()
-        cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev, 0) * 100, 2)
+        cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev) * 100, 2)
         
-        # 그래프 (matplotlib: 세로선 표시)
         st.markdown("### 3) CPC-누적매출 비중 곡선 + 횡보 시작점(CPC_cut)")
+        chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
+        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
+        st.altair_chart(chart + vline, use_container_width=True)
+        st.caption(f"CPC_cut: {cpc_cut}원 ({cut_rev_share}%)")
+        
+        aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
+        aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
 
-        chart_df = conv[["cpc", "cum_rev_share"]].copy()
-
-        line = alt.Chart(chart_df).mark_line().encode(
-            x=alt.X("cpc:Q", title="CPC"),
-            y=alt.Y("cum_rev_share:Q", title="누적 매출 비중")
-        )
-
-        vline = alt.Chart(
-            pd.DataFrame({"cpc_cut": [cpc_cut]})
-        ).mark_rule(strokeDash=[6, 4]).encode(
-            x="cpc_cut:Q"
-        )
-
-        st.altair_chart(line + vline, use_container_width=True)
-
-    st.caption(f"CPC_cut: {cpc_cut}원 ({cut_rev_share}%)")
-
-    # ====== (D) 제외 키워드 4종 ======
+    # 4) 제외 키워드 로직
     st.markdown("### 4) 제외 키워드")
-
-    # a) CPC_cut 이상 & 전환 0
     ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut)].copy()
-
-    # b) 운영≥7일 & 전환 있음 & ROAS < 손익분기
     ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
 
-    # c) 전환0인데 "다음 1클릭 + 다음 1주문"이 발생해도 ROAS ≤ 손익분기
-    # - 현재 전환 0 키워드이므로 "현재 매출"은 0으로 가정 (분자에 기존 매출 포함 X)
-    # - 다음 1클릭 비용은 (키워드 CPC > 0이면 그 CPC), 아니면 전체 중앙값 CPC 사용
-    # - 다음 1주문 매출은 전환키워드의 주문당매출(rev/orders) P50로 가정
-
-    # 1) 1건 주문 매출 가정치(P50)
-    if not conv.empty:
-        aov = (conv["revenue_14d"] / conv["orders_14d"]).replace([np.inf, -np.inf], np.nan).dropna()
-        aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
-    else:
-        aov_p50 = 0.0
-
-    # 2) 다음 1클릭 비용 가정치(전체 CPC 중앙값)
-    if (kw["clicks"] > 0).any():
-        cpc_global_p50 = float(
-            kw.loc[kw["clicks"] > 0, "cpc"]
-              .replace([np.inf, -np.inf], np.nan)
-              .dropna()
-              .quantile(0.5)
-        )
-    else:
-        cpc_global_p50 = 0.0
-
-    # 3) c) 대상: 전환 0 키워드
+    cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
     ex_c = kw[kw["orders_14d"] == 0].copy()
-
-    # 다음 1클릭 비용 = 키워드 CPC(가능하면) else 전체 CPC 중앙값
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
-
-    # 다음 1클릭까지 포함한 총 광고비
     ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
+    ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).fillna(0).round(2)
+    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
 
-    # ✅ 현재 매출은 0으로 가정 → 분자 = aov_p50만
-    ex_c["roas_if_1_order_after_1click"] = np.where(
-        ex_c["cost_after_1click"] > 0,
-        (aov_p50 / ex_c["cost_after_1click"] * 100),
-        np.inf
-    )
-
-    ex_c["roas_if_1_order_after_1click"] = (
-        pd.to_numeric(ex_c["roas_if_1_order_after_1click"], errors="coerce")
-          .replace([np.inf, -np.inf], np.nan)
-          .fillna(np.inf)
-          .round(2)
-    )
-
-    # 제거 조건: 다음 1클릭+1주문이 발생해도 손익분기 ROAS 이하이면 제외
-    ex_c = ex_c[ex_c["roas_if_1_order_after_1click"] <= float(breakeven_roas)].copy()
-
-    # d) 최소 주문조건 초과 & 전환 0
     t = calc_min_order_threshold_from_first_conversion(df)
     first_conv_days = calc_first_conv_active_days_median(df)
+    ex_d = kw[(kw["orders_14d"] == 0) & (kw["active_days"] >= first_conv_days) & 
+              (kw["impressions"] >= t["impressions"]) & (kw["clicks"] >= t["clicks"])]
 
-    ex_d = kw[
-        (kw["orders_14d"] == 0) &
-        (kw["active_days"] >= first_conv_days) &   # ✅ 여기만 변경
-        (kw["impressions"] >= t["impressions"]) &  # 그대로
-        (kw["clicks"] >= t["clicks"])               # 그대로
-    ]
-
-    # 출력 표(각 그룹)
-    def show_df(title, dff, extra_cols=None):
+    def show_df(title, dff, extra=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
         cols = ["keyword", "active_days", "impressions", "clicks", "cost", "orders_14d", "revenue_14d", "cpc", "roas_14d"]
-        if extra_cols:
-            cols += extra_cols
-        exist = [c for c in cols if c in dff.columns]
-        st.dataframe(dff.sort_values("cost", ascending=False)[exist].head(200), use_container_width=True, hide_index=True)
+        if extra: cols += extra
+        st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
     show_df("a) CPC_cut 이상 전환 0", ex_a)
-    show_df("b) 운영일일 7일 이상 손익분기 미달", ex_b)
-    show_df("c) 전환 시 손익분기 미달", ex_c, extra_cols=["roas_if_1_order"])
-    show_df(f'd) 최소 주문조건 초과 전환 0 / 운영일{first_conv_days}, 조회수{t["impressions"]}, 클릭수{t["clicks"]}',ex_d)
+    show_df("b) 운영 7일 이상 손익분기 미달", ex_b)
+    show_df("c) 전환 시 예상 ROAS 미달", ex_c, ["roas_if_1_order"])
+    show_df(f"d) 임계치 초과 전환 0 (운영{first_conv_days}일/노출{t['impressions']}/클릭{t['clicks']})", ex_d)
 
-    # ====== (E) 저장 ======
+    # 5) 저장
     st.markdown("### 5) Supabase 저장")
     if st.button("✅ 분석 결과 저장", key="ad_save"):
         try:
             run_id = str(uuid.uuid4())
-            file_sha1 = hashlib.sha1(up.getvalue()).hexdigest()  # 추적용(로우 저장은 안함)
-
-            # runs
+            file_sha1 = hashlib.sha1(up.getvalue()).hexdigest()
             supabase.table("ad_analysis_runs").insert({
-                "run_id": run_id,
-                "product_name": product_name.strip(),
-                "source_filename": up.name,
-                "source_rows": int(len(df_raw)),
-                "date_min": str(date_min),
-                "date_max": str(date_max),
-                "note": note.strip() if note else None,
-                "target_roas": float(target_roas),
-                "breakeven_roas": float(breakeven_roas),
-                "cpc_cut": float(cpc_cut),
+                "run_id": run_id, "product_name": product_name.strip(), "source_filename": up.name,
+                "source_rows": len(df_raw), "date_min": str(date_min), "date_max": str(date_max),
+                "note": note, "target_roas": float(target_roas), "breakeven_roas": float(breakeven_roas), "cpc_cut": float(cpc_cut)
             }).execute()
+            
+            # 키워드 데이터 업로드 (청크 단위)
+            rows_kw = kw.assign(run_id=run_id)[["run_id","keyword","is_search","active_days","impressions","clicks","cost","orders_14d","revenue_14d","ctr","cpc","roas_14d"]].to_dict(orient="records")
+            for i in range(0, len(rows_kw), 1000):
+                supabase.table("ad_analysis_keyword_total").upsert(rows_kw[i:i+1000]).execute()
 
-            # keyword_total
-            payload_kw = kw.copy()
-            payload_kw["run_id"] = run_id
-            payload_kw = payload_kw.rename(columns={"keyword": "keyword"})
-            rows_kw = payload_kw[[
-                "run_id","keyword","is_search","active_days","impressions","clicks","cost","orders_14d","revenue_14d",
-                "ctr","cpc","cvr","roas_14d"
-            ]].to_dict(orient="records")
-
-            def chunk(lst, n=1000):
-                for i in range(0, len(lst), n):
-                    yield lst[i:i+n]
-
-            for part in chunk(rows_kw, 1000):
-                supabase.table("ad_analysis_keyword_total").upsert(part).execute()
-
-            # artifacts (그래프/임계치/제외리스트/권고슬롯)
             artifacts = [
-                {"run_id": run_id, "artifact_key": "settings", "payload": {
-                    "target_roas": float(target_roas),
-                    "breakeven_roas": float(breakeven_roas),
-                    "cpc_cut": float(cpc_cut),
-                    "aov_p50": float(aov_p50),
-                    "date_min": str(date_min),
-                    "date_max": str(date_max),
-                    "file_sha1": file_sha1
-                }},
-                {"run_id": run_id, "artifact_key": "exclusions", "payload": {
-                    "a": ex_a["keyword"].tolist(),
-                    "b": ex_b["keyword"].tolist(),
-                    "c": ex_c["keyword"].tolist(),
-                    "d": ex_d["keyword"].tolist(),
-                }},
-                {"run_id": run_id, "artifact_key": "recommendations_placeholder", "payload": {"items": []}},
+                {"run_id": run_id, "artifact_key": "settings", "payload": {"target_roas": target_roas, "breakeven_roas": breakeven_roas, "cpc_cut": cpc_cut, "aov_p50": aov_p50}},
+                {"run_id": run_id, "artifact_key": "exclusions", "payload": {"a": ex_a["keyword"].tolist(), "b": ex_b["keyword"].tolist(), "c": ex_c["keyword"].tolist(), "d": ex_d["keyword"].tolist()}}
             ]
             supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
-
-            st.success(f"저장 완료: {product_name} / run_id={run_id}")
-
+            st.success(f"저장 성공 (ID: {run_id})")
         except Exception as e:
             st.error(f"저장 실패: {e}")
