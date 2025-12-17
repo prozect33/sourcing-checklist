@@ -285,7 +285,9 @@ def render_ad_analysis_tab(supabase):
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1)).clip(0, 1)
         cpc_cut = round(find_cpc_cut_kneedle_like(conv[["cpc", "cum_rev_share"]]), 2)
-
+        rev_above_cut = conv.loc[conv["cpc"] >= cpc_cut, "revenue_14d"].sum()
+        cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev, 0) * 100, 2)
+        
         # 그래프 (matplotlib: 세로선 표시)
         st.markdown("### 3) CPC-누적매출 비중 곡선 + 횡보 시작점(CPC_cut)")
 
@@ -304,7 +306,7 @@ def render_ad_analysis_tab(supabase):
 
         st.altair_chart(line + vline, use_container_width=True)
 
-    st.caption(f"CPC_cut: {cpc_cut}")
+    st.caption(f"CPC_cut: {cpc_cut}원 ({cut_rev_share}%)")
 
     # ====== (D) 제외 키워드 4종 ======
     st.markdown("### 4) 제외 키워드")
