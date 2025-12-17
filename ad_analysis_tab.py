@@ -339,10 +339,15 @@ def render_ad_analysis_tab(supabase):
         (kw["clicks"] >= best_th["clicks"])
     ].copy()
 
-    st.write({
-        "d 임계치 선택결과": best_th,
-        "c 1건가정 주문당매출(P50)": round(aov_p50, 2)
-    })
+    st.markdown(
+        f"""
+    **최소 주문 조건**
+
+    - 운영일: {best_th["active_days"]}일  
+    - 조회수: {best_th["impressions"]}회  
+    - 클릭수: {best_th["clicks"]}회
+    """
+    )
 
     # 출력 표(각 그룹)
     def show_df(title, dff, extra_cols=None):
