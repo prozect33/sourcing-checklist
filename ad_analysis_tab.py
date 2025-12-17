@@ -178,8 +178,6 @@ def render_ad_analysis_tab(supabase):
     # (4) 정제
     df = df_raw.copy()
     df["date"] = _to_date(df[DATE_COL])
-    st.write("날짜 NaT 비율", float(pd.isna(df["date"]).mean()))
-    st.write("날짜 샘플", df[DATE_COL].head(5).tolist())
     df = df[df["date"].notna()].copy()
 
     df["keyword"] = df[KW_COL].astype(str).fillna("").str.strip()
