@@ -19,20 +19,35 @@ def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
 def _to_date(s: pd.Series) -> pd.Series:
-    # 엑셀 날짜(시리얼) + 문자열 날짜 모두 대응
     ss = s.copy()
 
-    # 1) 숫자(엑셀 시리얼)인 경우: 1899-12-30 기준
-    if pd.api.types.is_numeric_dtype(ss):
-        dt = pd.to_datetime(ss, unit="D", origin="1899-12-30", errors="coerce")
-        return dt.dt.date
-
-    # 2) 문자열/혼합인 경우: 일반 파싱 (점/슬래시 등 포함)
+    # 문자열화(혼합형 대비)
     txt = ss.astype(str).str.strip()
-    dt = pd.to_datetime(txt, errors="coerce")
-    # 혹시 전부 NaT면 dayfirst로 한번 더 시도
-    if dt.isna().all():
-        dt = pd.to_datetime(txt, errors="coerce", dayfirst=True)
+
+    # 1) 일반 파싱(YYYY-MM-DD, YYYY/MM/DD, datetime 등)
+    dt_general = pd.to_datetime(txt, errors="coerce")
+
+    # 2) 숫자만 추출해서 8자리/6자리 날짜 처리 (예: 20251216, 251216)
+    digits = txt.str.replace(r"[^0-9]", "", regex=True)
+
+    dt_8 = pd.to_datetime(
+        digits.where(digits.str.len() == 8),
+        format="%Y%m%d",
+        errors="coerce"
+    )
+    dt_6 = pd.to_datetime(
+        digits.where(digits.str.len() == 6),
+        format="%y%m%d",
+        errors="coerce"
+    )
+
+    # 3) 엑셀 시리얼 처리 (범위 제한: 너무 큰 숫자는 날짜가 아니라 코드값일 가능성 큼)
+    num = pd.to_numeric(txt, errors="coerce")
+    num = num.where(num.between(20000, 60000))  # 대략 1954~2064 범위
+    dt_serial = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
+
+    # 우선순위: 일반 → 8자리 → 6자리 → 시리얼
+    dt = dt_general.fillna(dt_8).fillna(dt_6).fillna(dt_serial)
 
     return dt.dt.date
 
