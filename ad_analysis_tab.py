@@ -393,7 +393,7 @@ def render_ad_analysis_tab(supabase):
         st.dataframe(dff.sort_values("cost", ascending=False)[exist].head(200), use_container_width=True, hide_index=True)
 
     show_df("a) CPC_cut 이상 전환 0", ex_a)
-    show_df("b) 운영일 7일 이상 손익분기 미달", ex_b)
+    show_df("b) 운영 7일 이상 손익분기 미달", ex_b)
     show_df("c) 전환 시 손익분기 미달", ex_c, extra_cols=["roas_if_1_order"])
     show_df( f'd) 최소 주문조건 초과 전환 0 / 운영일{t["active_days"]}, 조회수{t["impressions"]}, 클릭수{t["clicks"]}',ex_d)
 
