@@ -225,56 +225,26 @@ def render_ad_analysis_tab(supabase):
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
 
     def calc_min_order_threshold_from_first_conversion(df):
-    def calc_min_order_threshold_from_first_conversion(df: pd.DataFrame):
-        """
-        목표:
-        - '누적 전환 >= 1'이 처음 되는 시점의 운영일(active_days) 중앙값을 구한다.
-        - 같은 시점까지의 누적 노출/클릭 중앙값도 같이 구한다.
-
-        주의:
-        - orders_14d는 '14일 합계'라 일자별 주문이 아니므로,
-          orders_14d의 일자 간 증가분을 daily_orders_proxy로 근사한다.
-        """
-        rows = []
+    def calc_first_conv_active_days_median(df):
+        days = []
 
         for kwd, g in df.groupby("keyword"):
             g = g.sort_values("date").copy()
 
-            # orders_14d 증가분을 일 주문 근사치로 사용(음수는 0 처리)
-            o = pd.to_numeric(g["orders_14d"], errors="coerce").fillna(0)
-            daily_orders_proxy = o.diff().fillna(o.iloc[0]).clip(lower=0)
-
-            g["daily_orders_proxy"] = daily_orders_proxy
-            g["cum_orders_proxy"] = g["daily_orders_proxy"].cumsum()
-
-            # 누적 전환(근사) >= 1이 처음 되는 행
-            hit = g[g["cum_orders_proxy"] >= 1]
+            # 전환 발생 키워드만
+            hit = g[g["orders_14d"] > 0]
             if hit.empty:
                 continue
 
-            first_idx = hit.index[0]
+            first = hit.iloc[0]
+            active_days_until = (g.loc[:first.name, "impressions"] > 0).sum()
+            days.append(active_days_until)
 
-            # 그 시점까지의 운영일/노출/클릭 누적
-            upto = g.loc[:first_idx]
-            active_days = int((upto["impressions"] > 0).sum())
-            impr_sum = int(upto["impressions"].sum())
-            clk_sum = int(upto["clicks"].sum())
+        if not days:
+            return 0
 
-            rows.append({
-                "active_days": active_days,
-                "impressions": impr_sum,
-                "clicks": clk_sum,
-            })
+        return int(pd.Series(days).median())
 
-        if not rows:
-            return {"active_days": 0, "impressions": 0, "clicks": 0}
-
-        tdf = pd.DataFrame(rows)
-        return {
-            "active_days": int(tdf["active_days"].median()),
-            "impressions": int(tdf["impressions"].median()),
-            "clicks": int(tdf["clicks"].median()),
-        }
 
 
     # ====== (C) CPC 누적매출 비중 + CPC_cut ======
@@ -375,13 +345,14 @@ def render_ad_analysis_tab(supabase):
 
     # d) 최소 주문조건 초과 & 전환 0
     t = calc_min_order_threshold_from_first_conversion(df)
+    first_conv_days = calc_first_conv_active_days_median(df)
 
     ex_d = kw[
         (kw["orders_14d"] == 0) &
-        (kw["active_days"] >= t["active_days"]) &
-        (kw["impressions"] >= t["impressions"]) &
-        (kw["clicks"] >= t["clicks"])
-    ].copy()
+        (kw["active_days"] >= first_conv_days) &   # ✅ 여기만 변경
+        (kw["impressions"] >= t["impressions"]) &  # 그대로
+        (kw["clicks"] >= t["clicks"])               # 그대로
+    ]
 
     # 출력 표(각 그룹)
     def show_df(title, dff, extra_cols=None):
@@ -395,7 +366,7 @@ def render_ad_analysis_tab(supabase):
     show_df("a) CPC_cut 이상 전환 0", ex_a)
     show_df("b) 운영일일 7일 이상 손익분기 미달", ex_b)
     show_df("c) 전환 시 손익분기 미달", ex_c, extra_cols=["roas_if_1_order"])
-    show_df( f'd) 최소 주문조건 초과 전환 0 / 운영일{t["active_days"]}, 조회수{t["impressions"]}, 클릭수{t["clicks"]}',ex_d)
+    show_df(f'd) 최소 주문조건 초과 전환 0 / 운영일{first_conv_days}, 조회수{t["impressions"]}, 클릭수{t["clicks"]}',ex_d)
 
     # ====== (E) 저장 ======
     st.markdown("### 5) Supabase 저장")
