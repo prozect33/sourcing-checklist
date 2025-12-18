@@ -61,7 +61,7 @@ try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
-    st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
+    st.error(f"Supabase 클라이언트 초기화 중 오류가 방생했습니다: {e}")
     st.stop()
 
 def load_config_from_supabase():
