@@ -90,7 +90,8 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
             continue
 
         first_idx = hit.index[0]
-        g_until = g.loc[:first_idx]  # 그 시점까지의 누적값 계산
+        pos = g.index.get_loc(first_idx)  # 위치 인덱스로 변환
+        g_until = g.iloc[:pos + 1]  # 정수 위치 인덱싱으로 정확히 잘라냄
 
         active_days = int(g_until.loc[g_until["impressions"] > 0, "date"].nunique())
         impressions = int(g_until["impressions"].sum())
