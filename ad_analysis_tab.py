@@ -285,19 +285,26 @@ def render_ad_analysis_tab(supabase):
 
         if end_idx != -1:
             cpc_end = float(x[end_idx])
-            vline2 = alt.Chart(pd.DataFrame({"c": [cpc_end]})).mark_rule(color="red", strokeDash=[2, 2]).encode(x="c:Q")
+            rev_share_end = float(y[end_idx]) * 100  # 누적매출 비중 계산
 
-            # ✅ 선 3개 모두 합쳐서 출력
+            vline2 = alt.Chart(
+                pd.DataFrame({"c": [cpc_end]})
+            ).mark_rule(
+                color="red",
+                strokeDash=[2, 2]
+            ).encode(x="c:Q")
+
             final_chart = chart + vline + vline2
-
             st.altair_chart(final_chart, use_container_width=True)
-            st.caption(f"📈 누적 매출 상승 직전 CPC: {round(cpc_end, 2)}원")
+
+            # ✅ 포맷 통일된 출력
+            st.caption(f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%)")
+            st.caption(f"CPC_bottom: {round(cpc_end, 2)}원 (누적매출 {round(rev_share_end, 2)}%)")
 
         else:
-            # fallback (vline만 출력)
             st.altair_chart(chart + vline, use_container_width=True)
+            st.caption(f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%)")
 
-        st.caption(f"CPC_cut: {round(cpc_cut, 2)}원 (누적매출 비중 {cut_rev_share}%)")
 
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
