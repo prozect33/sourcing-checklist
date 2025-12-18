@@ -1,4 +1,4 @@
-# app/ad_analysis.py
+# path: app/ad_analysis.py
 from __future__ import annotations
 
 import hashlib
@@ -25,14 +25,12 @@ ORD_COL = "총 주문수(14일)"
 REV_COL = "총 전환매출액(14일)"
 REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
 
-# ====== 탐지 파라미터(팀 고정) ======
-SMOOTH_DIVISOR = 70        # 창 = round(N / 50), 최소 7, 홀수  (완만 구간 보존 위해 60→50으로 다소 강하게)
-LOW_Q = 0.65               # 양의 기울기 하위 25% 이상을 오르막으로 간주(완만 포함)
-LOW_Q_FALLBACK = 0.55      # 데이터 약할 때 완화
-GAP_TOL_DIVISOR = 180      # 빈틈 메움 허용 폭 = ceil(N / 100) 포인트
-MIN_RUN_FRAC = 0.04        # 최소 지속 길이 비율(스파이크 방지)
-FLOOR_Q = 0.22          # ← 새로 추가
-BACK_CAP_FRAC = 0.35    # ← 새로 추가
+# ====== 최소 파라미터(딱 4개 + 1) ======
+SMOOTH_DIVISOR = 70     # 창 = round(N / 70), 홀수, 최소7
+SLOPE_Q = 0.66          # high 임계 분위(0.64~0.68 내에서 ±0.02만 조정)
+LOWBACK_DELTA = 0.26    # low_back_q = SLOPE_Q - LOWBACK_DELTA (권장 0.22~0.30)
+FLOOR_Q = 0.20          # bottom이 x 하위 q%보다 왼쪽으로 못 내려감(0.18~0.26 조정)
+MIN_RUN_FRAC = 0.04     # 스파이크 방지(보통 고정)
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
@@ -54,7 +52,7 @@ def _safe_div(a: float | int, b: float | int, default: float = 0.0) -> float:
     return default if b == 0 else a / b
 
 def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
-    """왜: 장기 흐름 추출(초반 완만 구간 보존 목적)."""
+    """왜: 장기 흐름만 보려는 목적의 필수 스무딩."""
     window = max(7, int(window))
     if window % 2 == 0:
         window += 1
@@ -63,26 +61,6 @@ def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
     kernel = np.ones(window, dtype=float) / window
     return np.convolve(ypad, kernel, mode="valid")
 
-def _fill_small_gaps(mask: np.ndarray, max_gap: int) -> np.ndarray:
-    """왜: 노이즈가 만든 짧은 0 구간을 메워 '긴 오르막' 유지."""
-    if max_gap <= 0:
-        return mask
-    out = mask.copy()
-    i = 0
-    n = len(mask)
-    while i < n:
-        if not out[i]:
-            j = i
-            while j < n and not out[j]:
-                j += 1
-            gap_len = j - i
-            if 0 < gap_len <= max_gap:
-                out[i:j] = True
-            i = j
-        else:
-            i += 1
-    return out
-
 def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
     """True 구간 중 x-길이(end_x - start_x)가 최대인 [s,e] 반환. 없으면 (-1,-1)."""
     best_span, best_s, cur_s = 0.0, -1, -1
@@ -90,14 +68,13 @@ def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
         if v and cur_s == -1:
             cur_s = i
         if (not v or i == len(mask) - 1) and cur_s != -1:
-            e = i if not v else i  # v==False면 i-1이 끝이지만 span 계산엔 무관
+            e = i if not v else i
             span = float(x[e] - x[cur_s])
             if span > best_span:
                 best_span, best_s = span, cur_s
             cur_s = -1
     if best_s == -1:
         return -1, -1
-    # 끝 인덱스 재탐색
     e = best_s
     while e + 1 < len(mask) and mask[e + 1]:
         e += 1
@@ -157,6 +134,7 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     return kw, totals
 
+# ============== 컷 계산 ==============
 @dataclass(frozen=True)
 class CpcCuts:
     bottom: float
@@ -164,8 +142,8 @@ class CpcCuts:
 
 def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     """
-    bottom: **가장 긴 오르막(x-길이 최대)의 시작점**(저임계+틈 메움)
-    top   : 정규화 후 y_n - x_n 최대 지점(기존)
+    bottom: high-임계(가파른) 최장 구간을 low-임계로 **왼쪽 backtrack**한 시작점.
+    top   : 정규화 후 y_n - x_n 최대 지점(기존).
     """
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
@@ -178,16 +156,15 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     x = conv["cpc"].to_numpy(dtype=float)
     y = conv["cum_rev_share"].to_numpy(dtype=float)
     n = len(x)
-    if n < 4:
+    if n < 5:
         return CpcCuts(bottom=float(x[0]), top=float(x[-1])), conv
 
-    # ----- top (기존 방식 유지) -----
+    # ----- top (기존 유지) -----
     x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
     idx_top = int(np.argmax(y_n - x_n))
 
-    # ----- bottom (Hysteresis: high-threshold run -> extend left by low-threshold) -----
-    n = len(x)
+    # ----- bottom (심플 히스테리시스) -----
     smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
         smooth_win += 1
@@ -198,52 +175,38 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     if pos.size == 0 or not np.any(np.isfinite(pos)):
         idx_bottom = 0
     else:
-        # 1) 높은 임계(high)로 "가파른 구간"을 먼저 찾는다
-        high_thr = float(np.quantile(pos, LOW_Q))               # e.g. 0.60~0.70
+        # 1) high 임계에서 최장 구간
+        high_thr = float(np.quantile(pos, float(np.clip(SLOPE_Q, 0.55, 0.9))))
         mask_high = slope >= high_thr
-        gap_tol = max(1, int(np.ceil(n / GAP_TOL_DIVISOR)))
-        mask_high = _fill_small_gaps(mask_high, gap_tol)
         s_high, e_high = _longest_true_run_by_x(mask_high, x)
 
-        if s_high == -1:
-            # 가파른 구간 자체가 없으면 완화
-            high_thr = float(np.quantile(pos, LOW_Q_FALLBACK))
+        if s_high == -1:  # 완화
+            high_thr = float(np.quantile(pos, 0.55))
             mask_high = slope >= high_thr
-            mask_high = _fill_small_gaps(mask_high, gap_tol)
             s_high, e_high = _longest_true_run_by_x(mask_high, x)
 
         if s_high == -1:
             idx_bottom = 0
         else:
-            # 2) 낮은 임계(low_back)로 같은 "덩어리"를 왼쪽으로 확장(언덕 '발' 포착)
-            #    high보다 0.20~0.30 분위수 낮게 두는 게 안정적
-            low_back_q = max(0.15, min(float(LOW_Q) - 0.25, 0.45))  # 예: LOW_Q=0.65 -> 0.40
+            # 2) low 임계로 왼쪽 backtrack
+            low_back_q = float(np.clip(SLOPE_Q - LOWBACK_DELTA, 0.15, 0.45))
             low_thr = float(np.quantile(pos, low_back_q))
             mask_low = slope >= low_thr
-            mask_low = _fill_small_gaps(mask_low, gap_tol)
 
-            # high 구간(s_high~e_high)을 포함하는 low 구간의 '시작'으로 backtrack
             s = s_high
             while s - 1 >= 0 and mask_low[s - 1]:
                 s -= 1
-            # ---- Guardrails: floor & back-cap ----
-            # 1) 바닥 잠금: x-quantile(FLOOR_Q)보다 왼쪽 금지
-            floor_x = float(np.quantile(x, FLOOR_Q))
+
+            # 3) floor 가드(너무 왼쪽 방지)
+            floor_x = float(np.quantile(x, float(np.clip(FLOOR_Q, 0.0, 0.5))))
             floor_idx = int(np.searchsorted(x, floor_x, side="left"))
+            s = max(s, floor_idx)
 
-            # 2) 확장 상한: high구간 시작점에서 전체 span의 BACK_CAP_FRAC만큼만 왼쪽 허용
-            x_span = float(x[-1] - x[0])
-            cap_x = float(x[s_high]) - BACK_CAP_FRAC * x_span
-            cap_idx = int(np.searchsorted(x, max(cap_x, x[0]), side="left"))
-
-            # 오른쪽으로 최소 보정
-            s = max(s, floor_idx, cap_idx)    
-
-            # 최소 지속 길이 보정(너무 짧은 스파이크 방지)
-            min_run = max(2, int(np.ceil(n * MIN_RUN_FRAC)))
+            # 4) 최소 지속 길이 보정
             e = s
             while e + 1 < len(mask_low) and mask_low[e + 1]:
                 e += 1
+            min_run = max(2, int(np.ceil(n * MIN_RUN_FRAC)))
             if (e - s + 1) < min_run:
                 e = min(n - 1, s + min_run - 1)
 
@@ -252,6 +215,7 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     cuts = CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top]))
     return cuts, conv
 
+# ============== 지표/표시 ==============
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
     kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
@@ -311,7 +275,6 @@ def _format_keywords_line_exact(words: Iterable[str]) -> str:
     return ",\u200b".join([w for w in words])
 
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    """왜: 한 번에 전달."""
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
@@ -347,69 +310,6 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
         return
     line = _format_keywords_line_exact(all_words)
     _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
-
-# ============== 저장 로직 ==============
-def _save_to_supabase(
-    supabase,
-    *,
-    upload,
-    product_name: str,
-    note: str,
-    totals: Dict,
-    breakeven_roas: float,
-    cuts: CpcCuts,
-    shares: Dict[str, float],
-    aov_p50_value: float,
-    kw: pd.DataFrame,
-    exclusions: Dict[str, pd.DataFrame],
-) -> None:
-    run_id = str(uuid.uuid4())
-    file_sha1 = hashlib.sha1(upload.getvalue()).hexdigest()
-    st.caption(f"파일 해시: {file_sha1[:12]}…")
-    supabase.table("ad_analysis_runs").insert(
-        {
-            "run_id": run_id,
-            "product_name": product_name.strip(),
-            "source_filename": upload.name,
-            "source_rows": int(len(kw)),
-            "date_min": str(totals.get("date_min")),
-            "date_max": str(totals.get("date_max")),
-            "note": note,
-            "breakeven_roas": float(breakeven_roas),
-            "cpc_cut": float(round(cuts.top, 2)),
-        }
-    ).execute()
-    rows_kw = kw.assign(run_id=run_id)[
-        ["run_id","keyword","surface","active_days","impressions","clicks","cost","orders_14d","revenue_14d","ctr","cpc","roas_14d"]
-    ].to_dict(orient="records")
-    for i in range(0, len(rows_kw), 1000):
-        supabase.table("ad_analysis_keyword_total").upsert(rows_kw[i : i + 1000]).execute()
-    artifacts = [
-        {
-            "run_id": run_id,
-            "artifact_key": "settings",
-            "payload": {
-                "breakeven_roas": float(breakeven_roas),
-                "cpc_cut_top": float(round(cuts.top, 2)),
-                "cpc_cut_bottom": float(round(cuts.bottom, 2)),
-                "top_rev_share": float(shares.get("rev_share_top", 0.0)),
-                "bottom_rev_share": float(shares.get("rev_share_bottom", 0.0)),
-                "aov_p50": float(aov_p50_value),
-            },
-        },
-        {
-            "run_id": run_id,
-            "artifact_key": "exclusions",
-            "payload": {
-                "a": exclusions["a"]["keyword"].tolist(),
-                "b": exclusions["b"]["keyword"].tolist(),
-                "c": exclusions["c"]["keyword"].tolist(),
-                "d": exclusions["d"]["keyword"].tolist(),
-            },
-        },
-    ]
-    supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
-    st.success(f"저장 성공 (ID: {run_id})")
 
 # ============== Streamlit 탭 ==============
 def render_ad_analysis_tab(supabase):
