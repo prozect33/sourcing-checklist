@@ -253,69 +253,39 @@ def render_ad_analysis_tab(supabase):
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # 3) CPC-누적매출 비중 & 컷
-    # 3) CPC-누적매출 비중 & 컷
     st.markdown("### 3) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
-
+    cpc_cut, cut_rev_share, aov_p50 = 0.0, 0.0, 0.0
     if conv.empty:
-        st.warning("전환 발생 키워드가 없습니다.")
+        st.warning("전환 발생 키워드가 없습니다. CPC_cut을 0으로 처리합니다.")
     else:
-        # 누적매출/광고비 비중 계산
         total_conv_rev = conv["revenue_14d"].sum()
-        total_cost = conv["cost"].sum()
-
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
-
-        conv["cum_cost"] = conv["cost"].cumsum()
-        conv["cum_cost_share"] = (conv["cum_cost"] / total_cost).clip(0, 1)
-
-        # 정규화
         x = conv["cpc"].to_numpy(dtype=float)
         y = conv["cum_rev_share"].to_numpy(dtype=float)
+        if len(x) >= 3:
+            x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
+            y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
+            idx = int(np.argmax(y_n - x_n))
+            cpc_cut = float(x[idx])
+        else:
+            cpc_cut = float(x[-1])
+        rev_above_cut = conv.loc[conv["cpc"] >= cpc_cut, "revenue_14d"].sum()
+        cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev) * 100, 2)
 
-        x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
-        y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-
-        delta = y_n - x_n
-
-        # ✅ CPC_top: delta가 가장 커지는 지점
-        idx_top = int(np.argmax(delta))
-        cpc_top = float(x[idx_top])
-        rev_share_top = round(float(y[idx_top]) * 100, 2)
-        cost_share_top = round(conv.iloc[idx_top]["cum_cost_share"] * 100, 2)
-
-        # ✅ CPC_bottom: delta가 급격히 커지기 **직전** 지점
-        delta_grad = np.gradient(delta)
-        idx_bottom = int(np.argmax(delta_grad[:idx_top])) if idx_top > 0 else 0
-        cpc_bottom = float(x[idx_bottom])
-        rev_share_bottom = round(float(y[idx_bottom]) * 100, 2)
-        cost_share_bottom = round(conv.iloc[idx_bottom]["cum_cost_share"] * 100, 2)
-
-        # 📊 그래프 & 세로선
         chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
-        vline_top = alt.Chart(pd.DataFrame({"c": [cpc_top]})).mark_rule(
-            color="gray", strokeDash=[6, 4]
-        ).encode(x="c:Q")
-        vline_bottom = alt.Chart(pd.DataFrame({"c": [cpc_bottom]})).mark_rule(
-            color="red", strokeDash=[2, 2]
-        ).encode(x="c:Q")
+        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
+        st.altair_chart(chart + vline, use_container_width=True)
+        st.caption(f"CPC_cut: {round(cpc_cut, 2)}원 (누적매출 비중 {cut_rev_share}%)")
 
-        final_chart = chart + vline_top + vline_bottom
-        st.altair_chart(final_chart, use_container_width=True)
-
-        # 📌 출력 포맷
-        st.caption(f"CPC_top: {round(cpc_top, 2)}원 (누적매출 {rev_share_top}%, 누적광고비 {cost_share_top}%)")
-        st.caption(f"CPC_bottom: {round(cpc_bottom, 2)}원 (누적매출 {rev_share_bottom}%, 누적광고비 {cost_share_bottom}%)")
-
-        # AOV 계산
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
 
     st.markdown("### 4) 제외 키워드")
 
-    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_top)].copy()
-    ex_b = kw[(kw["orders_14d"] > 0) & (kw["cpc"] >= cpc_top)].copy()
+    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut)].copy()
+    ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
     cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
     ex_c = kw[kw["orders_14d"] == 0].copy()
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
@@ -334,7 +304,7 @@ def render_ad_analysis_tab(supabase):
         st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
     _show_df("a) CPC_cut 이상 전환 0", ex_a)
-    _show_df("b) 운영 일주간 이상 손익분기 미달", ex_b)
+    _show_df("b) 운영 일주일 이상 손익분기 미달", ex_b)
     _show_df("c) 전환 시 예상 ROAS 미달", ex_c, ["roas_if_1_order"])
     _show_df(f"d) {format_min_condition_label(min_cond)}", ex_d)
 
