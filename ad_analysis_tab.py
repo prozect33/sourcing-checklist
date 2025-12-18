@@ -50,8 +50,24 @@ def _median_int(v) -> int:
     s = pd.Series(v)
     return int(s.median()) if not s.empty else 0
 
-# ====== 최소 전환 조건 계산 (전환 기대값 기반) ======
-def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
+def build_min_conversion_condition(df: pd.DataFrame) -> Dict[str, float]:
+    return calc_base_threshold_avg_order(df)
+
+def format_min_condition_label(min_cond: Dict[str, float]) -> str:
+    return (
+        f"최소 전환 조건 (운영{int(min_cond['active_days'])}일 / "
+        f"노출{_to_float1(min_cond['impressions'])} / 클릭{_to_float1(min_cond['clicks'])})"
+    )
+
+def filter_min_conversion_condition(kw_total: pd.DataFrame, min_cond: Dict[str, float]) -> pd.DataFrame:
+    return kw_total[
+        (kw_total["orders_14d"] == 0)
+        & (kw_total["active_days"] >= int(min_cond["active_days"]))
+        & (kw_total["impressions"] >= min_cond["impressions"])
+        & (kw_total["clicks"] >= min_cond["clicks"])
+    ].copy()
+
+def calc_base_threshold_avg_order(df: pd.DataFrame) -> Dict[str, float]:
     df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
     if df_search.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
@@ -61,22 +77,21 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
         g = g.sort_values("date").copy()
 
         total_orders = int(g["orders_14d"].sum())
-        total_clicks = int(g["clicks"].sum())
-        if total_orders <= 0 or total_clicks <= 0:
+        if total_orders <= 0:
             continue
 
-        final_cvr = total_orders / total_clicks
-        g["cum_clicks"] = g["clicks"].cumsum()
-        g["cum_expected"] = g["cum_clicks"] * final_cvr
+        g["cum_orders"] = g["orders_14d"].cumsum()
+        g["day_number"] = range(1, len(g) + 1)
+        g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
 
-        hit = g[g["cum_expected"] >= 1]
+        hit = g[g["avg_orders_per_day"] >= 1]
         if hit.empty:
             continue
 
         first_idx = hit.index[0]
         g_until = g.loc[:first_idx]
 
-        active_days = int(g_until.loc[g_until["impressions"] > 0, "date"].nunique())
+        active_days = int(g_until["date"].nunique())
         impressions = int(g_until["impressions"].sum())
         clicks = int(g_until["clicks"].sum())
 
@@ -95,23 +110,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
         "impressions": _median_1d(tdf["impressions"].astype(float)),
         "clicks": _median_1d(tdf["clicks"].astype(float)),
     }
-
-def build_min_conversion_condition(df: pd.DataFrame) -> Dict[str, float]:
-    return calc_base_threshold_t(df)
-
-def format_min_condition_label(min_cond: Dict[str, float]) -> str:
-    return (
-        f"최소 전환 조건 (운영{int(min_cond['active_days'])}일 / "
-        f"노출{_to_float1(min_cond['impressions'])} / 클릭{_to_float1(min_cond['clicks'])})"
-    )
-
-def filter_min_conversion_condition(kw_total: pd.DataFrame, min_cond: Dict[str, float]) -> pd.DataFrame:
-    return kw_total[
-        (kw_total["orders_14d"] == 0)
-        & (kw_total["active_days"] >= int(min_cond["active_days"]))
-        & (kw_total["impressions"] >= min_cond["impressions"])
-        & (kw_total["clicks"] >= min_cond["clicks"])
-    ].copy()
 
 # ====== Streamlit 탭 렌더링 ======
 def render_ad_analysis_tab(supabase):
