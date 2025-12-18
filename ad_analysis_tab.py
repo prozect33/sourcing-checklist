@@ -48,6 +48,36 @@ def _safe_div(a: float | int, b: float | int, default: float = 0.0) -> float:
 def _median_1d(s: pd.Series) -> float:
     return float(np.round(s.median(), 1)) if not s.empty else 0.0
 
+# ---- Longest Uphill Helpers (왜: bottom 시작점 안정화) ----
+def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
+    """왜: 잡음을 눌러 단기 스파이크에 의한 오인식 방지."""
+    window = max(7, int(window))
+    if window % 2 == 0:
+        window += 1
+    pad = window // 2
+    ypad = np.pad(y, (pad, pad), mode="edge")
+    kernel = np.ones(window, dtype=float) / window
+    return np.convolve(ypad, kernel, mode="valid")
+
+def _longest_true_run(mask: np.ndarray) -> tuple[int, int]:
+    """True의 최장 연속 구간 [start, end] (end 포함), 없으면 (-1,-1)."""
+    best_len, best_start, cur_start = 0, -1, -1
+    for i, v in enumerate(mask):
+        if v and cur_start == -1:
+            cur_start = i
+        if not v and cur_start != -1:
+            L = i - cur_start
+            if L > best_len:
+                best_len, best_start = L, cur_start
+            cur_start = -1
+    if cur_start != -1:
+        L = len(mask) - cur_start
+        if L > best_len:
+            best_len, best_start = L, cur_start
+    if best_start == -1:
+        return -1, -1
+    return best_start, best_start + best_len - 1
+
 # ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
     try:
@@ -108,37 +138,73 @@ class CpcCuts:
     top: float
 
 def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
+    """
+    bottom: '가장 오래 가파른 오르막' 시작점(스무딩→기울기→상위 0.75 분위→최장 run 시작)
+    top   : 정규화 후 y_n - x_n 최대 지점(기존 유지)
+    """
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
         return CpcCuts(0.0, 0.0), conv
+
     total_conv_rev = float(conv["revenue_14d"].sum())
     conv["cum_rev"] = conv["revenue_14d"].cumsum()
     conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1.0)).clip(0, 1)
+
     x = conv["cpc"].to_numpy(dtype=float)
     y = conv["cum_rev_share"].to_numpy(dtype=float)
-    if len(x) >= 4:
-        x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
-        y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-        idx_top = int(np.argmax(y_n - x_n))
-        dy = np.diff(y_n); dx = np.diff(x_n) + 1e-12
-        slope = dy / dx
-        search_upto = max(2, int(len(slope) * 0.5))
-        idx_bottom = int(np.argmax(slope[:search_upto]))
-        cuts = CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top]))
+
+    if len(x) < 4:
+        return CpcCuts(bottom=float(x[0]), top=float(x[-1])), conv
+
+    # ----- top (기존 방식 유지) -----
+    x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
+    y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
+    idx_top = int(np.argmax(y_n - x_n))
+
+    # ----- bottom (Longest Uphill Start) -----
+    n = len(x)
+    smooth_win = max(7, int(round(n / 60)))
+    if smooth_win % 2 == 0:
+        smooth_win += 1
+
+    y_s = _moving_average(y, smooth_win)
+    slope = np.gradient(y_s, x)  # x 단조 증가 가정
+
+    pos = slope[slope > 0]
+    if pos.size == 0 or not np.any(np.isfinite(pos)):
+        idx_bottom = 0
     else:
-        cuts = CpcCuts(bottom=float(x[0]), top=float(x[-1]))
+        # 1차: 0.75 분위
+        thr = float(np.quantile(pos, 0.75))
+        mask = slope >= thr
+        s, e = _longest_true_run(mask)
+
+        # 실패 시 0.60로 완화
+        if s == -1:
+            thr = float(np.quantile(pos, 0.60))
+            mask = slope >= thr
+            s, e = _longest_true_run(mask)
+
+        if s == -1:
+            idx_bottom = 0
+        else:
+            # 너무 짧으면 최소 길이 보정(왜: 순간 스파이크 방지)
+            min_run = max(2, int(np.ceil(n * 0.03)))
+            if (e - s + 1) < min_run:
+                e = min(n - 1, s + min_run - 1)
+            idx_bottom = s
+
+    cuts = CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top]))
     return cuts, conv
 
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     """
-    분모: 전체 채널 합(검색+비검색)  ← 변경됨
+    분모: 전체 채널 합(검색+비검색)
     분자: 검색 영역 + 클릭>0, CPC 조건(≤ bottom / ≥ top) 충족 키워드 합
     """
-    # --- 분자 계산(검색, 클릭>0에서 조건 충족) ---
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
     kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
 
-    # --- 분모: 전체 채널 ---
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
 
@@ -367,7 +433,6 @@ def render_ad_analysis_tab(supabase):
         shares = _search_shares_for_cuts(kw, cuts)
         aov50 = _aov_p50(conv)
 
-        # 분모 안내(오해 방지)
         st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색 영역(클릭>0) 중 CPC 조건 충족 키워드 합")
 
         st.markdown(
