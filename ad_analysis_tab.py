@@ -291,7 +291,7 @@ def render_ad_analysis_tab(supabase):
     st.markdown("### 4) 제외 키워드")
 
     ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut_top)].copy()
-    ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cpc_cut_bottom)].copy()
+    ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cpc_cut_bottom) & (kw["clicks"] >= 1)].copy()
     cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
     ex_c = kw[kw["orders_14d"] == 0].copy()
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
