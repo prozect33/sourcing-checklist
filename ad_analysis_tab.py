@@ -326,6 +326,7 @@ def render_ad_analysis_tab(supabase):
         st.caption(
             f"CPC_cut bottom: {round(cpc_cut_bottom, 2)}원 "
             f"(누적매출 비중 {bottom_rev_share}%) | "
+            
             f"CPC_cut top: {round(cpc_cut_top, 2)}원 "
             f"(누적매출 비중 {top_rev_share}%)"
         )
