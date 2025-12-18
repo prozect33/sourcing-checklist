@@ -93,31 +93,35 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
 
     rows = []
-    for kw, g in df_search.groupby("keyword"):
+    for keyword, g in df_search.groupby("keyword"):
         g = g.sort_values("date").reset_index(drop=True)
-        # 누적 전환수와 평균 전환수 계산
+
         g["cum_orders"] = g["orders_14d"].cumsum()
         g["day_number"] = range(1, len(g) + 1)
         g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
 
-        # 평균 전환수 1 이상인 최초 시점
         hit = g[g["avg_orders_per_day"] >= 1]
         if hit.empty:
             continue
 
-        first_idx = hit.index[0]
-        pos = g.index.get_loc(first_idx)  # 위치 인덱스로 변환
-        g_until = g.iloc[:pos + 1]  # 정수 위치 인덱싱으로 정확히 잘라냄
-
-        active_days = int(g_until.loc[g_until["impressions"] > 0, "date"].nunique())
-        impressions = int(g_until["impressions"].sum())
-        clicks = int(g_until["clicks"].sum())
+        pos = hit.index[0]  # 인덱스가 0부터 시작이라 그대로 위치로 사용 가능
+        g_until = g.iloc[:pos + 1]
 
         rows.append({
-            "active_days": active_days,
-            "impressions": impressions,
-            "clicks": clicks,
+            "active_days": g_until["impressions"].gt(0).sum(),
+            "impressions": g_until["impressions"].sum(),
+            "clicks": g_until["clicks"].sum()
         })
+
+    tdf = pd.DataFrame(rows)
+    if tdf.empty:
+        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
+
+    return {
+        "active_days": _median_1d(tdf["active_days"].astype(float)),
+        "impressions": _median_1d(tdf["impressions"].astype(float)),
+        "clicks": _median_1d(tdf["clicks"].astype(float)),
+    }
 
     if not rows:
         st.warning("❗ rows 비었음 — 조건 만족해도 슬라이스 실패했을 가능성 있음")
