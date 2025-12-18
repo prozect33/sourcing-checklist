@@ -67,8 +67,11 @@ def filter_min_conversion_condition(kw_total: pd.DataFrame, min_cond: Dict[str, 
         & (kw_total["clicks"] >= min_cond["clicks"])
     ].copy()
 
-def calc_base_threshold_avg_order(df: pd.DataFrame) -> Dict[str, float]:
+def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
+    # 검색 영역 중에서 주문이 1건이라도 발생한 키워드만 분석
     df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
+    df_search = df_search.groupby("keyword").filter(lambda g: g["orders_14d"].sum() > 0)
+
     if df_search.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
 
@@ -76,22 +79,20 @@ def calc_base_threshold_avg_order(df: pd.DataFrame) -> Dict[str, float]:
     for kw, g in df_search.groupby("keyword"):
         g = g.sort_values("date").copy()
 
-        total_orders = int(g["orders_14d"].sum())
-        if total_orders <= 0:
-            continue
-
+        # 누적 전환수와 평균 전환수 계산
         g["cum_orders"] = g["orders_14d"].cumsum()
         g["day_number"] = range(1, len(g) + 1)
         g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
 
+        # 평균 전환수 1 이상인 최초 시점
         hit = g[g["avg_orders_per_day"] >= 1]
         if hit.empty:
             continue
 
         first_idx = hit.index[0]
-        g_until = g.loc[:first_idx]
+        g_until = g.loc[:first_idx]  # 그 시점까지의 누적값 계산
 
-        active_days = int(g_until["date"].nunique())
+        active_days = int(g_until.loc[g_until["impressions"] > 0, "date"].nunique())
         impressions = int(g_until["impressions"].sum())
         clicks = int(g_until["clicks"].sum())
 
