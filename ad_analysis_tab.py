@@ -191,7 +191,7 @@ def render_ad_analysis_tab(supabase):
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # 3) CPC-누적매출 비중 & 컷
-    st.markdown("### 3) CPC-누적매출 비중 & 컷")
+    st.markdown("### 2) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
 
     cpc_cut_top = 0.0
@@ -271,7 +271,7 @@ def render_ad_analysis_tab(supabase):
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
 
-    st.markdown("### 4) 제외 키워드")
+    st.markdown("### 3) 제외 키워드")
 
     ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut_top)].copy()
     ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cpc_cut_bottom) & (kw["clicks"] >= 1)].copy()
