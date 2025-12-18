@@ -275,9 +275,25 @@ def render_ad_analysis_tab(supabase):
         cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev) * 100, 2)
 
         chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
+        # 기존: 횡보 시작선
         vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
+
+        # 추가: 횡보 끝나는 지점 계산
+        x = conv["cpc"].to_numpy(dtype=float)
+        y = conv["cum_rev_share"].to_numpy(dtype=float)
+        dy = np.gradient(y)
+        end_idx = np.argmax(dy > 0.05) if (dy > 0.05).any() else -1
+
+        if end_idx != -1:
+            cpc_end = float(x[end_idx])
+            vline2 = alt.Chart(pd.DataFrame({"c": [cpc_end]})).mark_rule(color="red", strokeDash=[2, 2]).encode(x="c:Q")
+            chart += vline2
+            st.caption(f"📈 누적 매출 상승 직전 CPC: {round(cpc_end, 2)}원")
+
+        # 그래프 출력
         st.altair_chart(chart + vline, use_container_width=True)
         st.caption(f"CPC_cut: {round(cpc_cut, 2)}원 (누적매출 비중 {cut_rev_share}%)")
+
 
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
