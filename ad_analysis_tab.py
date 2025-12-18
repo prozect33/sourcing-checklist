@@ -233,16 +233,7 @@ def render_ad_analysis_tab(supabase):
             cpc_cut_top = float(x[-1])
             cpc_cut_bottom = float(x[0])
 
-        # ▶ top: 해당 CPC 이상 매출 비중
-        rev_above_top = conv.loc[conv["cpc"] >= cpc_cut_top, "revenue_14d"].sum()
-        top_rev_share = round(rev_above_top / total_conv_rev * 100, 2)
-
-        # ▶ bottom: 해당 CPC "직전까지" 누적매출 비중
-        bottom_mask = conv["cpc"] < cpc_cut_bottom
-        rev_until_bottom = conv.loc[bottom_mask, "revenue_14d"].sum()
-        bottom_rev_share = round(rev_until_bottom / total_conv_rev * 100, 2)
-
-        # 차트
+        # 차트 (기존 유지)
         chart = alt.Chart(conv).mark_line().encode(
             x="cpc:Q",
             y="cum_rev_share:Q"
@@ -261,11 +252,48 @@ def render_ad_analysis_tab(supabase):
             use_container_width=True
         )
 
+        # ====== 검색 광고 기준 비중 계산 ======
+        # 분모: 전환 유무 무관한 검색 광고 전체
+        kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
+
+        total_search_cost = float(kw_search_all["cost"].sum())         # 검색 총 광고비
+        total_search_rev = float(kw_search_all["revenue_14d"].sum())   # 검색 총 매출 (전환 0은 0으로 포함)
+
+        # 분자: CPC 컷은 클릭 1회 이상에서만 적용
+        kw_search_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
+
+        # bottom 이하
+        mask_bottom = kw_search_click["cpc"] <= cpc_cut_bottom
+        rev_share_bottom = round(
+            (kw_search_click.loc[mask_bottom, "revenue_14d"].sum() / total_search_rev * 100)
+            if total_search_rev > 0 else 0.0,
+            2
+        )
+        cost_share_bottom = round(
+            (kw_search_click.loc[mask_bottom, "cost"].sum() / total_search_cost * 100)
+            if total_search_cost > 0 else 0.0,
+            2
+        )
+
+        # top 이상
+        mask_top = kw_search_click["cpc"] >= cpc_cut_top
+        rev_share_top = round(
+            (kw_search_click.loc[mask_top, "revenue_14d"].sum() / total_search_rev * 100)
+            if total_search_rev > 0 else 0.0,
+            2
+        )
+        cost_share_top = round(
+            (kw_search_click.loc[mask_top, "cost"].sum() / total_search_cost * 100)
+            if total_search_cost > 0 else 0.0,
+            2
+        )
+
+        # 출력 (줄바꿈 포함)
         st.caption(
             f"CPC_cut bottom: {round(cpc_cut_bottom, 2)}원 "
-            f"(누적매출 비중 {bottom_rev_share}%)\n"
+            f"(검색 광고 매출 비중 {rev_share_bottom}%, 검색 광고 광고비 비중 {cost_share_bottom}%)\n"
             f"CPC_cut top: {round(cpc_cut_top, 2)}원 "
-            f"(누적매출 비중 {top_rev_share}%)"
+            f"(검색 광고 매출 비중 {rev_share_top}%, 검색 광고 광고비 비중 {cost_share_top}%)"
         )
 
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
