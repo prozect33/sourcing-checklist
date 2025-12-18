@@ -184,7 +184,8 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
     idx_top = int(np.argmax(y_n - x_n))
 
-    # ----- bottom (Longest positive-slope span by x) -----
+    # ----- bottom (Hysteresis: high-threshold run -> extend left by low-threshold) -----
+    n = len(x)
     smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
         smooth_win += 1
@@ -195,28 +196,44 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     if pos.size == 0 or not np.any(np.isfinite(pos)):
         idx_bottom = 0
     else:
-        low_thr = max(
-            float(np.percentile(pos, LOW_Q * 100)),
-            float(np.percentile(pos, LOW_Q_FALLBACK * 100)),
-        )
-        mask = slope >= low_thr
+        # 1) 높은 임계(high)로 "가파른 구간"을 먼저 찾는다
+        high_thr = float(np.quantile(pos, LOW_Q))               # e.g. 0.60~0.70
+        mask_high = slope >= high_thr
         gap_tol = max(1, int(np.ceil(n / GAP_TOL_DIVISOR)))
-        mask = _fill_small_gaps(mask, gap_tol)
+        mask_high = _fill_small_gaps(mask_high, gap_tol)
+        s_high, e_high = _longest_true_run_by_x(mask_high, x)
 
-        s, e = _longest_true_run_by_x(mask, x)
-        if s == -1:
-            # 매우 평탄 → 더 완화(양수면 전부 인정)
-            mask = slope > 0
-            mask = _fill_small_gaps(mask, gap_tol)
-            s, e = _longest_true_run_by_x(mask, x)
+        if s_high == -1:
+            # 가파른 구간 자체가 없으면 완화
+            high_thr = float(np.quantile(pos, LOW_Q_FALLBACK))
+            mask_high = slope >= high_thr
+            mask_high = _fill_small_gaps(mask_high, gap_tol)
+            s_high, e_high = _longest_true_run_by_x(mask_high, x)
 
-        if s == -1:
+        if s_high == -1:
             idx_bottom = 0
         else:
+            # 2) 낮은 임계(low_back)로 같은 "덩어리"를 왼쪽으로 확장(언덕 '발' 포착)
+            #    high보다 0.20~0.30 분위수 낮게 두는 게 안정적
+            low_back_q = max(0.15, min(float(LOW_Q) - 0.25, 0.45))  # 예: LOW_Q=0.65 -> 0.40
+            low_thr = float(np.quantile(pos, low_back_q))
+            mask_low = slope >= low_thr
+            mask_low = _fill_small_gaps(mask_low, gap_tol)
+
+            # high 구간(s_high~e_high)을 포함하는 low 구간의 '시작'으로 backtrack
+            s = s_high
+            while s - 1 >= 0 and mask_low[s - 1]:
+                s -= 1
+
+            # 최소 지속 길이 보정(너무 짧은 스파이크 방지)
             min_run = max(2, int(np.ceil(n * MIN_RUN_FRAC)))
+            e = s
+            while e + 1 < len(mask_low) and mask_low[e + 1]:
+                e += 1
             if (e - s + 1) < min_run:
                 e = min(n - 1, s + min_run - 1)
-            idx_bottom = s
+
+            idx_bottom = int(s)
 
     cuts = CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top]))
     return cuts, conv
