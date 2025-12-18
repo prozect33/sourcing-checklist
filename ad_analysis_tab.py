@@ -52,6 +52,7 @@ def _median_int(v) -> int:
 
 # ====== 최소 전환 조건 계산 (전환 기대값 기반) ======
 def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
+    print("✅ 새 로직 실행됨")  # ← 이 줄 추가
     df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
     if df_search.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
