@@ -1,416 +1,285 @@
-# app/ad_analysis.py
+# app/ad_cpc_cuts_app.py
 from __future__ import annotations
 
-import hashlib
-import uuid
-import json
 from dataclasses import dataclass
-from typing import Dict, Iterable, Tuple, List
+from typing import Optional, Tuple, Dict
 
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 import altair as alt
 
-# ====== 원시 데이터 컬럼명(표준) ======
-DATE_COL = "날짜"
-KW_COL = "키워드"
-SURF_COL = "광고 노출 지면"
-SURF_SEARCH_VALUE = "검색 영역"
-IMP_COL = "노출수"
-CLK_COL = "클릭수"
-COST_COL = "광고비"
-ORD_COL = "총 주문수(14일)"
-REV_COL = "총 전환매출액(14일)"
 
-REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
+# =========================
+# 파라미터 & 결과 구조체
+# =========================
+@dataclass(frozen=True)
+class CutParams:
+    min_clicks: int = 3
+    min_keywords: int = 3
+    bottom_share_ceiling: float = 0.50          # bottom 탐색 상한(≤50%)
+    top_share_window: Tuple[float, float] = (0.80, 0.98)  # top 탐색 윈도우
+    q_high_jump: float = 0.80                   # '큰 점프' 분위수
+    q_low_flat: float = 0.30                    # '평탄' 분위수
+    L_post: int = 3                             # 점프 직후 평탄 최소 길이
+    min_gap: float = 50.0                       # bottom-top 최소 간격(원)
 
-# ===================== 유틸 =====================
-def _to_int(s: pd.Series) -> pd.Series:
-    return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
-
-def _to_date(s: pd.Series) -> pd.Series:
-    txt = s.astype(str).str.strip()
-    dt_general = pd.to_datetime(txt, errors="coerce")
-    digits = txt.str.replace(r"[^0-9]", "", regex=True)
-    dt_8 = pd.to_datetime(digits.where(digits.str.len() == 8), format="%Y%m%d", errors="coerce")
-    dt_6 = pd.to_datetime(digits.where(digits.str.len() == 6), format="%y%m%d", errors="coerce")
-    num = pd.to_numeric(txt, errors="coerce").where(lambda x: x.between(20000, 60000))
-    dt_serial = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
-    dt = dt_general.fillna(dt_8).fillna(dt_6).fillna(dt_serial)
-    return dt.dt.date
-
-def _safe_div(a: float | int, b: float | int, default: float = 0.0) -> float:
-    a, b = float(a), float(b)
-    return default if b == 0 else a / b
-
-def _median_1d(s: pd.Series) -> float:
-    return float(np.round(s.median(), 1)) if not s.empty else 0.0
-
-# ============== 데이터 적재/정규화 ==============
-def _load_df(upload) -> pd.DataFrame:
-    try:
-        if upload.name.lower().endswith(".csv"):
-            df = pd.read_csv(upload)
-        else:
-            df = pd.read_excel(upload)
-    except Exception as e:
-        raise ValueError(f"파일 로드 실패: {e}")
-    missing = [c for c in REQUIRED_COLS if c not in df.columns]
-    if missing:
-        raise ValueError(f"필수 컬럼 누락: {missing}")
-    return df
-
-def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
-    df = df_raw.copy()
-    df["date"] = _to_date(df[DATE_COL])
-    df = df[df["date"].notna()].copy()
-    df["keyword"] = df[KW_COL].astype(str).fillna("")
-    df["surface"] = df[SURF_COL].astype(str).fillna("").str.strip()
-    df["impressions"] = _to_int(df[IMP_COL])
-    df["clicks"] = _to_int(df[CLK_COL])
-    df["cost"] = _to_int(df[COST_COL])
-    df["orders_14d"] = _to_int(df[ORD_COL])
-    df["revenue_14d"] = _to_int(df[REV_COL])
-    return df
-
-# ============== 집계/지표 ==============
-def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
-    if df.empty:
-        return pd.DataFrame(), {"total_cost": 0, "total_rev": 0, "total_orders": 0}
-    date_min, date_max = df["date"].min(), df["date"].max()
-    totals = {
-        "total_cost": int(df["cost"].sum()),
-        "total_rev": int(df["revenue_14d"].sum()),
-        "total_orders": int(df["orders_14d"].sum()),
-        "date_min": date_min,
-        "date_max": date_max,
-    }
-    df_imp_pos = df[df["impressions"] > 0]
-    days = df_imp_pos.groupby("keyword")["date"].nunique().reset_index(name="active_days")
-    kw = (
-        df.groupby(["keyword", "surface"], as_index=False)[
-            ["impressions", "clicks", "cost", "orders_14d", "revenue_14d"]
-        ]
-        .sum()
-        .merge(days, on="keyword", how="left")
-    )
-    kw["active_days"] = kw["active_days"].fillna(0).astype(int)
-    kw["ctr"] = (kw["clicks"] / kw["impressions"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
-    kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-    kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-    return kw, totals
 
 @dataclass(frozen=True)
-class CpcCuts:
+class CutsResult:
     bottom: float
     top: float
+    debug: Dict[str, dict]
 
-def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
-    conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
-    if conv.empty:
-        return CpcCuts(0.0, 0.0), conv
-    total_conv_rev = float(conv["revenue_14d"].sum())
-    conv["cum_rev"] = conv["revenue_14d"].cumsum()
-    conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1.0)).clip(0, 1)
-    x = conv["cpc"].to_numpy(dtype=float)
-    y = conv["cum_rev_share"].to_numpy(dtype=float)
-    if len(x) >= 4:
+
+# =========================
+# 데이터 정규화/집계
+# =========================
+REQUIRED = {
+    "cpc": ["cpc", "CPC", "단가", "클릭당비용"],
+    "clicks": ["clicks", "클릭", "클릭수"],
+    "revenue": ["revenue", "매출", "총 전환매출액(14일)", "revenue_14d"],
+    "keyword": ["keyword", "키워드"],
+}
+
+def _find_col(df: pd.DataFrame, cands: list[str]) -> Optional[str]:
+    cols = {c.lower(): c for c in df.columns}
+    for k in cands:
+        if k.lower() in cols:
+            return cols[k.lower()]
+    return None
+
+def _normalize_columns(df_raw: pd.DataFrame) -> pd.DataFrame:
+    df = df_raw.copy()
+    col_map: Dict[str, str] = {}
+    for std, cands in REQUIRED.items():
+        c = _find_col(df, cands)
+        if c is None and std != "keyword":
+            raise ValueError(f"필수 컬럼 없음: {std} (후보: {cands})")
+        if c is not None:
+            col_map[std] = c
+
+    out = pd.DataFrame()
+    out["cpc"] = pd.to_numeric(df[col_map["cpc"]], errors="coerce")
+    out["clicks"] = pd.to_numeric(df[col_map["clicks"]], errors="coerce").fillna(0).astype(int)
+    out["revenue"] = pd.to_numeric(df[col_map["revenue"]], errors="coerce").fillna(0.0)
+    if "keyword" in col_map:
+        out["keyword"] = df[col_map["keyword"]].astype(str)
+    else:
+        out["keyword"] = ""
+    out = out.dropna(subset=["cpc"]).sort_values("cpc").reset_index(drop=True)
+    return out
+
+def _aggregate_by_cpc(df_std: pd.DataFrame, p: CutParams) -> pd.DataFrame:
+    tmp = df_std.copy()
+    tmp["kw_cnt"] = 1
+    agg = (
+        tmp.groupby("cpc", as_index=False)[["clicks", "revenue", "kw_cnt"]]
+        .sum()
+        .sort_values("cpc")
+        .reset_index(drop=True)
+    )
+    # 표본가드(왜: 우연 스파이크 방지)
+    agg = agg[(agg["clicks"] >= p.min_clicks) & (agg["kw_cnt"] >= p.min_keywords)].reset_index(drop=True)
+    if agg.empty:
+        raise ValueError("표본가드 이후 데이터가 비었습니다. min_clicks/min_keywords를 낮추세요.")
+
+    total_rev = float(agg["revenue"].sum())
+    if total_rev <= 0:
+        raise ValueError("총 매출이 0입니다.")
+    agg["cum_rev"] = agg["revenue"].cumsum()
+    agg["cum_share"] = (agg["cum_rev"] / total_rev).clip(0.0, 1.0)
+
+    share = agg["cum_share"].to_numpy(dtype=float)
+    delta = np.empty_like(share)
+    delta[0] = share[0]
+    if len(share) > 1:
+        delta[1:] = np.diff(share)
+    agg["delta_s"] = delta
+    return agg[["cpc", "clicks", "revenue", "kw_cnt", "cum_share", "delta_s"]]
+
+
+# =========================
+# bottom / top 산정
+# =========================
+def _find_bottom(agg: pd.DataFrame, p: CutParams) -> tuple[float, dict]:
+    """큰 점프 직후 긴 평탄이 바로 이어지는 구간의 시작점을 bottom으로."""
+    w = agg.loc[agg["cum_share"] <= p.bottom_share_ceiling].copy()
+    if len(w) < 2:
+        return float(agg["cpc"].iloc[0]), {"mode": "fallback_low_data"}
+
+    deltas = w["delta_s"].to_numpy(dtype=float)
+    q_high = float(np.quantile(deltas, p.q_high_jump))
+    q_low = float(np.quantile(deltas, p.q_low_flat))
+
+    def post_run_len(start_i: int) -> int:
+        run = 0
+        for k in range(start_i + 1, len(deltas)):
+            if deltas[k] <= q_low:
+                run += 1
+            else:
+                break
+        return run
+
+    cands: list[tuple[int, float, int]] = []
+    for i in range(len(deltas) - 1):  # i: jump index, bottom은 i+1의 cpc
+        if deltas[i] >= q_high:
+            run = post_run_len(i)
+            if run >= p.L_post:
+                cands.append((i, deltas[i], run))
+
+    if cands:
+        # 우선순위: 평탄 run 길이 ↓, 점프 delta ↓, 실제 bottom cpc ↑
+        cands.sort(key=lambda t: (-t[2], -t[1], w["cpc"].iloc[t[0] + 1]))
+        i_best, jump_delta, flat_len = cands[0]
+        bottom = float(w["cpc"].iloc[i_best + 1])
+        dbg = {
+            "mode": "pattern",
+            "jump_cpc": float(w["cpc"].iloc[i_best]),
+            "jump_delta": float(jump_delta),
+            "post_flat_len": int(flat_len),
+            "q_high": q_high,
+            "q_low": q_low,
+        }
+        return bottom, dbg
+
+    # 폴백: 윈도우 내 최대 delta 지점의 다음 포인트
+    i_best = int(np.argmax(deltas))
+    i_pick = min(i_best + 1, len(deltas) - 1)
+    bottom = float(w["cpc"].iloc[i_pick])
+    dbg = {
+        "mode": "fallback_max_delta",
+        "jump_cpc": float(w["cpc"].iloc[i_best]),
+        "jump_delta": float(deltas[i_best]),
+        "q_high": q_high,
+        "q_low": q_low,
+    }
+    return bottom, dbg
+
+
+def _find_top_knee_window(agg: pd.DataFrame, p: CutParams) -> tuple[float, dict]:
+    """80–98% 윈도우에서만 knee(elbow) 계산."""
+    lo, hi = p.top_share_window
+    w = agg.loc[(agg["cum_share"] >= lo) & (agg["cum_share"] <= hi)].copy()
+    if len(w) >= 2:
+        x = w["cpc"].to_numpy(dtype=float)
+        y = w["cum_share"].to_numpy(dtype=float)
         x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
         y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-        idx_top = int(np.argmax(y_n - x_n))
-        dy = np.diff(y_n); dx = np.diff(x_n) + 1e-12
-        slope = dy / dx
-        search_upto = max(2, int(len(slope) * 0.5))
-        idx_bottom = int(np.argmax(slope[:search_upto]))
-        cuts = CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top]))
-    else:
-        cuts = CpcCuts(bottom=float(x[0]), top=float(x[-1]))
-    return cuts, conv
+        idx = int(np.argmax(y_n - x_n))
+        return float(w["cpc"].iloc[idx]), {"mode": "knee_in_window", "idx": idx, "win_lo": lo, "win_hi": hi}
 
-def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
-    """
-    분모: 전체 채널 합(검색+비검색)  ← 변경됨
-    분자: 검색 영역 + 클릭>0, CPC 조건(≤ bottom / ≥ top) 충족 키워드 합
-    """
-    # --- 분자 계산(검색, 클릭>0에서 조건 충족) ---
-    kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
-    kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
+    # 폴백: 전구간에서 lo 이상 최초
+    arr = agg["cum_share"].to_numpy(dtype=float)
+    idx = int(np.searchsorted(arr, lo, side="left"))
+    idx = min(idx, len(agg) - 1)
+    return float(agg["cpc"].iloc[idx]), {"mode": "fallback_first_ge_lo", "win_lo": lo}
 
-    # --- 분모: 전체 채널 ---
-    total_cost_all = float(kw["cost"].sum())
-    total_rev_all = float(kw["revenue_14d"].sum())
 
-    def _share(mask: pd.Series, col: str, denom: float) -> float:
-        num = float(kw_click.loc[mask, col].sum())
-        return round(_safe_div(num, denom, 0.0) * 100, 2)
-
-    mask_bottom = kw_click["cpc"] <= cuts.bottom
-    mask_top = kw_click["cpc"] >= cuts.top
-    return {
-        "rev_share_bottom": _share(mask_bottom, "revenue_14d", total_rev_all),
-        "cost_share_bottom": _share(mask_bottom, "cost", total_cost_all),
-        "rev_share_top": _share(mask_top, "revenue_14d", total_rev_all),
-        "cost_share_top": _share(mask_top, "cost", total_cost_all),
-    }
-
-def _aov_p50(conv: pd.DataFrame) -> float:
-    orders = conv["orders_14d"]; rev = conv["revenue_14d"]
-    valid = rev[orders > 0] / orders[orders > 0]
-    return float(valid.quantile(0.5)) if not valid.empty else 0.0
-
-def _compute_exclusions(
-    kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, breakeven_roas: float
-) -> Dict[str, pd.DataFrame]:
-    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cuts.top)].copy()
-    ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cuts.bottom) & (kw["clicks"] >= 1)].copy()
-    cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
-    ex_c = kw[kw["orders_14d"] == 0].copy()
-    ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
-    ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
-    ex_c["roas_if_1_order"] = (
-        (aov_p50_value / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-        if aov_p50_value > 0 else 0.0
-    )
-    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
-    ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
-    return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
-
-def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
-    cols = ["keyword","surface","active_days","impressions","clicks","cost","orders_14d","revenue_14d","ctr","cpc","roas_14d"]
-    if extra: cols += list(extra)
-    st.markdown(f"#### {title} ({len(dff)}개)")
-    if dff.empty:
-        return
-    st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
-
-# ============== 제외 키워드 (통합 한바구니) ==============
-def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]:
-    seq: List[str] = []
-    for label in ["a", "b", "c", "d"]:
-        df = exclusions.get(label, pd.DataFrame())
-        if not df.empty:
-            seq.extend(df["keyword"].astype(str).tolist())
-    return list(dict.fromkeys(seq))  # 순서 보존 중복 제거
-
-def _format_keywords_line_exact(words: Iterable[str]) -> str:
-    return ",\u200b".join([w for w in words])
-
-def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    """웹 클립보드 권한 이슈를 우회. 왜: 한 번에 전달."""
-    payload = json.dumps(text)
-    html = f"""
-    <div style="display:flex;align-items:center;gap:8px;">
-      <button id="copybtn-{key}" role="button" aria-label="{label}"
-        style="
-          display:inline-flex;align-items:center;justify-content:center;
-          padding:8px 12px;font-size:14px;line-height:1.25;
-          border:1px solid rgba(49,51,63,0.2);border-radius:8px;background:#ffffff;cursor:pointer;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.04);transition: transform .02s, box-shadow .15s, background .15s;">
-        {label}
-      </button>
-      <span id="copystat-{key}" style="font-size:13px;color:#4CAF50;"></span>
-    </div>
-    <script>
-      const txt_{key} = {payload};
-      const btn_{key} = document.getElementById("copybtn-{key}");
-      const stat_{key} = document.getElementById("copystat-{key}");
-      btn_{key}.onmouseenter = () => {{ btn_{key}.style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)"; }};
-      btn_{key}.onmouseleave = () => {{ btn_{key}.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }};
-      btn_{key}.onmousedown = () => {{ btn_{key}.style.transform = "scale(0.99)"; }};
-      btn_{key}.onmouseup = () => {{ btn_{key}.style.transform = "scale(1)"; }};
-      btn_{key}.onclick = async () => {{
-        try {{
-          await navigator.clipboard.writeText(txt_{key});
-          stat_{key}.textContent = "복사됨";
-        }} catch (e) {{
-          const area = document.createElement('textarea');
-          area.value = txt_{key};
-          area.style.position = 'fixed'; area.style.top = '-1000px';
-          document.body.appendChild(area); area.focus(); area.select(); document.execCommand('copy');
-          document.body.removeChild(area); stat_{key}.textContent = "복사됨";
-        }}
-        setTimeout(()=> stat_{key}.textContent = "", 2000);
-      }};
-    </script>
-    """
-    components.html(html, height=56)
-
-def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
-    st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
-    all_words = _gather_exclusion_keywords(exclusions)
-    total = len(all_words)
-    if total == 0:
-        return
-    line = _format_keywords_line_exact(all_words)
-    _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
-
-# ============== 저장 로직 (target_roas 제거) ==============
-def _save_to_supabase(
-    supabase,
+def compute_cuts(
+    df_raw: pd.DataFrame,
     *,
-    upload,
-    product_name: str,
-    note: str,
-    totals: Dict,
-    breakeven_roas: float,
-    cuts: CpcCuts,
-    shares: Dict[str, float],
-    aov_p50_value: float,
-    kw: pd.DataFrame,
-    exclusions: Dict[str, pd.DataFrame],
-) -> None:
-    run_id = str(uuid.uuid4())
-    file_sha1 = hashlib.sha1(upload.getvalue()).hexdigest()
-    st.caption(f"파일 해시: {file_sha1[:12]}…")
-    supabase.table("ad_analysis_runs").insert(
+    params: Optional[CutParams] = None,
+    cpc_col: str = "cpc",
+    clicks_col: str = "clicks",
+    revenue_col: str = "revenue",
+    keyword_col: Optional[str] = "keyword",
+) -> CutsResult:
+    """핵심 API: 원시 행 데이터 → bottom/top 계산"""
+    p = params or CutParams()
+    df_std = pd.DataFrame(
         {
-            "run_id": run_id,
-            "product_name": product_name.strip(),
-            "source_filename": upload.name,
-            "source_rows": int(len(kw)),
-            "date_min": str(totals.get("date_min")),
-            "date_max": str(totals.get("date_max")),
-            "note": note,
-            "breakeven_roas": float(breakeven_roas),
-            "cpc_cut": float(round(cuts.top, 2)),
+            "cpc": pd.to_numeric(df_raw[cpc_col], errors="coerce"),
+            "clicks": pd.to_numeric(df_raw[clicks_col], errors="coerce").fillna(0).astype(int),
+            "revenue": pd.to_numeric(df_raw[revenue_col], errors="coerce").fillna(0.0),
+            "keyword": df_raw[keyword_col] if (keyword_col and keyword_col in df_raw.columns) else "",
         }
-    ).execute()
-    rows_kw = kw.assign(run_id=run_id)[
-        ["run_id","keyword","surface","active_days","impressions","clicks","cost","orders_14d","revenue_14d","ctr","cpc","roas_14d"]
-    ].to_dict(orient="records")
-    for i in range(0, len(rows_kw), 1000):
-        supabase.table("ad_analysis_keyword_total").upsert(rows_kw[i : i + 1000]).execute()
-    artifacts = [
-        {
-            "run_id": run_id,
-            "artifact_key": "settings",
-            "payload": {
-                "breakeven_roas": float(breakeven_roas),
-                "cpc_cut_top": float(round(cuts.top, 2)),
-                "cpc_cut_bottom": float(round(cuts.bottom, 2)),
-                "top_rev_share": float(shares.get("rev_share_top", 0.0)),
-                "bottom_rev_share": float(shares.get("rev_share_bottom", 0.0)),
-                "aov_p50": float(aov_p50_value),
-            },
-        },
-        {
-            "run_id": run_id,
-            "artifact_key": "exclusions",
-            "payload": {
-                "a": exclusions["a"]["keyword"].tolist(),
-                "b": exclusions["b"]["keyword"].tolist(),
-                "c": exclusions["c"]["keyword"].tolist(),
-                "d": exclusions["d"]["keyword"].tolist(),
-            },
-        },
-    ]
-    supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
-    st.success(f"저장 성공 (ID: {run_id})")
+    ).dropna(subset=["cpc"]).sort_values("cpc").reset_index(drop=True)
 
-# ============== Streamlit 탭 ==============
-def render_ad_analysis_tab(supabase):
-    st.subheader("광고분석 (총 14일 기준)")
-    up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
+    agg = _aggregate_by_cpc(df_std, p)
+    bottom, dbg_b = _find_bottom(agg, p)
+    top, dbg_t = _find_top_knee_window(agg, p)
 
-    breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
+    # 정합성
+    if top < bottom:
+        top = bottom
+    if (top - bottom) < p.min_gap:
+        top = bottom + p.min_gap
 
-    run = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
-    if not run:
-        return
+    return CutsResult(bottom=bottom, top=top, debug={"bottom": dbg_b, "top": dbg_t})
 
-    if up is None:
-        st.error("파일을 업로드하세요.")
-        return
+
+# =========================
+# Streamlit UI
+# =========================
+st.set_page_config(page_title="CPC 누적매출 컷 산정", layout="wide")
+st.title("CPC 누적매출 비중 & 컷 (Bottom/Top)")
+
+with st.sidebar:
+    st.header("업로드")
+    up = st.file_uploader("CSV 또는 Excel 업로드", type=["csv", "xlsx", "xls"])
+    st.caption("필수 컬럼: cpc, clicks, revenue (keyword 선택) — 한국어 컬럼명도 자동 인식")
+
+    st.header("설정")
+    min_clicks = st.number_input("최소 클릭(표본가드)", 0, 50, 3, 1)
+    min_keywords = st.number_input("최소 키워드수(표본가드)", 0, 50, 3, 1)
+    bottom_ceiling = st.slider("bottom 탐색 상한(누적비중)", 0.10, 0.90, 0.50, 0.01)
+    top_win = st.slider("top 윈도우(80–98%)", 0.70, 0.999, (0.80, 0.98), 0.01)
+    q_high = st.slider("점프 분위수 q_high", 0.5, 0.99, 0.80, 0.01)
+    q_low = st.slider("평탄 분위수 q_low", 0.01, 0.49, 0.30, 0.01)
+    l_post = st.number_input("점프 이후 평탄 최소 길이", 1, 20, 3, 1)
+    min_gap = st.number_input("bottom-top 최소 간격(원)", 0, 1000, 50, 10)
+
+    params = CutParams(
+        min_clicks=int(min_clicks),
+        min_keywords=int(min_keywords),
+        bottom_share_ceiling=float(bottom_ceiling),
+        top_share_window=(float(top_win[0]), float(top_win[1])),
+        q_high_jump=float(q_high),
+        q_low_flat=float(q_low),
+        L_post=int(l_post),
+        min_gap=float(min_gap),
+    )
+
+tab_chart, tab_table, tab_debug = st.tabs(["차트", "표", "디버그"])
+
+if up is None:
+    st.info("샘플이 필요하면 CSV/XLSX를 업로드하세요. 컬럼명은 cpc/clicks/revenue/keyword(선택) 입니다.")
+else:
+    # 파일 로드
+    if up.name.lower().endswith(".csv"):
+        df0 = pd.read_csv(up)
+    else:
+        df0 = pd.read_excel(up)
 
     try:
-        df_raw = _load_df(up)
-        df = _normalize(df_raw)
-    except ValueError as e:
-        st.error(str(e)); return
-    if df.empty:
-        st.error("유효한 데이터가 없습니다."); return
+        df_norm = _normalize_columns(df0)
+        res = compute_cuts(df_norm, params=params)
+        agg = _aggregate_by_cpc(df_norm, params)
 
-    kw, totals = _aggregate_kw(df)
+        with tab_chart:
+            # 라인 차트 + 컷 라인
+            base = alt.Chart(agg).encode(x=alt.X("cpc:Q", title="cpc (원)"))
+            line = base.mark_line().encode(y=alt.Y("cum_share:Q", title="cum_rev_share"))
+            bottom_rule = alt.Chart(pd.DataFrame({"cpc": [res.bottom]})).mark_rule(strokeDash=[4, 4]).encode(x="cpc:Q")
+            top_rule = alt.Chart(pd.DataFrame({"cpc": [res.top]})).mark_rule(strokeDash=[4, 4]).encode(x="cpc:Q")
+            st.altair_chart((line + bottom_rule + top_rule).properties(height=360), use_container_width=True)
 
-    st.markdown("### 1) 기본 성과 지표")
-    st.caption(f"기간: {totals['date_min']} ~ {totals['date_max']}")
-    total_cost = totals["total_cost"]; total_rev = totals["total_rev"]; total_orders = totals["total_orders"]
-    def _row(name: str, sub: pd.DataFrame) -> Dict[str, float | int | str]:
-        c, r, o = int(sub["cost"].sum()), int(sub["revenue_14d"].sum()), int(sub["orders_14d"].sum())
-        return {
-            "영역": name, "광고비": c,
-            "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
-            "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
-            "주문": o, "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
-            "ROAS": round(_safe_div(r, c) * 100, 2),
-        }
-    rows = [
-        _row("전체", df),
-        _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]),
-        _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE]),
-    ]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric("CPC_cut bottom", f"{res.bottom:,.0f}원")
+            with c2:
+                st.metric("CPC_cut top", f"{res.top:,.0f}원")
+            with c3:
+                st.write("범례: 파선 = 컷 지점")
 
-    st.markdown("### 2) CPC-누적매출 비중 & 컷")
-    cuts, conv = _compute_cpc_cuts(kw)
-    if conv.empty:
-        shares = {"rev_share_bottom": 0.0, "cost_share_bottom": 0.0, "rev_share_top": 0.0, "cost_share_top": 0.0}
-        aov50 = 0.0
-        st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
-    else:
-        chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
-        vline_bottom = alt.Chart(pd.DataFrame({"c": [cuts.bottom]})).mark_rule(strokeDash=[2, 2]).encode(x="c:Q")
-        vline_top = alt.Chart(pd.DataFrame({"c": [cuts.top]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
-        st.altair_chart(chart + vline_bottom + vline_top, use_container_width=True)
-        shares = _search_shares_for_cuts(kw, cuts)
-        aov50 = _aov_p50(conv)
+        with tab_table:
+            st.subheader("CPC별 집계표")
+            st.dataframe(agg, use_container_width=True, height=420)
 
-        # 분모 안내(오해 방지)
-        st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색 영역(클릭>0) 중 CPC 조건 충족 키워드 합")
+        with tab_debug:
+            st.subheader("디버그 정보")
+            st.json(res.debug)
 
-        st.markdown(
-            f"""
-- **CPC_cut bottom:** {round(cuts.bottom, 2)}원  
-  · 검색 광고 매출 비중 {shares['rev_share_bottom']}%  
-  · 검색 광고 광고비 비중 {shares['cost_share_bottom']}%
-
-- **CPC_cut top:** {round(cuts.top, 2)}원  
-  · 검색 광고 매출 비중 {shares['rev_share_top']}%  
-  · 검색 광고 광고비 비중 {shares['cost_share_top']}%
-"""
-        )
-
-    st.markdown("### 3) 제외 키워드")
-    exclusions = _compute_exclusions(kw, cuts, aov50, float(breakeven_roas))
-    _display_table("a) CPC_cut top 이상 전환 0", exclusions["a"])
-    _display_table("b) CPC_cut bottom 이하 전환 0", exclusions["b"])
-    _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
-    _display_table("d) 손익 ROAS 미달", exclusions["d"])
-
-    _render_exclusion_union(exclusions)
-
-    with st.expander("💾 저장 (선택)", expanded=False):
-        c1, c2 = st.columns([2, 3])
-        with c1: product_name = st.text_input("상품명", value="", key="ad_product")
-        with c2: note = st.text_input("메모", value="", key="ad_note")
-        can_save = bool(product_name.strip())
-        save_btn = st.button("✅ 분석 결과 저장", disabled=not can_save, key="ad_save")
-        if save_btn and can_save:
-            try:
-                _save_to_supabase(
-                    supabase,
-                    upload=up,
-                    product_name=product_name,
-                    note=note,
-                    totals=totals,
-                    breakeven_roas=float(breakeven_roas),
-                    cuts=cuts,
-                    shares=shares,
-                    aov_p50_value=aov50,
-                    kw=kw,
-                    exclusions=exclusions,
-                )
-            except Exception as e:
-                st.error(f"저장 실패: {e}")
+    except Exception as e:
+        st.error(f"처리 실패: {e}")
