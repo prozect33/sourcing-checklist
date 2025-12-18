@@ -94,7 +94,7 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
 
     rows = []
     for kw, g in df_search.groupby("keyword"):
-        g = g.sort_values("date").copy()
+        g = g.sort_values("date").reset_index(drop=True)
         # 누적 전환수와 평균 전환수 계산
         g["cum_orders"] = g["orders_14d"].cumsum()
         g["day_number"] = range(1, len(g) + 1)
