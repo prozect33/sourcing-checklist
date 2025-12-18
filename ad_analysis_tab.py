@@ -13,7 +13,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import altair as alt
 
-# ====== 원시 데이터 컬럼명(표준) ======
+# ====== 표준 컬럼명 ======
 DATE_COL = "날짜"
 KW_COL = "키워드"
 SURF_COL = "광고 노출 지면"
@@ -23,8 +23,14 @@ CLK_COL = "클릭수"
 COST_COL = "광고비"
 ORD_COL = "총 주문수(14일)"
 REV_COL = "총 전환매출액(14일)"
-
 REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
+
+# ====== 탐지 파라미터(팀 고정) ======
+SMOOTH_DIVISOR = 50        # 창 = round(N / 50), 최소 7, 홀수  (완만 구간 보존 위해 60→50으로 다소 강하게)
+LOW_Q = 0.25               # 양의 기울기 하위 25% 이상을 오르막으로 간주(완만 포함)
+LOW_Q_FALLBACK = 0.15      # 데이터 약할 때 완화
+GAP_TOL_DIVISOR = 100      # 빈틈 메움 허용 폭 = ceil(N / 100) 포인트
+MIN_RUN_FRAC = 0.03        # 최소 지속 길이 비율(스파이크 방지)
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
@@ -45,12 +51,8 @@ def _safe_div(a: float | int, b: float | int, default: float = 0.0) -> float:
     a, b = float(a), float(b)
     return default if b == 0 else a / b
 
-def _median_1d(s: pd.Series) -> float:
-    return float(np.round(s.median(), 1)) if not s.empty else 0.0
-
-# ---- Longest Uphill Helpers (왜: bottom 시작점 안정화) ----
 def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
-    """왜: 잡음을 눌러 단기 스파이크에 의한 오인식 방지."""
+    """왜: 장기 흐름 추출(초반 완만 구간 보존 목적)."""
     window = max(7, int(window))
     if window % 2 == 0:
         window += 1
@@ -59,24 +61,45 @@ def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
     kernel = np.ones(window, dtype=float) / window
     return np.convolve(ypad, kernel, mode="valid")
 
-def _longest_true_run(mask: np.ndarray) -> tuple[int, int]:
-    """True의 최장 연속 구간 [start, end] (end 포함), 없으면 (-1,-1)."""
-    best_len, best_start, cur_start = 0, -1, -1
+def _fill_small_gaps(mask: np.ndarray, max_gap: int) -> np.ndarray:
+    """왜: 노이즈가 만든 짧은 0 구간을 메워 '긴 오르막' 유지."""
+    if max_gap <= 0:
+        return mask
+    out = mask.copy()
+    i = 0
+    n = len(mask)
+    while i < n:
+        if not out[i]:
+            j = i
+            while j < n and not out[j]:
+                j += 1
+            gap_len = j - i
+            if 0 < gap_len <= max_gap:
+                out[i:j] = True
+            i = j
+        else:
+            i += 1
+    return out
+
+def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
+    """True 구간 중 x-길이(end_x - start_x)가 최대인 [s,e] 반환. 없으면 (-1,-1)."""
+    best_span, best_s, cur_s = 0.0, -1, -1
     for i, v in enumerate(mask):
-        if v and cur_start == -1:
-            cur_start = i
-        if not v and cur_start != -1:
-            L = i - cur_start
-            if L > best_len:
-                best_len, best_start = L, cur_start
-            cur_start = -1
-    if cur_start != -1:
-        L = len(mask) - cur_start
-        if L > best_len:
-            best_len, best_start = L, cur_start
-    if best_start == -1:
+        if v and cur_s == -1:
+            cur_s = i
+        if (not v or i == len(mask) - 1) and cur_s != -1:
+            e = i if not v else i  # v==False면 i-1이 끝이지만 span 계산엔 무관
+            span = float(x[e] - x[cur_s])
+            if span > best_span:
+                best_span, best_s = span, cur_s
+            cur_s = -1
+    if best_s == -1:
         return -1, -1
-    return best_start, best_start + best_len - 1
+    # 끝 인덱스 재탐색
+    e = best_s
+    while e + 1 < len(mask) and mask[e + 1]:
+        e += 1
+    return best_s, e
 
 # ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
@@ -139,8 +162,8 @@ class CpcCuts:
 
 def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     """
-    bottom: '가장 오래 가파른 오르막' 시작점(스무딩→기울기→상위 0.75 분위→최장 run 시작)
-    top   : 정규화 후 y_n - x_n 최대 지점(기존 유지)
+    bottom: **가장 긴 오르막(x-길이 최대)의 시작점**(저임계+틈 메움)
+    top   : 정규화 후 y_n - x_n 최대 지점(기존)
     """
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
@@ -152,8 +175,8 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
 
     x = conv["cpc"].to_numpy(dtype=float)
     y = conv["cum_rev_share"].to_numpy(dtype=float)
-
-    if len(x) < 4:
+    n = len(x)
+    if n < 4:
         return CpcCuts(bottom=float(x[0]), top=float(x[-1])), conv
 
     # ----- top (기존 방식 유지) -----
@@ -161,35 +184,36 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
     idx_top = int(np.argmax(y_n - x_n))
 
-    # ----- bottom (Longest Uphill Start) -----
-    n = len(x)
-    smooth_win = max(7, int(round(n / 60)))
+    # ----- bottom (Longest positive-slope span by x) -----
+    smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
         smooth_win += 1
-
     y_s = _moving_average(y, smooth_win)
-    slope = np.gradient(y_s, x)  # x 단조 증가 가정
+    slope = np.gradient(y_s, x)
 
     pos = slope[slope > 0]
     if pos.size == 0 or not np.any(np.isfinite(pos)):
         idx_bottom = 0
     else:
-        # 1차: 0.75 분위
-        thr = float(np.quantile(pos, 0.75))
-        mask = slope >= thr
-        s, e = _longest_true_run(mask)
+        low_thr = max(
+            float(np.percentile(pos, LOW_Q * 100)),
+            float(np.percentile(pos, LOW_Q_FALLBACK * 100)),
+        )
+        mask = slope >= low_thr
+        gap_tol = max(1, int(np.ceil(n / GAP_TOL_DIVISOR)))
+        mask = _fill_small_gaps(mask, gap_tol)
 
-        # 실패 시 0.60로 완화
+        s, e = _longest_true_run_by_x(mask, x)
         if s == -1:
-            thr = float(np.quantile(pos, 0.60))
-            mask = slope >= thr
-            s, e = _longest_true_run(mask)
+            # 매우 평탄 → 더 완화(양수면 전부 인정)
+            mask = slope > 0
+            mask = _fill_small_gaps(mask, gap_tol)
+            s, e = _longest_true_run_by_x(mask, x)
 
         if s == -1:
             idx_bottom = 0
         else:
-            # 너무 짧으면 최소 길이 보정(왜: 순간 스파이크 방지)
-            min_run = max(2, int(np.ceil(n * 0.03)))
+            min_run = max(2, int(np.ceil(n * MIN_RUN_FRAC)))
             if (e - s + 1) < min_run:
                 e = min(n - 1, s + min_run - 1)
             idx_bottom = s
@@ -198,20 +222,13 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     return cuts, conv
 
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
-    """
-    분모: 전체 채널 합(검색+비검색)
-    분자: 검색 영역 + 클릭>0, CPC 조건(≤ bottom / ≥ top) 충족 키워드 합
-    """
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
     kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
-
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
-
     def _share(mask: pd.Series, col: str, denom: float) -> float:
         num = float(kw_click.loc[mask, col].sum())
         return round(_safe_div(num, denom, 0.0) * 100, 2)
-
     mask_bottom = kw_click["cpc"] <= cuts.bottom
     mask_top = kw_click["cpc"] >= cuts.top
     return {
@@ -251,29 +268,24 @@ def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = 
         return
     st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
-# ============== 제외 키워드 (통합 한바구니) ==============
 def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]:
     seq: List[str] = []
     for label in ["a", "b", "c", "d"]:
         df = exclusions.get(label, pd.DataFrame())
         if not df.empty:
             seq.extend(df["keyword"].astype(str).tolist())
-    return list(dict.fromkeys(seq))  # 순서 보존 중복 제거
+    return list(dict.fromkeys(seq))
 
 def _format_keywords_line_exact(words: Iterable[str]) -> str:
     return ",\u200b".join([w for w in words])
 
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    """웹 클립보드 권한 이슈를 우회. 왜: 한 번에 전달."""
+    """왜: 한 번에 전달."""
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
       <button id="copybtn-{key}" role="button" aria-label="{label}"
-        style="
-          display:inline-flex;align-items:center;justify-content:center;
-          padding:8px 12px;font-size:14px;line-height:1.25;
-          border:1px solid rgba(49,51,63,0.2);border-radius:8px;background:#ffffff;cursor:pointer;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.04);transition: transform .02s, box-shadow .15s, background .15s;">
+        style="display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;font-size:14px;line-height:1.25;border:1px solid rgba(49,51,63,0.2);border-radius:8px;background:#ffffff;cursor:pointer;box-shadow: 0 1px 2px rgba(0,0,0,0.04);transition: transform .02s, box-shadow .15s, background .15s;">
         {label}
       </button>
       <span id="copystat-{key}" style="font-size:13px;color:#4CAF50;"></span>
@@ -282,18 +294,11 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
       const txt_{key} = {payload};
       const btn_{key} = document.getElementById("copybtn-{key}");
       const stat_{key} = document.getElementById("copystat-{key}");
-      btn_{key}.onmouseenter = () => {{ btn_{key}.style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)"; }};
-      btn_{key}.onmouseleave = () => {{ btn_{key}.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }};
-      btn_{key}.onmousedown = () => {{ btn_{key}.style.transform = "scale(0.99)"; }};
-      btn_{key}.onmouseup = () => {{ btn_{key}.style.transform = "scale(1)"; }};
       btn_{key}.onclick = async () => {{
-        try {{
-          await navigator.clipboard.writeText(txt_{key});
-          stat_{key}.textContent = "복사됨";
-        }} catch (e) {{
+        try {{ await navigator.clipboard.writeText(txt_{key}); stat_{key}.textContent = "복사됨"; }}
+        catch (e) {{
           const area = document.createElement('textarea');
-          area.value = txt_{key};
-          area.style.position = 'fixed'; area.style.top = '-1000px';
+          area.value = txt_{key}; area.style.position = 'fixed'; area.style.top = '-1000px';
           document.body.appendChild(area); area.focus(); area.select(); document.execCommand('copy');
           document.body.removeChild(area); stat_{key}.textContent = "복사됨";
         }}
@@ -304,7 +309,7 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
     components.html(html, height=56)
 
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
-    st.markdown("### 4) 제외한 키워드 (통합 · 한바구니 · 중복 제거)")
+    st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
     all_words = _gather_exclusion_keywords(exclusions)
     total = len(all_words)
     if total == 0:
@@ -312,7 +317,7 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     line = _format_keywords_line_exact(all_words)
     _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
 
-# ============== 저장 로직 (target_roas 제거) ==============
+# ============== 저장 로직 ==============
 def _save_to_supabase(
     supabase,
     *,
@@ -379,16 +384,13 @@ def _save_to_supabase(
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
-
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
     run = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
     if not run:
         return
-
     if up is None:
-        st.error("파일을 업로드하세요.")
-        return
+        st.error("파일을 업로드하세요."); return
 
     try:
         df_raw = _load_df(up)
