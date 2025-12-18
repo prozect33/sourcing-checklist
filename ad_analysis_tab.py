@@ -309,7 +309,7 @@ def render_ad_analysis_tab(supabase):
                 },
             ]
             supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
-            st.success(f"저장 성공 (ID: {run_id})
+            st.success(f"저장 성공 (ID: {run_id})")
 
         except Exception as e:
             st.error(f"저장 실패: {e}")
