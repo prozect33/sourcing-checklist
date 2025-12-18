@@ -73,7 +73,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     df_search = df_search.groupby("keyword").filter(lambda g: g["orders_14d"].sum() > 0)
     if df_search.empty:
         st.warning("df_search 비었음")
-    else:
 
     # 평균 전환 1 이상 만족한 키워드 수 출력
     valid_keywords = []
@@ -116,30 +115,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
             "clicks": g_until["clicks"].sum()
         })
 
-
-    tdf = pd.DataFrame(rows)
-
-    tdf = pd.DataFrame(rows)
-    if tdf.empty:
-        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
-
-    return {
-        "active_days": _median_1d(tdf["active_days"].astype(float)),
-        "impressions": _median_1d(tdf["impressions"].astype(float)),
-        "clicks": _median_1d(tdf["clicks"].astype(float)),
-    }
-
-    tdf = pd.DataFrame(rows)
-    if tdf.empty:
-        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
-
-    return {
-        "active_days": _median_1d(tdf["active_days"].astype(float)),
-        "impressions": _median_1d(tdf["impressions"].astype(float)),
-        "clicks": _median_1d(tdf["clicks"].astype(float)),
-    }
-
-    tdf = pd.DataFrame(rows)
 # ====== Streamlit 탭 렌더링 ======
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
