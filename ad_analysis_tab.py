@@ -255,10 +255,10 @@ def render_ad_analysis_tab(supabase):
 # 3) CPC-누적매출 비중 & 컷 (Top & Bottom 확장)
     st.markdown("### 3) CPC-누적매출 비중 & 컷 (Top & Bottom)")
     
-    # 전환이 발생한 데이터만 필터링 
+    # 전환이 발생한 데이터만 필터링
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     
-    # 변수 초기화 (에러 방지용 기본값 설정)
+    # [중요] 변수 초기화: NameError 방지를 위해 모든 흐름에서 접근 가능하도록 상단 배치
     cpc_cut_top, cpc_cut_bottom = 0.0, 0.0
     top_rev_share, top_cost_share = 0.0, 0.0
     bottom_rev_share, bottom_cost_share = 0.0, 0.0
@@ -267,12 +267,12 @@ def render_ad_analysis_tab(supabase):
     if conv.empty:
         st.warning("전환 발생 키워드가 없습니다. 분석을 건너뜁니다.") [cite: 19]
     else:
-        # 전체 전환 매출 및 전체 광고비(전환 키워드 기준) 계산
+        # 전체 전환 매출 및 전환 키워드 기준 총 광고비 계산
         total_conv_rev = conv["revenue_14d"].sum() [cite: 19]
-        total_conv_cost = conv["cost"].sum() # 광고비 비중 계산을 위해 필요
+        total_conv_cost = conv["cost"].sum()
         
-        # 누적 매출 비중 계산 
-        conv["cum_rev"] = conv["revenue_14d"].cumsum()
+        # 누적 매출 비중 계산
+        conv["cum_rev"] = conv["revenue_14d"].cumsum() [cite: 19]
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1) [cite: 19]
         
         x = conv["cpc"].to_numpy(dtype=float) [cite: 19]
@@ -282,65 +282,68 @@ def render_ad_analysis_tab(supabase):
             x_n = (x - x.min()) / (x.max() - x.min() + 1e-12) [cite: 19]
             y_n = (y - y.min()) / (y.max() - y.min() + 1e-12) [cite: 20]
             
-            # 1. Top Cut: 기울기가 급격히 변하는 상단 지점 [cite: 20]
+            # Top 지점 (기존 로직 유지) [cite: 20]
             idx_top = int(np.argmax(y_n - x_n))
             cpc_cut_top = float(x[idx_top])
             
-            # 2. Bottom Cut: 하단에서 기울기가 변하는 지점 (x_n - y_n 최대 활용)
+            # Bottom 지점 (새로운 요청 반영)
             idx_bottom = int(np.argmax(x_n - y_n))
             cpc_cut_bottom = float(x[idx_bottom])
         else:
             cpc_cut_top = float(x[-1]) [cite: 20]
             cpc_cut_bottom = float(x[0])
 
-        # --- 통계치 계산 ---
-        # Top (해당 CPC 이상)
-        mask_top = conv["cpc"] >= cpc_cut_top
-        rev_top = conv.loc[mask_top, "revenue_14d"].sum()
-        cost_top = conv.loc[mask_top, "cost"].sum()
-        top_rev_share = round(_safe_div(rev_top, total_conv_rev) * 100, 2)
-        top_cost_share = round(_safe_div(cost_top, total_conv_cost) * 100, 2)
+        # --- 통계 계산 (요청하신 비중 계산 로직) ---
+        # Top: 해당 구간 이상
+        rev_above_top = conv.loc[conv["cpc"] >= cpc_cut_top, "revenue_14d"].sum()
+        cost_above_top = conv.loc[conv["cpc"] >= cpc_cut_top, "cost"].sum()
+        top_rev_share = round(_safe_div(rev_above_top, total_conv_rev) * 100, 2)
+        top_cost_share = round(_safe_div(cost_above_top, total_conv_cost) * 100, 2)
         
-        # Bottom (해당 CPC 이하)
-        mask_bottom = conv["cpc"] <= cpc_cut_bottom
-        rev_bottom = conv.loc[mask_bottom, "revenue_14d"].sum()
-        cost_bottom = conv.loc[mask_bottom, "cost"].sum()
-        bottom_rev_share = round(_safe_div(rev_bottom, total_conv_rev) * 100, 2)
-        bottom_cost_share = round(_safe_div(cost_bottom, total_conv_cost) * 100, 2)
+        # Bottom: 해당 구간 이하
+        rev_below_bottom = conv.loc[conv["cpc"] <= cpc_cut_bottom, "revenue_14d"].sum()
+        cost_below_bottom = conv.loc[conv["cpc"] <= cpc_cut_bottom, "cost"].sum()
+        bottom_rev_share = round(_safe_div(rev_below_bottom, total_conv_rev) * 100, 2)
+        bottom_cost_share = round(_safe_div(cost_below_bottom, total_conv_cost) * 100, 2)
 
         # --- 차트 시각화 ---
         chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q") [cite: 21]
         
-        # 구분선 생성 (Top은 빨강, Bottom은 파랑 계열 권장)
-        line_df = pd.DataFrame({
+        # 구분선 (Top, Bottom 두 개 표시)
+        line_data = pd.DataFrame({
             "val": [cpc_cut_top, cpc_cut_bottom],
             "label": ["Top Cut", "Bottom Cut"]
         })
-        vlines = alt.Chart(line_df).mark_rule(strokeDash=[6, 4]).encode(x="val:Q") [cite: 21]
+        vlines = alt.Chart(line_data).mark_rule(strokeDash=[6, 4]).encode(x="val:Q") [cite: 21]
         
         st.altair_chart(chart + vlines, use_container_width=True) [cite: 21]
         
-        # 결과 표시
+        # 결과 텍스트 출력 (요청 서식 준수)
         st.write(f"**CPC_cut top:** {round(cpc_cut_top, 2)}원 (누적매출 비중 {top_rev_share}%, 광고비 비중 {top_cost_share}%)")
         st.write(f"**CPC_cut bottom:** {round(cpc_cut_bottom, 2)}원 (누적매출 비중 {bottom_rev_share}%, 광고비 비중 {bottom_cost_share}%)")
 
-        # 객단가(AOV) 계산 [cite: 21]
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna() [cite: 21]
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0 [cite: 21]
 
+    # [중요] 기존 코드 호환성을 위해 cpc_cut 변수 재정의 (4번, 5번 섹션 에러 방지)
+    cpc_cut = cpc_cut_top
+
     st.markdown("### 4) 제외 키워드")
 
-    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut)].copy()
-    ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
-    cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
-    ex_c = kw[kw["orders_14d"] == 0].copy()
-    ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
-    ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
-    ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
+    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut)].copy() [cite: 21]
+    ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy() [cite: 21]
+    
+    cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0 [cite: 22]
+    ex_c = kw[kw["orders_14d"] == 0].copy() [cite: 22]
+    ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50) [cite: 22]
+    ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"] [cite: 22]
+    ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2) [cite: 22]
+    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy() [cite: 22]
 
-    min_cond = build_min_conversion_condition(df)
-    ex_d = filter_min_conversion_condition(kw, min_cond)
+    min_cond = build_min_conversion_condition(df) [cite: 22]
+    ex_d = filter_min_conversion_condition(kw, min_cond) [cite: 22]
+
+    # (이하 중략... 기존의 _show_df 및 5) Supabase 저장 로직 유지)
 
     def _show_df(title, dff, extra=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
