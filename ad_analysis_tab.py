@@ -119,6 +119,11 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
             "clicks": clicks,
         })
 
+    if not rows:
+        st.warning("❗ rows 비었음 — 조건 만족해도 슬라이스 실패했을 가능성 있음")
+    else:
+        st.info(f"rows에 담긴 항목 수: {len(rows)}")
+        st.dataframe(pd.DataFrame(rows))  # ✅ 실제 값 확인    
     tdf = pd.DataFrame(rows)
     if tdf.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
