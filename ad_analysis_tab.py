@@ -289,13 +289,16 @@ def render_ad_analysis_tab(supabase):
         )
 
         # 출력 (줄바꿈 포함)
-        st.caption(
-            f"CPC_cut bottom: {round(cpc_cut_bottom, 2)}원 "
-            f"(검색 광고 매출 비중 {rev_share_bottom}%, 검색 광고 광고비 비중 {cost_share_bottom}%)\n"
-            f"CPC_cut top: {round(cpc_cut_top, 2)}원 "
-            f"(검색 광고 매출 비중 {rev_share_top}%, 검색 광고 광고비 비중 {cost_share_top}%)"
-        )
+        st.markdown(f"""
+        - **CPC_cut bottom:** {round(cpc_cut_bottom, 2)}원  
+          · 검색 광고 매출 비중 {rev_share_bottom}%  
+          · 검색 광고 광고비 비중 {cost_share_bottom}%
 
+        - **CPC_cut top:** {round(cpc_cut_top, 2)}원  
+          · 검색 광고 매출 비중 {rev_share_top}%  
+          · 검색 광고 광고비 비중 {cost_share_top}%
+        """)
+            
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
 
