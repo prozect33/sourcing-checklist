@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+import json
 from dataclasses import dataclass
 from typing import Dict, Iterable, Tuple, List
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import altair as alt
 
 # ====== 원시 데이터 컬럼명(표준) ======
@@ -64,7 +66,7 @@ def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df = df_raw.copy()
     df["date"] = _to_date(df[DATE_COL])
     df = df[df["date"].notna()].copy()
-    # 키워드는 원문 그대로(선/후행 공백 포함) 보존
+    # 키워드: 원문 그대로(공백 포함). 절대 strip 하지 않음.
     df["keyword"] = df[KW_COL].astype(str).fillna("")
     df["surface"] = df[SURF_COL].astype(str).fillna("").str.strip()
     df["impressions"] = _to_int(df[IMP_COL])
@@ -173,39 +175,71 @@ def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = 
     st.markdown(f"#### {title} ({len(dff)}개)")
     if dff.empty:
         st.caption("데이터 없음"); return
-    st.dataframe(dff.sort_values("cost", ascending=False)[cols], use_container_width=True, hide_index=True)
+    st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
 # ============== 제외 키워드 (통합 한바구니) ==============
 def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]:
-    # 왜: a→b→c→d 순서 유지하며 원문 그대로 하나의 리스트로 결합, 중복 제거는 입력 순서 유지
     seq: List[str] = []
     for label in ["a", "b", "c", "d"]:
         df = exclusions.get(label, pd.DataFrame())
         if not df.empty:
             seq.extend(df["keyword"].astype(str).tolist())
-    # 순서 보존 중복 제거
+    # 입력 순서 보존 중복 제거
     return list(dict.fromkeys(seq))
 
 def _format_keywords_line_exact(words: Iterable[str]) -> str:
-    # 왜: 원문 보존 + 가로 나열 + 줄바꿈 유도(콤마 뒤 zero-width space)
+    # 콤마 + zero-width space (가로 정렬 시 줄바꿈 유도)
     return ",\u200b".join([w for w in words])
+
+def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
+    """Clipboard API를 이용한 복사 버튼. 실패 시 textarea fallback."""
+    payload = json.dumps(text)  # 안전한 문자열 리터럴
+    html = f"""
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button id="copybtn-{key}" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">{label}</button>
+      <span id="copystat-{key}" style="font-size:13px;color:#4CAF50;"></span>
+    </div>
+    <script>
+      const txt_{key} = {payload};
+      const btn_{key} = document.getElementById("copybtn-{key}");
+      const stat_{key} = document.getElementById("copystat-{key}");
+      btn_{key}.onclick = async () => {{
+        try {{
+          await navigator.clipboard.writeText(txt_{key});
+          stat_{key}.textContent = "복사됨";
+        }} catch (e) {{
+          const area = document.createElement('textarea');
+          area.value = txt_{key};
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand('copy');
+          document.body.removeChild(area);
+          stat_{key}.textContent = "복사됨";
+        }}
+        setTimeout(()=> stat_{key}.textContent = "", 2000);
+      }};
+    </script>
+    """
+    components.html(html, height=50)
 
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
     all_words = _gather_exclusion_keywords(exclusions)
-    count = len(all_words)
-    if count == 0:
-        st.caption("제외 키워드 없음")
-        return
+    total = len(all_words)
+    st.markdown(f"**총 {total}개**")
 
+    # 본문 나열은 숨김. 대신 복사 버튼/다운로드만 제공.
     line = _format_keywords_line_exact(all_words)
+    _copy_to_clipboard_button("복사하기", line, key="ex_union_copy")
 
-    # 들여쓰기 없는 인라인 HTML로 렌더링 → 선행 공백 방지
-    html = (
-        f"<div style='margin-bottom:0.5rem;'><b>총 {count}개</b></div>"
-        f"<div style='white-space:pre-wrap;word-break:break-word;'>{line}</div>"
+    # 선택적: TXT 다운로드(원문 그대로)
+    st.download_button(
+        label="TXT로 다운로드",
+        data=line.encode("utf-8"),
+        file_name="exclusions.txt",
+        mime="text/plain",
+        help="클립보드가 막힌 환경을 위한 대안"
     )
-    st.markdown(html, unsafe_allow_html=True)
 
 # ============== 저장 로직 ==============
 def _save_to_supabase(
@@ -276,6 +310,7 @@ def _save_to_supabase(
 # ============== Streamlit 탭 ==============
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
+
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     if up is None:
         st.info("파일 업로드 후 분석 폼이 생성됩니다."); return
@@ -285,6 +320,7 @@ def render_ad_analysis_tab(supabase):
     with c2: target_roas = st.number_input("목표 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_target")
     with c3: breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
     note = st.text_input("메모(선택)", value="", key="ad_note")
+
     if not product_name.strip():
         st.warning("상품명을 입력하세요."); return
 
@@ -293,6 +329,7 @@ def render_ad_analysis_tab(supabase):
         df = _normalize(df_raw)
     except ValueError as e:
         st.error(str(e)); return
+
     if df.empty:
         st.warning("유효한 데이터가 없습니다."); return
 
@@ -301,8 +338,6 @@ def render_ad_analysis_tab(supabase):
     st.markdown("### 1) 기본 성과 지표")
     st.caption(f"기간: {totals['date_min']} ~ {totals['date_max']}")
     total_cost = totals["total_cost"]; total_rev = totals["total_rev"]; total_orders = totals["total_orders"]
-    total_roas = round(_safe_div(total_rev, total_cost, 0) * 100, 2)
-
     def _row(name: str, sub: pd.DataFrame) -> Dict[str, float | int | str]:
         c, r, o = int(sub["cost"].sum()), int(sub["revenue_14d"].sum()), int(sub["orders_14d"].sum())
         return {
@@ -315,8 +350,11 @@ def render_ad_analysis_tab(supabase):
             "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
             "ROAS": round(_safe_div(r, c) * 100, 2),
         }
-
-    rows = [_row("전체", df), _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]), _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE])]
+    rows = [
+        _row("전체", df),
+        _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]),
+        _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE]),
+    ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     st.markdown("### 2) CPC-누적매출 비중 & 컷")
@@ -351,10 +389,9 @@ def render_ad_analysis_tab(supabase):
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    # 4) 통합 한바구니(중복 제거, 원문 그대로, 전부 표시)
+    # 4) 통합 한바구니(중복 제거, 원문 그대로) - 리스트 미표시, 복사/다운로드만 제공
     _render_exclusion_union(exclusions)
 
-    # 5) Supabase 저장
     st.markdown("### 5) Supabase 저장")
     if st.button("✅ 분석 결과 저장", key="ad_save"):
         try:
