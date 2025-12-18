@@ -252,73 +252,79 @@ def render_ad_analysis_tab(supabase):
     ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-# 3) CPC-누적매출 비중 & 컷 (Top & Bottom 확장) [cite: 18]
+# 3) CPC-누적매출 비중 & 컷 (Top & Bottom 확장)
     st.markdown("### 3) CPC-누적매출 비중 & 컷 (Top & Bottom)")
+    
+    # 전환이 발생한 데이터만 필터링 
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     
-    # 변수 초기화 (에러 방지) [cite: 19]
+    # 변수 초기화 (에러 방지용 기본값 설정)
     cpc_cut_top, cpc_cut_bottom = 0.0, 0.0
     top_rev_share, top_cost_share = 0.0, 0.0
     bottom_rev_share, bottom_cost_share = 0.0, 0.0
     aov_p50 = 0.0
 
     if conv.empty:
-        st.warning("전환 발생 키워드가 없습니다. CPC_cut을 0으로 처리합니다.") [cite: 19]
+        st.warning("전환 발생 키워드가 없습니다. 분석을 건너뜁니다.") [cite: 19]
     else:
+        # 전체 전환 매출 및 전체 광고비(전환 키워드 기준) 계산
         total_conv_rev = conv["revenue_14d"].sum() [cite: 19]
-        total_conv_cost = conv["cost"].sum()
+        total_conv_cost = conv["cost"].sum() # 광고비 비중 계산을 위해 필요
         
-        # 누적 매출 비중 계산 [cite: 19]
+        # 누적 매출 비중 계산 
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1) [cite: 19]
         
         x = conv["cpc"].to_numpy(dtype=float) [cite: 19]
-        y = conv["cum_rev_share"].to_numpy(dtype=float) [cite: 19]
+        y = conv["cum_rev_share"].to_numpy(dtype=float) [cite: 20]
         
         if len(x) >= 3:
             x_n = (x - x.min()) / (x.max() - x.min() + 1e-12) [cite: 19]
             y_n = (y - y.min()) / (y.max() - y.min() + 1e-12) [cite: 20]
             
-            # Top 지점 (기존: 기울기가 급격히 가파라지기 직전) [cite: 20]
+            # 1. Top Cut: 기울기가 급격히 변하는 상단 지점 [cite: 20]
             idx_top = int(np.argmax(y_n - x_n))
             cpc_cut_top = float(x[idx_top])
             
-            # Bottom 지점 (새로 추가: 하단에서 기울기 변화 지점)
+            # 2. Bottom Cut: 하단에서 기울기가 변하는 지점 (x_n - y_n 최대 활용)
             idx_bottom = int(np.argmax(x_n - y_n))
             cpc_cut_bottom = float(x[idx_bottom])
         else:
             cpc_cut_top = float(x[-1]) [cite: 20]
             cpc_cut_bottom = float(x[0])
 
-        # --- 통계 계산 (Top: 이상, Bottom: 이하) ---
-        # Top: 해당 CPC 이상의 매출 및 광고비 비중
-        rev_above_top = conv.loc[conv["cpc"] >= cpc_cut_top, "revenue_14d"].sum() [cite: 20]
-        cost_above_top = conv.loc[conv["cpc"] >= cpc_cut_top, "cost"].sum()
-        top_rev_share = round(_safe_div(rev_above_top, total_conv_rev) * 100, 2) [cite: 20]
-        top_cost_share = round(_safe_div(cost_above_top, total_conv_cost) * 100, 2)
+        # --- 통계치 계산 ---
+        # Top (해당 CPC 이상)
+        mask_top = conv["cpc"] >= cpc_cut_top
+        rev_top = conv.loc[mask_top, "revenue_14d"].sum()
+        cost_top = conv.loc[mask_top, "cost"].sum()
+        top_rev_share = round(_safe_div(rev_top, total_conv_rev) * 100, 2)
+        top_cost_share = round(_safe_div(cost_top, total_conv_cost) * 100, 2)
         
-        # Bottom: 해당 CPC 이하의 매출 및 광고비 비중
-        rev_below_bottom = conv.loc[conv["cpc"] <= cpc_cut_bottom, "revenue_14d"].sum()
-        cost_below_bottom = conv.loc[conv["cpc"] <= cpc_cut_bottom, "cost"].sum()
-        bottom_rev_share = round(_safe_div(rev_below_bottom, total_conv_rev) * 100, 2)
-        bottom_cost_share = round(_safe_div(cost_below_bottom, total_conv_cost) * 100, 2)
+        # Bottom (해당 CPC 이하)
+        mask_bottom = conv["cpc"] <= cpc_cut_bottom
+        rev_bottom = conv.loc[mask_bottom, "revenue_14d"].sum()
+        cost_bottom = conv.loc[mask_bottom, "cost"].sum()
+        bottom_rev_share = round(_safe_div(rev_bottom, total_conv_rev) * 100, 2)
+        bottom_cost_share = round(_safe_div(cost_bottom, total_conv_cost) * 100, 2)
 
-        # --- 그래프 생성 ---
+        # --- 차트 시각화 ---
         chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q") [cite: 21]
         
-        # Top & Bottom 선 추가 [cite: 21]
+        # 구분선 생성 (Top은 빨강, Bottom은 파랑 계열 권장)
         line_df = pd.DataFrame({
             "val": [cpc_cut_top, cpc_cut_bottom],
-            "label": ["Top", "Bottom"]
+            "label": ["Top Cut", "Bottom Cut"]
         })
         vlines = alt.Chart(line_df).mark_rule(strokeDash=[6, 4]).encode(x="val:Q") [cite: 21]
         
         st.altair_chart(chart + vlines, use_container_width=True) [cite: 21]
         
-        # 결과 텍스트 출력 [cite: 21]
-        st.caption(f"**CPC_cut top:** {round(cpc_cut_top, 2)}원 (누적매출 비중 {top_rev_share}%, 광고비 비중 {top_cost_share}%)")
-        st.caption(f"**CPC_cut bottom:** {round(cpc_cut_bottom, 2)}원 (누적매출 비중 {bottom_rev_share}%, 광고비 비중 {bottom_cost_share}%)")
+        # 결과 표시
+        st.write(f"**CPC_cut top:** {round(cpc_cut_top, 2)}원 (누적매출 비중 {top_rev_share}%, 광고비 비중 {top_cost_share}%)")
+        st.write(f"**CPC_cut bottom:** {round(cpc_cut_bottom, 2)}원 (누적매출 비중 {bottom_rev_share}%, 광고비 비중 {bottom_cost_share}%)")
 
+        # 객단가(AOV) 계산 [cite: 21]
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna() [cite: 21]
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0 [cite: 21]
 
