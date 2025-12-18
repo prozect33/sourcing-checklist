@@ -312,8 +312,8 @@ def render_ad_analysis_tab(supabase):
     ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
 
-# --- d) 손익 ROAS 미달 (현재 ROAS가 손익분기 ROAS 미만인 키워드, 단 ROAS 0은 제외) ---
-ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
+    # --- d) 손익 ROAS 미달 (현재 ROAS가 손익분기 ROAS 미만인 키워드, 단 ROAS 0은 제외) ---
+    ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
 
     def _show_df(title, dff, extra=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
