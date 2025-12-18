@@ -254,8 +254,6 @@ def render_ad_analysis_tab(supabase):
 
     # 3) CPC-누적매출 비중 & 컷
     st.markdown("### 3) CPC-누적매출 비중 & 컷")
-    # 3) CPC-누적매출 비중 & 컷
-    st.markdown("### 3) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
     cpc_cut, cut_rev_share, aov_p50 = 0.0, 0.0, 0.0
 
