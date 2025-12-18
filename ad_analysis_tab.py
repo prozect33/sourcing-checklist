@@ -304,7 +304,7 @@ def render_ad_analysis_tab(supabase):
         st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
     _show_df("a) CPC_cut 이상 전환 0", ex_a)
-    _show_df("b) 운영 7일 이상 손익분기 미달", ex_b)
+    _show_df("b) 운영 일주일 이상 손익분기 미달", ex_b)
     _show_df("c) 전환 시 예상 ROAS 미달", ex_c, ["roas_if_1_order"])
     _show_df(f"d) {format_min_condition_label(min_cond)}", ex_d)
 
