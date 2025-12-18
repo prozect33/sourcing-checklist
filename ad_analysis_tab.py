@@ -74,7 +74,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     if df_search.empty:
         st.warning("df_search 비었음")
     else:
-        st.info(f"검색 영역 + 전환 1 이상 키워드 수: {df_search['keyword'].nunique()}")
 
     # 평균 전환 1 이상 만족한 키워드 수 출력
     valid_keywords = []
@@ -86,8 +85,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
         hit = g[g["avg_orders_per_day"] >= 1]
         if not hit.empty:
             valid_keywords.append(keyword)
-
-    st.info(f"평균 전환 1 이상 만족한 키워드 수: {len(valid_keywords)}")
 
     if df_search.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
