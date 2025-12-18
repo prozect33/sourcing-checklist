@@ -134,9 +134,11 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
     total_search_cost = float(kw_search_all["cost"].sum())
     total_search_rev = float(kw_search_all["revenue_14d"].sum())
     kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
+
     def _share(mask: pd.Series, col: str, denom: float) -> float:
         num = float(kw_click.loc[mask, col].sum())
         return round(_safe_div(num, denom, 0.0) * 100, 2)
+
     mask_bottom = kw_click["cpc"] <= cuts.bottom
     mask_top = kw_click["cpc"] >= cuts.top
     return {
@@ -173,7 +175,7 @@ def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = 
     if extra: cols += list(extra)
     st.markdown(f"#### {title} ({len(dff)}개)")
     if dff.empty:
-        st.caption("데이터 없음"); return
+        return
     st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
 # ============== 제외 키워드 (통합 한바구니) ==============
@@ -189,23 +191,16 @@ def _format_keywords_line_exact(words: Iterable[str]) -> str:
     return ",\u200b".join([w for w in words])
 
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    """웹 클립보드 권한 이슈를 우회하기 위한 최소 UI. 왜: 한 번에 전달하기 위함."""
+    """웹 클립보드 권한 이슈를 우회. 왜: 한 번에 전달."""
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
       <button id="copybtn-{key}" role="button" aria-label="{label}"
         style="
           display:inline-flex;align-items:center;justify-content:center;
-          padding:8px 12px;
-          font-size:14px;
-          line-height:1.25;
-          border:1px solid rgba(49,51,63,0.2);
-          border-radius:8px;
-          background:#ffffff;
-          cursor:pointer;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-          transition: transform .02s, box-shadow .15s, background .15s;
-        ">
+          padding:8px 12px;font-size:14px;line-height:1.25;
+          border:1px solid rgba(49,51,63,0.2);border-radius:8px;background:#ffffff;cursor:pointer;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.04);transition: transform .02s, box-shadow .15s, background .15s;">
         {label}
       </button>
       <span id="copystat-{key}" style="font-size:13px;color:#4CAF50;"></span>
@@ -214,20 +209,10 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
       const txt_{key} = {payload};
       const btn_{key} = document.getElementById("copybtn-{key}");
       const stat_{key} = document.getElementById("copystat-{key}");
-
-      btn_{key}.onmouseenter = () => {{
-        btn_{key}.style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)";
-      }};
-      btn_{key}.onmouseleave = () => {{
-        btn_{key}.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)";
-      }};
-      btn_{key}.onmousedown = () => {{
-        btn_{key}.style.transform = "scale(0.99)";
-      }};
-      btn_{key}.onmouseup = () => {{
-        btn_{key}.style.transform = "scale(1)";
-      }};
-
+      btn_{key}.onmouseenter = () => {{ btn_{key}.style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)"; }};
+      btn_{key}.onmouseleave = () => {{ btn_{key}.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }};
+      btn_{key}.onmousedown = () => {{ btn_{key}.style.transform = "scale(0.99)"; }};
+      btn_{key}.onmouseup = () => {{ btn_{key}.style.transform = "scale(1)"; }};
       btn_{key}.onclick = async () => {{
         try {{
           await navigator.clipboard.writeText(txt_{key});
@@ -235,14 +220,9 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
         }} catch (e) {{
           const area = document.createElement('textarea');
           area.value = txt_{key};
-          area.style.position = 'fixed';
-          area.style.top = '-1000px';
-          document.body.appendChild(area);
-          area.focus();
-          area.select();
-          document.execCommand('copy');
-          document.body.removeChild(area);
-          stat_{key}.textContent = "복사됨";
+          area.style.position = 'fixed'; area.style.top = '-1000px';
+          document.body.appendChild(area); area.focus(); area.select(); document.execCommand('copy');
+          document.body.removeChild(area); stat_{key}.textContent = "복사됨";
         }}
         setTimeout(()=> stat_{key}.textContent = "", 2000);
       }};
@@ -255,12 +235,11 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     all_words = _gather_exclusion_keywords(exclusions)
     total = len(all_words)
     if total == 0:
-        st.caption("제외 키워드 없음")
         return
     line = _format_keywords_line_exact(all_words)
     _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
 
-# ============== 저장 로직 ==============
+# ============== 저장 로직 (target_roas 제거) ==============
 def _save_to_supabase(
     supabase,
     *,
@@ -268,7 +247,6 @@ def _save_to_supabase(
     product_name: str,
     note: str,
     totals: Dict,
-    target_roas: float,
     breakeven_roas: float,
     cuts: CpcCuts,
     shares: Dict[str, float],
@@ -278,7 +256,7 @@ def _save_to_supabase(
 ) -> None:
     run_id = str(uuid.uuid4())
     file_sha1 = hashlib.sha1(upload.getvalue()).hexdigest()
-    st.caption(f"파일 해시: {file_sha1[:12]}…")
+    st.caption(f"파일 해시: {file_sha1[:12]}…")  # 왜: 이력 추적
     supabase.table("ad_analysis_runs").insert(
         {
             "run_id": run_id,
@@ -288,7 +266,6 @@ def _save_to_supabase(
             "date_min": str(totals.get("date_min")),
             "date_max": str(totals.get("date_max")),
             "note": note,
-            "target_roas": float(target_roas),
             "breakeven_roas": float(breakeven_roas),
             "cpc_cut": float(round(cuts.top, 2)),
         }
@@ -303,7 +280,6 @@ def _save_to_supabase(
             "run_id": run_id,
             "artifact_key": "settings",
             "payload": {
-                "target_roas": float(target_roas),
                 "breakeven_roas": float(breakeven_roas),
                 "cpc_cut_top": float(round(cuts.top, 2)),
                 "cpc_cut_bottom": float(round(cuts.bottom, 2)),
@@ -326,22 +302,22 @@ def _save_to_supabase(
     supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
     st.success(f"저장 성공 (ID: {run_id})")
 
-# ============== Streamlit 탭 (간소 UI: 손익분기 ROAS + 분석하기) ==============
+# ============== Streamlit 탭 (ROAS 입력/버튼 항상 노출, 안내문 제거) ==============
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
-    if up is None:
-        st.info("파일 업로드 후 손익분기 ROAS를 입력하고 [🔍 분석하기]를 눌러주세요.")
-        return
 
+    # 처음부터 항상 보이게
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    run = st.button("🔍 분석하기", type="primary", use_container_width=True, key="ad_run")
-    if not run and not st.session_state.get("ad_ran", False):
-        st.caption("값을 입력한 뒤 [🔍 분석하기]를 누르면 분석을 시작합니다.")
+    # 기본(무난) 스타일 버튼: type 지정 안 함
+    run = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
+    if not run:
         return
-    if run:
-        st.session_state["ad_ran"] = True
+
+    if up is None:
+        st.error("파일을 업로드하세요.")  # 왜: 행동 피드백만 제공
+        return
 
     try:
         df_raw = _load_df(up)
@@ -349,7 +325,7 @@ def render_ad_analysis_tab(supabase):
     except ValueError as e:
         st.error(str(e)); return
     if df.empty:
-        st.warning("유효한 데이터가 없습니다."); return
+        st.error("유효한 데이터가 없습니다."); return
 
     kw, totals = _aggregate_kw(df)
 
@@ -375,9 +351,9 @@ def render_ad_analysis_tab(supabase):
     st.markdown("### 2) CPC-누적매출 비중 & 컷")
     cuts, conv = _compute_cpc_cuts(kw)
     if conv.empty:
-        st.warning("전환 발생 키워드가 없습니다. CPC 컷은 0으로 처리됩니다.")
         shares = {"rev_share_bottom": 0.0, "cost_share_bottom": 0.0, "rev_share_top": 0.0, "cost_share_top": 0.0}
         aov50 = 0.0
+        st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
     else:
         chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
         vline_bottom = alt.Chart(pd.DataFrame({"c": [cuts.bottom]})).mark_rule(strokeDash=[2, 2]).encode(x="c:Q")
@@ -385,16 +361,18 @@ def render_ad_analysis_tab(supabase):
         st.altair_chart(chart + vline_bottom + vline_top, use_container_width=True)
         shares = _search_shares_for_cuts(kw, cuts)
         aov50 = _aov_p50(conv)
+
+        # === 복구된 표시 블록 (수정전 파일의 표기 형식 재도입) ===
         st.markdown(
             f"""
-        - **CPC_cut bottom:** {round(cuts.bottom, 2)}원  
-          · 검색 광고 매출 비중 {shares['rev_share_bottom']}%  
-          · 검색 광고 광고비 비중 {shares['cost_share_bottom']}%
+- **CPC_cut bottom:** {round(cuts.bottom, 2)}원  
+  · 검색 광고 매출 비중 {shares['rev_share_bottom']}%  
+  · 검색 광고 광고비 비중 {shares['cost_share_bottom']}%
 
-        - **CPC_cut top:** {round(cuts.top, 2)}원  
-          · 검색 광고 매출 비중 {shares['rev_share_top']}%  
-          · 검색 광고 광고비 비중 {shares['cost_share_top']}%
-        """
+- **CPC_cut top:** {round(cuts.top, 2)}원  
+  · 검색 광고 매출 비중 {shares['rev_share_top']}%  
+  · 검색 광고 광고비 비중 {shares['cost_share_top']}%
+"""
         )
 
     st.markdown("### 3) 제외 키워드")
@@ -407,16 +385,11 @@ def render_ad_analysis_tab(supabase):
     _render_exclusion_union(exclusions)
 
     with st.expander("💾 저장 (선택)", expanded=False):
-        st.caption("필요 시 저장 정보를 입력하세요. 왜: 이력/재현을 위해.")
-        c1, c2, c3 = st.columns([2, 2, 2])
-        with c1: product_name = st.text_input("상품명(선택)", value="", key="ad_product_opt")
-        with c2: target_roas = st.number_input("목표 ROAS(선택)", min_value=0.0, value=0.0, step=10.0, key="ad_target_opt")
-        with c3: note = st.text_input("메모(선택)", value="", key="ad_note_opt")
-
+        c1, c2 = st.columns([2, 3])
+        with c1: product_name = st.text_input("상품명", value="", key="ad_product")
+        with c2: note = st.text_input("메모", value="", key="ad_note")
         can_save = bool(product_name.strip())
         save_btn = st.button("✅ 분석 결과 저장", disabled=not can_save, key="ad_save")
-        if not can_save:
-            st.info("저장을 하려면 상품명을 입력하세요.")
         if save_btn and can_save:
             try:
                 _save_to_supabase(
@@ -425,7 +398,6 @@ def render_ad_analysis_tab(supabase):
                     product_name=product_name,
                     note=note,
                     totals=totals,
-                    target_roas=float(target_roas),
                     breakeven_roas=float(breakeven_roas),
                     cuts=cuts,
                     shares=shares,
