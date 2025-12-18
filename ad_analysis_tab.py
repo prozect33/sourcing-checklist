@@ -31,6 +31,8 @@ LOW_Q = 0.65               # 양의 기울기 하위 25% 이상을 오르막으�
 LOW_Q_FALLBACK = 0.55      # 데이터 약할 때 완화
 GAP_TOL_DIVISOR = 180      # 빈틈 메움 허용 폭 = ceil(N / 100) 포인트
 MIN_RUN_FRAC = 0.04        # 최소 지속 길이 비율(스파이크 방지)
+FLOOR_Q = 0.22          # ← 새로 추가
+BACK_CAP_FRAC = 0.35    # ← 새로 추가
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
@@ -224,6 +226,18 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
             s = s_high
             while s - 1 >= 0 and mask_low[s - 1]:
                 s -= 1
+            # ---- Guardrails: floor & back-cap ----
+            # 1) 바닥 잠금: x-quantile(FLOOR_Q)보다 왼쪽 금지
+            floor_x = float(np.quantile(x, FLOOR_Q))
+            floor_idx = int(np.searchsorted(x, floor_x, side="left"))
+
+            # 2) 확장 상한: high구간 시작점에서 전체 span의 BACK_CAP_FRAC만큼만 왼쪽 허용
+            x_span = float(x[-1] - x[0])
+            cap_x = float(x[s_high]) - BACK_CAP_FRAC * x_span
+            cap_idx = int(np.searchsorted(x, max(cap_x, x[0]), side="left"))
+
+            # 오른쪽으로 최소 보정
+            s = max(s, floor_idx, cap_idx)    
 
             # 최소 지속 길이 보정(너무 짧은 스파이크 방지)
             min_run = max(2, int(np.ceil(n * MIN_RUN_FRAC)))
