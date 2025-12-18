@@ -71,49 +71,48 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     # 검색 영역 중에서 주문이 1건이라도 발생한 키워드만 분석
     df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
     df_search = df_search.groupby("keyword").filter(lambda g: g["orders_14d"].sum() > 0)
-    if df_search.empty:
-        st.warning("df_search 비었음")
-
-    # 평균 전환 1 이상 만족한 키워드 수 출력
-    valid_keywords = []
-    for keyword, g in df_search.groupby("keyword"):
-        g = g.sort_values("date").copy()
-        g["cum_orders"] = g["orders_14d"].cumsum()
-        g["day_number"] = range(1, len(g) + 1)
-        g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
-        hit = g[g["avg_orders_per_day"] >= 1]
-        if not hit.empty:
-            valid_keywords.append(keyword)
 
     if df_search.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
 
     rows = []
     for keyword, g in df_search.groupby("keyword"):
-        g = g.sort_values("date").reset_index(drop=True)
+        g = g.sort_values("date").reset_index(drop=True).copy()
 
-        # ✅ 1. 실제 발생한 전환 수 계산
+        # 1) 실제 발생한 전환 수(증분) 계산
         g["orders"] = g["orders_14d"].diff().fillna(g["orders_14d"])
 
-        # ✅ 2. 누적 전환 / 평균 전환
+        # 2) 누적 전환 / 평균 전환
         g["cum_orders"] = g["orders"].cumsum()
         g["day_number"] = range(1, len(g) + 1)
         g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
 
-        # ✅ 3. 평균 전환이 1 넘는 최초 시점 찾기
+        # 3) 평균 전환이 1 넘는 최초 시점
         hit = g[g["avg_orders_per_day"] >= 1]
         if hit.empty:
             continue
 
-        pos = hit.index[0]
-        g_until = g.iloc[:pos + 1]
+        pos = int(hit.index[0])
+        g_until = g.iloc[: pos + 1]
 
-        # ✅ 4. 슬라이스된 값으로 집계
-        rows.append({
-            "active_days": g_until["impressions"].gt(0).sum(),
-            "impressions": g_until["impressions"].sum(),
-            "clicks": g_until["clicks"].sum()
-        })
+        # 4) 슬라이스 구간 집계
+        rows.append(
+            {
+                "active_days": int(g_until["impressions"].gt(0).sum()),
+                "impressions": float(g_until["impressions"].sum()),
+                "clicks": float(g_until["clicks"].sum()),
+            }
+        )
+
+    if not rows:
+        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
+
+    tdf = pd.DataFrame(rows)
+    return {
+        "active_days": _median_1d(tdf["active_days"].astype(float)),
+        "impressions": _median_1d(tdf["impressions"].astype(float)),
+        "clicks": _median_1d(tdf["clicks"].astype(float)),
+    }
 
 # ====== Streamlit 탭 렌더링 ======
 def render_ad_analysis_tab(supabase):
