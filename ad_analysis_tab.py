@@ -291,7 +291,7 @@ def render_ad_analysis_tab(supabase):
     st.markdown("### 4) 제외 키워드")
 
     ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut_top)].copy()
-    ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
+    ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cpc_cut_bottom)].copy()
     cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
     ex_c = kw[kw["orders_14d"] == 0].copy()
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
@@ -309,8 +309,8 @@ def render_ad_analysis_tab(supabase):
             cols += extra
         st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
 
-    _show_df("a) CPC_cut 이상 전환 0", ex_a)
-    _show_df("b) 운영 일주일 이상 손익분기 미달", ex_b)
+    _show_df("a) CPC_cut top 이상 전환 0", ex_a)
+    _show_df("b) CPC_cut bottom 이하 전환 0", ex_b)
     _show_df("c) 전환 시 예상 ROAS 미달", ex_c, ["roas_if_1_order"])
     _show_df(f"d) {format_min_condition_label(min_cond)}", ex_d)
 
