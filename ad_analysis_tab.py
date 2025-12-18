@@ -113,6 +113,10 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
             "clicks": g_until["clicks"].sum()
         })
 
+    # ✅ 여기!!
+    st.write("조건 만족 키워드 수:", df_search["keyword"].nunique())
+    st.write("rows에 담긴 값 수:", len(rows))
+
     tdf = pd.DataFrame(rows)
     if tdf.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
@@ -137,6 +141,14 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
         "impressions": _median_1d(tdf["impressions"].astype(float)),
         "clicks": _median_1d(tdf["clicks"].astype(float)),
     }
+
+    tdf = pd.DataFrame(rows)
+
+    if tdf.empty:
+        st.error("❌ rows 비어 있음! 조건 만족한 키워드가 누락됐거나 슬라이스 실패")
+    else:
+        st.success(f"✅ rows 수: {len(tdf)}")
+        st.dataframe(tdf.describe())  # 중앙값 확인
 
 # ====== Streamlit 탭 렌더링 ======
 def render_ad_analysis_tab(supabase):
