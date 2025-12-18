@@ -71,6 +71,23 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     # 검색 영역 중에서 주문이 1건이라도 발생한 키워드만 분석
     df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
     df_search = df_search.groupby("keyword").filter(lambda g: g["orders_14d"].sum() > 0)
+    if df_search.empty:
+        st.warning("df_search 비었음")
+    else:
+        st.info(f"검색 영역 + 전환 1 이상 키워드 수: {df_search['keyword'].nunique()}")
+
+    # 평균 전환 1 이상 만족한 키워드 수 출력
+    valid_keywords = []
+    for keyword, g in df_search.groupby("keyword"):
+        g = g.sort_values("date").copy()
+        g["cum_orders"] = g["orders_14d"].cumsum()
+        g["day_number"] = range(1, len(g) + 1)
+        g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
+        hit = g[g["avg_orders_per_day"] >= 1]
+        if not hit.empty:
+            valid_keywords.append(keyword)
+
+    st.info(f"평균 전환 1 이상 만족한 키워드 수: {len(valid_keywords)}")
 
     if df_search.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
@@ -78,7 +95,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     rows = []
     for kw, g in df_search.groupby("keyword"):
         g = g.sort_values("date").copy()
-
         # 누적 전환수와 평균 전환수 계산
         g["cum_orders"] = g["orders_14d"].cumsum()
         g["day_number"] = range(1, len(g) + 1)
