@@ -360,20 +360,27 @@ def render_ad_analysis_tab(supabase):
                     "run_id": run_id,
                     "artifact_key": "settings",
                     "payload": {
-                        "target_roas": target_roas,
-                        "breakeven_roas": breakeven_roas,
+                        "target_roas": float(target_roas),
+                        "breakeven_roas": float(breakeven_roas),
                         "cpc_cut_top": float(round(cpc_cut_top, 2)),
                         "cpc_cut_bottom": float(round(cpc_cut_bottom, 2)),
                         "top_rev_share": float(top_rev_share),
                         "bottom_rev_share": float(bottom_rev_share),
-                        "aov_p50": aov_p50,
+                        "aov_p50": float(aov_p50),
                     },
                 },
                 {
                     "run_id": run_id,
                     "artifact_key": "exclusions",
-                    "payload": {"a": ex_a["keyword"].tolist(), "b": ex_b["keyword"].tolist(), "c": ex_c["keyword"].tolist(), "d": ex_d["keyword"].tolist()},
+                    "payload": {
+                        "a": ex_a["keyword"].tolist(),
+                        "b": ex_b["keyword"].tolist(),
+                        "c": ex_c["keyword"].tolist(),
+                        "d": ex_d["keyword"].tolist(),
+                    },
+                },
             ]
+
             supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
             st.success(f"저장 성공 (ID: {run_id})")
 
