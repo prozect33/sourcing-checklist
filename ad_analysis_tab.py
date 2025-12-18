@@ -335,7 +335,7 @@ def render_ad_analysis_tab(supabase):
 
     st.markdown("### 4) 제외 키워드")
 
-    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut)].copy()
+    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut_top)].copy()
     ex_b = kw[(kw["active_days"] >= 7) & (kw["orders_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
     cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
     ex_c = kw[kw["orders_14d"] == 0].copy()
@@ -377,7 +377,7 @@ def render_ad_analysis_tab(supabase):
                     "note": note,
                     "target_roas": float(target_roas),
                     "breakeven_roas": float(breakeven_roas),
-                    "cpc_cut": float(round(cpc_cut, 2)),
+                    "cpc_cut": float(round(cpc_cut_top, 2)),
                 }
             ).execute()
 
@@ -394,7 +394,10 @@ def render_ad_analysis_tab(supabase):
                     "payload": {
                         "target_roas": target_roas,
                         "breakeven_roas": breakeven_roas,
-                        "cpc_cut": float(round(cpc_cut, 2)),
+                        "cpc_cut_top": float(round(cpc_cut_top, 2)),
+                        "cpc_cut_bottom": float(round(cpc_cut_bottom, 2)),
+                        "top_rev_share": float(top_rev_share),
+                        "bottom_rev_share": float(bottom_rev_share),
                         "aov_p50": aov_p50,
                         "min_condition": min_cond,
                     },
