@@ -14,6 +14,8 @@ import altair as alt
 # ====== 원시 데이터 컬럼명(표준) ======
 DATE_COL = "날짜"
 KW_COL = "키워드"
+SURF_COL = "광고 노출 지면"          # ← 추가
+SURF_SEARCH_VALUE = "검색 영역"       # ← 추가
 IMP_COL = "노출수"
 CLK_COL = "클릭수"
 COST_COL = "광고비"
@@ -25,86 +27,97 @@ REV_COL = "총 전환매출액(14일)"
 def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
+def _to_float1(x: float | int) -> float:
+    return float(np.round(float(x), 1))
 
 def _to_date(s: pd.Series) -> pd.Series:
-    """왜: 업로드 형식(문자/엑셀일/혼합)을 포괄 처리"""
+    """why: 업로드 형식(문자/엑셀일/혼합)을 포괄 처리"""
     txt = s.astype(str).str.strip()
     dt_general = pd.to_datetime(txt, errors="coerce")
-
     digits = txt.str.replace(r"[^0-9]", "", regex=True)
     dt_8 = pd.to_datetime(digits.where(digits.str.len() == 8), format="%Y%m%d", errors="coerce")
     dt_6 = pd.to_datetime(digits.where(digits.str.len() == 6), format="%y%m%d", errors="coerce")
-
     num = pd.to_numeric(txt, errors="coerce")
     num = num.where(num.between(20000, 60000))
     dt_serial = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
-
     dt = dt_general.fillna(dt_8).fillna(dt_6).fillna(dt_serial)
     return dt.dt.date
-
-
-def _is_search_keyword(x: str) -> bool:
-    if x is None:
-        return False
-    t = str(x).strip()
-    if t == "" or t == "-" or t.lower() == "nan":
-        return False
-    if "비검색" in t:
-        return False
-    return True
-
 
 def _safe_div(a, b, default=0.0):
     a, b = float(a), float(b)
     return default if b == 0 else a / b
 
+def _median_1d(s: pd.Series) -> float:
+    """why: P50을 소수점 한자리로 고정"""
+    return float(np.round(s.median(), 1)) if not s.empty else 0.0
 
 def _median_int(v) -> int:
     s = pd.Series(v)
     return int(s.median()) if not s.empty else 0
 
 
-# ====== t(기본 임계치) ======
-def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, int]:
+# ====== t(기본 임계치; 검색영역 & 주문==1 표본, '첫 주문 시점까지' 누적의 P50[소수점1]) ======
+def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     """
-    t = 키워드별 '첫 주문 발생 시점까지' 누적 [활동일/노출/클릭]의 중앙값(P50).
+    표본: (광고 노출 지면 == '검색 영역') & (키워드별 총 주문==1)
+    각 표본 키워드에서 '첫 주문 발생 시점까지' 누적 [활동일/노출/클릭]을 구해 P50(소수점 1자리)로 t 산정.
     활동일: 노출>0인 날짜 수.
     """
+    # 검색 영역만
+    df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
+    if df_search.empty:
+        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
+
+    # 표본: 주문==1 키워드
+    kw_tot = df_search.groupby("keyword", as_index=False)["orders_14d"].sum().rename(columns={"orders_14d": "total_orders"})
+    sample_kw = set(kw_tot.loc[kw_tot["total_orders"] == 1, "keyword"])
+    if not sample_kw:
+        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
+
     rows = []
-    for kw, g in df.groupby("keyword"):
-        g = g.sort_values("date")
-        if not (g["orders_14d"] > 0).any():
+    for kw, g in df_search[df_search["keyword"].isin(sample_kw)].groupby("keyword"):
+        g = g.sort_values("date").copy()
+        g["cum_orders"] = g["orders_14d"].cumsum()
+        hit = g[g["cum_orders"] >= 1]
+        if hit.empty:
             continue
-        first_row = g[g["orders_14d"] > 0].iloc[0]
+        first_idx = hit.index[0]
+        g_until = g.loc[:first_idx]  # why: 첫 주문 '포함' 시점까지
+        active_days = int(g_until.loc[g_until["impressions"] > 0, "date"].nunique())
         rows.append(
             {
-                "active_days": int((g.loc[:first_row.name, "impressions"] > 0).sum()),
-                "impressions": int(g.loc[:first_row.name, "impressions"].sum()),
-                "clicks": int(g.loc[:first_row.name, "clicks"].sum()),
+                "active_days": active_days,
+                "impressions": int(g_until["impressions"].sum()),
+                "clicks": int(g_until["clicks"].sum()),
             }
         )
-    if not rows:
-        return {"active_days": 0, "impressions": 0, "clicks": 0}
+
     tdf = pd.DataFrame(rows)
+    if tdf.empty:
+        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
+
     return {
-        "active_days": _median_int(tdf["active_days"]),
-        "impressions": _median_int(tdf["impressions"]),
-        "clicks": _median_int(tdf["clicks"]),
+        "active_days": _median_1d(tdf["active_days"].astype(float)),
+        "impressions": _median_1d(tdf["impressions"].astype(float)),
+        "clicks": _median_1d(tdf["clicks"].astype(float)),
     }
 
 
-# ====== hold_days(활동일만 교체: 누적 기대주문 >=1 최초시점) ======
-def calc_hold_days_expected_ge1(df: pd.DataFrame, t: Dict[str, int]) -> int:
+# ====== hold_days(활동일만 교체: 누적 기대주문 >=1 '최초 시점'의 활동일 P50) ======
+def calc_hold_days_expected_ge1(df: pd.DataFrame, t: Dict[str, float]) -> int:
     """
-    유보기간(활동일) = '전환 有 & 최종 누적이 t(활동일/노출/클릭) 충족' 키워드에서
-    누적 기대주문(cum_expected = cum_clicks * final_cvr) >= 1 '최초 시점'까지의 활동일들의 중앙값(P50).
+    대상 = (검색 영역) & (전환>0) & (최종 누적이 t(활동일/노출/클릭) 충족)
     final_cvr = total_orders / total_clicks  (total_clicks==0 제외)
-    활동일: impressions>0인 날짜 수.
+    날짜 오름차순 누적: cum_expected = cum_clicks * final_cvr
+    ⇒ cum_expected >= 1 '최초 시점'까지의 활동일(노출>0인 날짜 수)들의 중앙값(P50)을 정수로 반환.
     """
-    days = []
-    for kw, g in df.groupby("keyword"):
-        g = g.sort_values("date")
+    df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
+    if df_search.empty:
+        return 0
 
+    days = []
+    for kw, g in df_search.groupby("keyword"):
+        g = g.sort_values("date").copy()
         total_orders = int(g["orders_14d"].sum())
         total_clicks = int(g["clicks"].sum())
         if total_orders <= 0 or total_clicks <= 0:
@@ -112,15 +125,15 @@ def calc_hold_days_expected_ge1(df: pd.DataFrame, t: Dict[str, int]) -> int:
 
         total_impr = int(g["impressions"].sum())
         total_active_days = int(g.loc[g["impressions"] > 0, "date"].nunique())
-        # 최종 누적이 t 충족
+        # why: 최종 누적이 t를 '모두' 충족하는 키워드만 유지
         if not (
-            total_active_days >= int(t["active_days"])
-            and total_impr >= int(t["impressions"])
-            and total_clicks >= int(t["clicks"])
+            total_active_days >= int(np.floor(t["active_days"]))  # 활동일은 보수적으로 내림 비교
+            and total_impr >= t["impressions"]
+            and total_clicks >= t["clicks"]
         ):
             continue
 
-        final_cvr = total_orders / total_clicks  # 왜: 기대전환 계산의 안정 CVR
+        final_cvr = total_orders / total_clicks
         cum_clicks = g["clicks"].cumsum()
         cum_expected = cum_clicks * final_cvr
         hit = g.loc[cum_expected >= 1]
@@ -134,32 +147,36 @@ def calc_hold_days_expected_ge1(df: pd.DataFrame, t: Dict[str, int]) -> int:
     return _median_int(days)
 
 
-def build_min_conversion_condition(df: pd.DataFrame) -> Dict[str, int]:
+def build_min_conversion_condition(df: pd.DataFrame) -> Dict[str, float]:
     """
-    '최소 전환 조건' 구성:
-    - 활동일: hold_days_expected_ge1
-    - 노출: t.impressions
-    - 클릭: t.clicks
+    최종 '최소 전환 조건' 구성:
+    - 활동일: hold_days_expected_ge1  (정수)
+    - 노출: t.impressions            (소수점 1자리)
+    - 클릭: t.clicks                 (소수점 1자리)
     """
     t = calc_base_threshold_t(df)
     hold_days = calc_hold_days_expected_ge1(df, t)
-    return {"active_days": int(hold_days), "impressions": int(t["impressions"]), "clicks": int(t["clicks"])}
+    return {"active_days": float(hold_days), "impressions": t["impressions"], "clicks": t["clicks"]}
 
-
-def format_min_condition_label(min_cond: Dict[str, int]) -> str:
-    return f"최소 전환 조건 (운영{min_cond['active_days']}일 / 노출{min_cond['impressions']} / 클릭{min_cond['clicks']})"
+def format_min_condition_label(min_cond: Dict[str, float]) -> str:
+    # why: 활동일은 정수, 노출/클릭은 소수점 한자리 표기
+    return (
+        f"최소 전환 조건 (운영{int(min_cond['active_days'])}일 / "
+        f"노출{_to_float1(min_cond['impressions'])} / 클릭{_to_float1(min_cond['clicks'])})"
+    )
 
 
 # ====== 제외 d) 필터 ======
-def filter_min_conversion_condition(kw_total: pd.DataFrame, min_cond: Dict[str, int]) -> pd.DataFrame:
+def filter_min_conversion_condition(kw_total: pd.DataFrame, min_cond: Dict[str, float]) -> pd.DataFrame:
     """
     제외 d) = 주문=0 & 활동일≥min_cond.active_days & 노출≥min_cond.impressions & 클릭≥min_cond.clicks
+    (활동일은 정수 비교, 노출/클릭은 소수점 한자리 하한으로 비교)
     """
     return kw_total[
         (kw_total["orders_14d"] == 0)
         & (kw_total["active_days"] >= int(min_cond["active_days"]))
-        & (kw_total["impressions"] >= int(min_cond["impressions"]))
-        & (kw_total["clicks"] >= int(min_cond["clicks"]))
+        & (kw_total["impressions"] >= min_cond["impressions"])
+        & (kw_total["clicks"] >= min_cond["clicks"])
     ].copy()
 
 
@@ -193,7 +210,7 @@ def render_ad_analysis_tab(supabase):
         st.error(f"파일 로드 실패: {e}")
         return
 
-    required = [DATE_COL, KW_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
+    required = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
     missing = [c for c in required if c not in df_raw.columns]
     if missing:
         st.error(f"필수 컬럼 누락: {missing}")
@@ -204,7 +221,7 @@ def render_ad_analysis_tab(supabase):
     df["date"] = _to_date(df[DATE_COL])
     df = df[df["date"].notna()].copy()
     df["keyword"] = df[KW_COL].astype(str).fillna("").str.strip()
-    df["is_search"] = df["keyword"].map(_is_search_keyword)
+    df["surface"] = df[SURF_COL].astype(str).fillna("").str.strip()   # ← 추가
     df["impressions"] = _to_int(df[IMP_COL])
     df["clicks"] = _to_int(df[CLK_COL])
     df["cost"] = _to_int(df[COST_COL])
@@ -226,12 +243,23 @@ def render_ad_analysis_tab(supabase):
     total_orders = int(df["orders_14d"].sum())
     total_roas = round(_safe_div(total_rev, total_cost, 0) * 100, 2)
 
-    df_search, df_non = df[df["is_search"]], df[~df["is_search"]]
+    # 검색/비검색 구분(참고용 집계)
+    df_imp_pos = df[df["impressions"] > 0]
+    days = df_imp_pos.groupby("keyword")["date"].nunique().reset_index(name="active_days")
 
+    kw = (
+        df.groupby(["keyword", "surface"], as_index=False)[["impressions", "clicks", "cost", "orders_14d", "revenue_14d"]]
+        .sum()
+        .merge(days, on="keyword", how="left")
+    )
+    kw["active_days"] = kw["active_days"].fillna(0).astype(int)
+    kw["ctr"] = (kw["clicks"] / kw["impressions"]).fillna(0).round(6)
+    kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
+    kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
+
+    # 전체/검색/비검색 개요 테이블
     def _row(name, sub):
-        c = int(sub["cost"].sum())
-        r = int(sub["revenue_14d"].sum())
-        o = int(sub["orders_14d"].sum())
+        c, r, o = int(sub["cost"].sum()), int(sub["revenue_14d"].sum()), int(sub["orders_14d"].sum())
         return {
             "영역": name,
             "광고비": c,
@@ -244,26 +272,13 @@ def render_ad_analysis_tab(supabase):
         }
 
     rows = [
-        {"영역": "전체", "광고비": total_cost, "광고비비율(%)": 100.0, "매출": total_rev, "매출비율(%)": 100.0, "주문": total_orders, "주문비율(%)": 100.0, "ROAS": total_roas},
-        _row("검색", df_search),
-        _row("비검색", df_non),
+        _row("전체", df),
+        _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]),
+        _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE]),
     ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    # 2) 키워드 집계
-    kw = (
-        df.groupby(["keyword", "is_search"], as_index=False)[["impressions", "clicks", "cost", "orders_14d", "revenue_14d"]]
-        .sum()
-    )
-    df_imp_pos = df[df["impressions"] > 0]
-    days = df_imp_pos.groupby("keyword")["date"].nunique().reset_index(name="active_days")
-    kw = kw.merge(days, on="keyword", how="left").fillna({"active_days": 0})
-    kw["active_days"] = kw["active_days"].astype(int)
-    kw["ctr"] = (kw["clicks"] / kw["impressions"]).fillna(0).round(6)
-    kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-    kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-
-    # 3) CPC-누적매출 비중 & 컷
+    # 3) CPC-누적매출 비중 & 컷 (전체 기준 유지)
     st.markdown("### 3) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
     cpc_cut, cut_rev_share, aov_p50 = 0.0, 0.0, 0.0
@@ -273,7 +288,6 @@ def render_ad_analysis_tab(supabase):
         total_conv_rev = conv["revenue_14d"].sum()
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
-        # 간단한 Kneedle 유사 포인트
         x = conv["cpc"].to_numpy(dtype=float)
         y = conv["cum_rev_share"].to_numpy(dtype=float)
         if len(x) >= 3:
@@ -311,13 +325,13 @@ def render_ad_analysis_tab(supabase):
     ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
 
-    # d) 임계치 초과 전환 0  (== 최소 전환 조건)
+    # d) 최소 전환 조건 (t에서 활동일만 교체)
     min_cond = build_min_conversion_condition(df)
     ex_d = filter_min_conversion_condition(kw, min_cond)
 
     def _show_df(title, dff, extra=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
-        cols = ["keyword", "active_days", "impressions", "clicks", "cost", "orders_14d", "revenue_14d", "ctr", "cpc", "roas_14d"]
+        cols = ["keyword", "surface", "active_days", "impressions", "clicks", "cost", "orders_14d", "revenue_14d", "ctr", "cpc", "roas_14d"]
         if extra:
             cols += extra
         st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
@@ -351,7 +365,7 @@ def render_ad_analysis_tab(supabase):
             ).execute()
 
             rows_kw = kw.assign(run_id=run_id)[
-                ["run_id", "keyword", "is_search", "active_days", "impressions", "clicks", "cost", "orders_14d", "revenue_14d", "ctr", "cpc", "roas_14d"]
+                ["run_id", "keyword", "surface", "active_days", "impressions", "clicks", "cost", "orders_14d", "revenue_14d", "ctr", "cpc", "roas_14d"]
             ].to_dict(orient="records")
             for i in range(0, len(rows_kw), 1000):
                 supabase.table("ad_analysis_keyword_total").upsert(rows_kw[i : i + 1000]).execute()
