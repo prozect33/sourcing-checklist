@@ -122,25 +122,6 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
 
     tdf = pd.DataFrame(rows)
 
-    st.write("조건 만족 키워드 수:", df_search["keyword"].nunique())
-    st.write("rows에 담긴 값 수:", len(rows))
-    st.dataframe(tdf.describe())  # 👈 중앙값 확인
-
-    tdf = pd.DataFrame(rows)
-    if tdf.empty:
-        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
-
-    return {
-        "active_days": _median_1d(tdf["active_days"].astype(float)),
-        "impressions": _median_1d(tdf["impressions"].astype(float)),
-        "clicks": _median_1d(tdf["clicks"].astype(float)),
-    }
-
-    if not rows:
-        st.warning("❗ rows 비었음 — 조건 만족해도 슬라이스 실패했을 가능성 있음")
-    else:
-        st.info(f"rows에 담긴 항목 수: {len(rows)}")
-        st.dataframe(pd.DataFrame(rows))  # ✅ 실제 값 확인    
     tdf = pd.DataFrame(rows)
     if tdf.empty:
         return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
@@ -152,13 +133,16 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     }
 
     tdf = pd.DataFrame(rows)
-
     if tdf.empty:
-        st.error("❌ rows 비어 있음! 조건 만족한 키워드가 누락됐거나 슬라이스 실패")
-    else:
-        st.success(f"✅ rows 수: {len(tdf)}")
-        st.dataframe(tdf.describe())  # 중앙값 확인
+        return {"active_days": 0.0, "impressions": 0.0, "clicks": 0.0}
 
+    return {
+        "active_days": _median_1d(tdf["active_days"].astype(float)),
+        "impressions": _median_1d(tdf["impressions"].astype(float)),
+        "clicks": _median_1d(tdf["clicks"].astype(float)),
+    }
+
+    tdf = pd.DataFrame(rows)
 # ====== Streamlit 탭 렌더링 ======
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
