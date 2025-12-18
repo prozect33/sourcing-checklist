@@ -255,24 +255,35 @@ def render_ad_analysis_tab(supabase):
     # 3) CPC-누적매출 비중 & 컷
     st.markdown("### 3) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
-    cpc_cut, cut_rev_share, aov_p50 = 0.0, 0.0, 0.0
 
     if conv.empty:
-        st.warning("전환 발생 키워드가 없습니다. CPC_cut을 0으로 처리합니다.")
+        st.warning("전환 발생 키워드가 없습니다.")
     else:
+        # 누적매출 비중 계산
         total_conv_rev = conv["revenue_14d"].sum()
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
 
-        # 누적 광고비 열 미리 생성
+        # 누적 광고비 비중 계산
         conv["cum_cost"] = conv["cost"].cumsum()
         total_cost_conv = conv["cost"].sum()
         conv["cum_cost_share"] = (conv["cum_cost"] / total_cost_conv).clip(0, 1)
 
-        # chart, vline 기본 정의 (🔑 오류 방지용)
-        chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
-        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
+        # ✅ 누적매출 비중 7% 이상인 첫 지점
+        cpc_cut_row = conv[conv["cum_rev_share"] >= 0.07].head(1)
+        if not cpc_cut_row.empty:
+            cpc_cut = float(cpc_cut_row["cpc"].values[0])
+            cut_rev_share = round(float(cpc_cut_row["cum_rev_share"].values[0]) * 100, 2)
+        else:
+            cpc_cut = float(conv["cpc"].max())
+            cut_rev_share = 100.0
 
+        # 누적 광고비 (top 지점 기준)
+        cost_share_top = round(
+            _safe_div(conv.loc[conv["cpc"] >= cpc_cut, "cost"].sum(), total_cost_conv) * 100, 2
+        )
+
+        # 📈 상승 시작 지점 계산 (gradient 사용)
         x = conv["cpc"].to_numpy(dtype=float)
         y = conv["cum_rev_share"].to_numpy(dtype=float)
         dy = np.gradient(y)
@@ -282,30 +293,22 @@ def render_ad_analysis_tab(supabase):
             cpc_end = float(x[end_idx])
             rev_share_end = float(y[end_idx]) * 100
             cost_share_bottom = round(conv.iloc[end_idx]["cum_cost_share"] * 100, 2)
-        else:
-            cpc_end = None
 
-        cost_share_top = round(
-            _safe_div(conv.loc[conv["cpc"] >= cpc_cut, "cost"].sum(), total_cost_conv) * 100, 2
-        )
+        # 차트와 세로선
+        chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
+        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4], color="gray").encode(x="c:Q")
 
-        # 세로선 추가
-        if cpc_end is not None:
-            vline2 = alt.Chart(
-                pd.DataFrame({"c": [cpc_end]})
-            ).mark_rule(
-                color="red",
-                strokeDash=[2, 2]
-            ).encode(x="c:Q")
+        if end_idx != -1:
+            vline2 = alt.Chart(pd.DataFrame({"c": [cpc_end]})).mark_rule(color="red", strokeDash=[2, 2]).encode(x="c:Q")
             final_chart = chart + vline + vline2
         else:
             final_chart = chart + vline
 
         st.altair_chart(final_chart, use_container_width=True)
 
-        # 통일된 포맷 출력
+        # ✅ 포맷 통일된 출력
         st.caption(f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%, 누적광고비 {cost_share_top}%)")
-        if cpc_end is not None:
+        if end_idx != -1:
             st.caption(f"CPC_bottom: {round(cpc_end, 2)}원 (누적매출 {round(rev_share_end, 2)}%, 누적광고비 {cost_share_bottom}%)")
 
         # AOV 계산
