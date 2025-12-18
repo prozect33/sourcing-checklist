@@ -255,29 +255,74 @@ def render_ad_analysis_tab(supabase):
     # 3) CPC-누적매출 비중 & 컷
     st.markdown("### 3) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
-    cpc_cut, cut_rev_share, aov_p50 = 0.0, 0.0, 0.0
+
+    cpc_cut = 0.0
+    cpc_rise = 0.0
+    cut_rev_share = 0.0
+    rise_rev_share = 0.0
+    aov_p50 = 0.0
+
     if conv.empty:
         st.warning("전환 발생 키워드가 없습니다. CPC_cut을 0으로 처리합니다.")
     else:
         total_conv_rev = conv["revenue_14d"].sum()
+
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
+
         x = conv["cpc"].to_numpy(dtype=float)
         y = conv["cum_rev_share"].to_numpy(dtype=float)
-        if len(x) >= 3:
+
+        if len(x) >= 4:
+            # 정규화
             x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
             y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-            idx = int(np.argmax(y_n - x_n))
-            cpc_cut = float(x[idx])
+
+            # ▶ 우측 컷 (기존 방식)
+            idx_cut = int(np.argmax(y_n - x_n))
+            cpc_cut = float(x[idx_cut])
+
+            # ▶ 좌측 상승 시작점 (기울기 급증)
+            dy = np.diff(y_n)
+            dx = np.diff(x_n) + 1e-12
+            slope = dy / dx
+
+            search_upto = max(2, int(len(slope) * 0.5))
+            idx_rise = int(np.argmax(slope[:search_upto]))
+            cpc_rise = float(x[idx_rise])
+
         else:
             cpc_cut = float(x[-1])
+            cpc_rise = float(x[0])
+
         rev_above_cut = conv.loc[conv["cpc"] >= cpc_cut, "revenue_14d"].sum()
         cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev) * 100, 2)
 
-        chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
-        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
-        st.altair_chart(chart + vline, use_container_width=True)
-        st.caption(f"CPC_cut: {round(cpc_cut, 2)}원 (누적매출 비중 {cut_rev_share}%)")
+        rev_above_rise = conv.loc[conv["cpc"] >= cpc_rise, "revenue_14d"].sum()
+        rise_rev_share = round(_safe_div(rev_above_rise, total_conv_rev) * 100, 2)
+
+        chart = alt.Chart(conv).mark_line().encode(
+            x="cpc:Q",
+            y="cum_rev_share:Q"
+        )
+
+        vline_rise = alt.Chart(
+            pd.DataFrame({"c": [cpc_rise]})
+        ).mark_rule(strokeDash=[2, 2]).encode(x="c:Q")
+
+        vline_cut = alt.Chart(
+            pd.DataFrame({"c": [cpc_cut]})
+        ).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
+
+        st.altair_chart(
+            chart + vline_rise + vline_cut,
+            use_container_width=True
+        )
+
+        st.caption(
+            f"상승 시작 CPC: {round(cpc_rise, 2)}원 (누적매출 비중 {rise_rev_share}%) | "
+            f"CPC_cut: {round(cpc_cut, 2)}원 (누적매출 비중 {cut_rev_share}%)"
+        )
 
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
