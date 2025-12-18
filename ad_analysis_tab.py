@@ -262,22 +262,7 @@ def render_ad_analysis_tab(supabase):
         total_conv_rev = conv["revenue_14d"].sum()
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
-        x = conv["cpc"].to_numpy(dtype=float)
-        y = conv["cum_rev_share"].to_numpy(dtype=float)
-        if len(x) >= 3:
-            x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
-            y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-            idx = int(np.argmax(y_n - x_n))
-            cpc_cut = float(x[idx])
-        else:
-            cpc_cut = float(x[-1])
-        rev_above_cut = conv.loc[conv["cpc"] >= cpc_cut, "revenue_14d"].sum()
-        cut_rev_share = round(_safe_div(rev_above_cut, total_conv_rev) * 100, 2)
 
-        chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
-        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
-
-        # 횡보 끝나는 지점 계산
         x = conv["cpc"].to_numpy(dtype=float)
         y = conv["cum_rev_share"].to_numpy(dtype=float)
         dy = np.gradient(y)
@@ -286,6 +271,16 @@ def render_ad_analysis_tab(supabase):
         if end_idx != -1:
             cpc_end = float(x[end_idx])
             rev_share_end = float(y[end_idx]) * 100  # 누적매출 비중 계산
+
+            # 누적 광고비 비율 계산용 열 생성
+            conv["cum_cost"] = conv["cost"].cumsum()
+            total_cost_conv = conv["cost"].sum()
+            conv["cum_cost_share"] = (conv["cum_cost"] / total_cost_conv).clip(0, 1)
+
+            cost_share_top = round(
+                _safe_div(conv.loc[conv["cpc"] >= cpc_cut, "cost"].sum(), total_cost_conv) * 100, 2
+            )
+            cost_share_bottom = round(conv.iloc[end_idx]["cum_cost_share"] * 100, 2)
 
             vline2 = alt.Chart(
                 pd.DataFrame({"c": [cpc_end]})
@@ -297,14 +292,24 @@ def render_ad_analysis_tab(supabase):
             final_chart = chart + vline + vline2
             st.altair_chart(final_chart, use_container_width=True)
 
-            # ✅ 포맷 통일된 출력
-            st.caption(f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%)")
-            st.caption(f"CPC_bottom: {round(cpc_end, 2)}원 (누적매출 {round(rev_share_end, 2)}%)")
-
+            st.caption(
+                f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%, 누적광고비 {cost_share_top}%)"
+            )
+            st.caption(
+                f"CPC_bottom: {round(cpc_end, 2)}원 (누적매출 {round(rev_share_end, 2)}%, 누적광고비 {cost_share_bottom}%)"
+            )
         else:
             st.altair_chart(chart + vline, use_container_width=True)
-            st.caption(f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%)")
 
+            conv["cum_cost"] = conv["cost"].cumsum()
+            total_cost_conv = conv["cost"].sum()
+            cost_share_top = round(
+                _safe_div(conv.loc[conv["cpc"] >= cpc_cut, "cost"].sum(), total_cost_conv) * 100, 2
+            )
+
+            st.caption(
+                f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%, 누적광고비 {cost_share_top}%)"
+            )
 
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
         aov_p50 = float(aov.quantile(0.5)) if not aov.empty else 0.0
