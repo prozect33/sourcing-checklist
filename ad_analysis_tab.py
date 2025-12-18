@@ -253,63 +253,60 @@ def render_ad_analysis_tab(supabase):
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # 3) CPC-누적매출 비중 & 컷
+    # 3) CPC-누적매출 비중 & 컷
     st.markdown("### 3) CPC-누적매출 비중 & 컷")
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc")
 
     if conv.empty:
         st.warning("전환 발생 키워드가 없습니다.")
     else:
-        # 누적매출 비중 계산
+        # 누적매출/광고비 비중 계산
         total_conv_rev = conv["revenue_14d"].sum()
+        total_cost = conv["cost"].sum()
+
         conv["cum_rev"] = conv["revenue_14d"].cumsum()
         conv["cum_rev_share"] = (conv["cum_rev"] / total_conv_rev).clip(0, 1)
 
-        # 누적 광고비 비중 계산
         conv["cum_cost"] = conv["cost"].cumsum()
-        total_cost_conv = conv["cost"].sum()
-        conv["cum_cost_share"] = (conv["cum_cost"] / total_cost_conv).clip(0, 1)
+        conv["cum_cost_share"] = (conv["cum_cost"] / total_cost).clip(0, 1)
 
-        # ✅ 누적매출 비중 7% 이상인 첫 지점
-        cpc_cut_row = conv[conv["cum_rev_share"] >= 0.07].head(1)
-        if not cpc_cut_row.empty:
-            cpc_cut = float(cpc_cut_row["cpc"].values[0])
-            cut_rev_share = round(float(cpc_cut_row["cum_rev_share"].values[0]) * 100, 2)
-        else:
-            cpc_cut = float(conv["cpc"].max())
-            cut_rev_share = 100.0
-
-        # 누적 광고비 (top 지점 기준)
-        cost_share_top = round(
-            _safe_div(conv.loc[conv["cpc"] >= cpc_cut, "cost"].sum(), total_cost_conv) * 100, 2
-        )
-
-        # 📈 상승 시작 지점 계산 (gradient 사용)
+        # 정규화
         x = conv["cpc"].to_numpy(dtype=float)
         y = conv["cum_rev_share"].to_numpy(dtype=float)
-        dy = np.gradient(y)
-        end_idx = np.argmax(dy > 0.05) if (dy > 0.05).any() else -1
 
-        if end_idx != -1:
-            cpc_end = float(x[end_idx])
-            rev_share_end = float(y[end_idx]) * 100
-            cost_share_bottom = round(conv.iloc[end_idx]["cum_cost_share"] * 100, 2)
+        x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
+        y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
 
-        # 차트와 세로선
+        delta = y_n - x_n
+
+        # ✅ CPC_top: delta가 가장 커지는 지점
+        idx_top = int(np.argmax(delta))
+        cpc_top = float(x[idx_top])
+        rev_share_top = round(float(y[idx_top]) * 100, 2)
+        cost_share_top = round(conv.iloc[idx_top]["cum_cost_share"] * 100, 2)
+
+        # ✅ CPC_bottom: delta가 급격히 커지기 **직전** 지점
+        delta_grad = np.gradient(delta)
+        idx_bottom = int(np.argmax(delta_grad[:idx_top])) if idx_top > 0 else 0
+        cpc_bottom = float(x[idx_bottom])
+        rev_share_bottom = round(float(y[idx_bottom]) * 100, 2)
+        cost_share_bottom = round(conv.iloc[idx_bottom]["cum_cost_share"] * 100, 2)
+
+        # 📊 그래프 & 세로선
         chart = alt.Chart(conv).mark_line().encode(x="cpc:Q", y="cum_rev_share:Q")
-        vline = alt.Chart(pd.DataFrame({"c": [cpc_cut]})).mark_rule(strokeDash=[6, 4], color="gray").encode(x="c:Q")
+        vline_top = alt.Chart(pd.DataFrame({"c": [cpc_top]})).mark_rule(
+            color="gray", strokeDash=[6, 4]
+        ).encode(x="c:Q")
+        vline_bottom = alt.Chart(pd.DataFrame({"c": [cpc_bottom]})).mark_rule(
+            color="red", strokeDash=[2, 2]
+        ).encode(x="c:Q")
 
-        if end_idx != -1:
-            vline2 = alt.Chart(pd.DataFrame({"c": [cpc_end]})).mark_rule(color="red", strokeDash=[2, 2]).encode(x="c:Q")
-            final_chart = chart + vline + vline2
-        else:
-            final_chart = chart + vline
-
+        final_chart = chart + vline_top + vline_bottom
         st.altair_chart(final_chart, use_container_width=True)
 
-        # ✅ 포맷 통일된 출력
-        st.caption(f"CPC_top: {round(cpc_cut, 2)}원 (누적매출 {cut_rev_share}%, 누적광고비 {cost_share_top}%)")
-        if end_idx != -1:
-            st.caption(f"CPC_bottom: {round(cpc_end, 2)}원 (누적매출 {round(rev_share_end, 2)}%, 누적광고비 {cost_share_bottom}%)")
+        # 📌 출력 포맷
+        st.caption(f"CPC_top: {round(cpc_top, 2)}원 (누적매출 {rev_share_top}%, 누적광고비 {cost_share_top}%)")
+        st.caption(f"CPC_bottom: {round(cpc_bottom, 2)}원 (누적매출 {rev_share_bottom}%, 누적광고비 {cost_share_bottom}%)")
 
         # AOV 계산
         aov = (conv["revenue_14d"] / conv["orders_14d"]).dropna()
