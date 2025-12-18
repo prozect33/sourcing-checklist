@@ -197,13 +197,14 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     if count == 0:
         st.caption("제외 키워드 없음")
         return
+
     line = _format_keywords_line_exact(all_words)
-    html = f"""
-    <div style="margin-bottom:0.5rem;"><b>총 {count}개</b></div>
-    <div style="white-space:pre-wrap;word-break:break-word;">
-        {line}
-    </div>
-    """
+
+    # 들여쓰기 없는 인라인 HTML로 렌더링 → 선행 공백 방지
+    html = (
+        f"<div style='margin-bottom:0.5rem;'><b>총 {count}개</b></div>"
+        f"<div style='white-space:pre-wrap;word-break:break-word;'>{line}</div>"
+    )
     st.markdown(html, unsafe_allow_html=True)
 
 # ============== 저장 로직 ==============
