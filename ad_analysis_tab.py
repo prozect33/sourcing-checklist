@@ -305,11 +305,15 @@ def render_ad_analysis_tab(supabase):
     ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cpc_cut_top)].copy()
     ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cpc_cut_bottom) & (kw["clicks"] >= 1)].copy()
     cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
+    # --- c) 전환 시 손익 ROAS 미달 (기존 c 로직: 주문 0 키워드의 '1주문 가정 ROAS'가 손익분기 미달) ---
     ex_c = kw[kw["orders_14d"] == 0].copy()
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
     ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
     ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
+
+# --- d) 손익 ROAS 미달 (현재 ROAS가 손익분기 ROAS 미만인 키워드, 단 ROAS 0은 제외) ---
+ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
 
     def _show_df(title, dff, extra=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
@@ -320,7 +324,8 @@ def render_ad_analysis_tab(supabase):
 
     _show_df("a) CPC_cut top 이상 전환 0", ex_a)
     _show_df("b) CPC_cut bottom 이하 전환 0", ex_b)
-    _show_df("c) 전환 시 예상 ROAS 미달", ex_c, ["roas_if_1_order"])
+    _show_df("c) 전환 시 손익 ROAS 미달", ex_c, ["roas_if_1_order"])
+    _show_df("d) 손익 ROAS 미달", ex_d)
     
     st.markdown("### 5) Supabase 저장")
     if st.button("✅ 분석 결과 저장", key="ad_save"):
@@ -367,8 +372,7 @@ def render_ad_analysis_tab(supabase):
                 {
                     "run_id": run_id,
                     "artifact_key": "exclusions",
-                    "payload": {"a": ex_a["keyword"].tolist(), "b": ex_b["keyword"].tolist(), "c": ex_c["keyword"].tolist()},
-                },
+                    "payload": {"a": ex_a["keyword"].tolist(), "b": ex_b["keyword"].tolist(), "c": ex_c["keyword"].tolist(), "d": ex_d["keyword"].tolist()},
             ]
             supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
             st.success(f"저장 성공 (ID: {run_id})")
