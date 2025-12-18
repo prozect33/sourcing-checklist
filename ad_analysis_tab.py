@@ -50,23 +50,6 @@ def _median_int(v) -> int:
     s = pd.Series(v)
     return int(s.median()) if not s.empty else 0
 
-def build_min_conversion_condition(df: pd.DataFrame) -> Dict[str, float]:
-    return calc_base_threshold_t(df)
-
-def format_min_condition_label(min_cond: Dict[str, float]) -> str:
-    return (
-        f"최소 전환 조건 (운영{int(min_cond['active_days'])}일 / "
-        f"노출{_to_float1(min_cond['impressions'])} / 클릭{_to_float1(min_cond['clicks'])})"
-    )
-
-def filter_min_conversion_condition(kw_total: pd.DataFrame, min_cond: Dict[str, float]) -> pd.DataFrame:
-    return kw_total[
-        (kw_total["orders_14d"] == 0)
-        & (kw_total["active_days"] >= int(min_cond["active_days"]))
-        & (kw_total["impressions"] >= min_cond["impressions"])
-        & (kw_total["clicks"] >= min_cond["clicks"])
-    ].copy()
-
 def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     # 검색 영역 중에서 주문이 1건이라도 발생한 키워드만 분석
     df_search = df[df["surface"] == SURF_SEARCH_VALUE].copy()
@@ -299,9 +282,6 @@ def render_ad_analysis_tab(supabase):
     ex_c["roas_if_1_order"] = (aov_p50 / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
 
-    min_cond = build_min_conversion_condition(df)
-    ex_d = filter_min_conversion_condition(kw, min_cond)
-
     def _show_df(title, dff, extra=None):
         st.markdown(f"#### {title} ({len(dff)}개)")
         cols = ["keyword", "surface", "active_days", "impressions", "clicks", "cost", "orders_14d", "revenue_14d", "ctr", "cpc", "roas_14d"]
@@ -312,8 +292,7 @@ def render_ad_analysis_tab(supabase):
     _show_df("a) CPC_cut top 이상 전환 0", ex_a)
     _show_df("b) CPC_cut bottom 이하 전환 0", ex_b)
     _show_df("c) 전환 시 예상 ROAS 미달", ex_c, ["roas_if_1_order"])
-    _show_df(f"d) {format_min_condition_label(min_cond)}", ex_d)
-
+    
     st.markdown("### 5) Supabase 저장")
     if st.button("✅ 분석 결과 저장", key="ad_save"):
         try:
@@ -354,13 +333,12 @@ def render_ad_analysis_tab(supabase):
                         "top_rev_share": float(top_rev_share),
                         "bottom_rev_share": float(bottom_rev_share),
                         "aov_p50": aov_p50,
-                        "min_condition": min_cond,
                     },
                 },
                 {
                     "run_id": run_id,
                     "artifact_key": "exclusions",
-                    "payload": {"a": ex_a["keyword"].tolist(), "b": ex_b["keyword"].tolist(), "c": ex_c["keyword"].tolist(), "d": ex_d["keyword"].tolist()},
+                    "payload": {"a": ex_a["keyword"].tolist(), "b": ex_b["keyword"].tolist(), "c": ex_c["keyword"].tolist()},
                 },
             ]
             supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
