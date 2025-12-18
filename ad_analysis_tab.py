@@ -29,7 +29,7 @@ REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL
 SMOOTH_DIVISOR = 70     # 창 = round(N / 70), 홀수, 최소7
 SLOPE_Q = 0.64          # high 임계 분위(0.64~0.68 내에서 ±0.02만 조정)
 LOWBACK_DELTA = 0.24    # low_back_q = SLOPE_Q - LOWBACK_DELTA (권장 0.22~0.30)
-FLOOR_Q = 0.20          # bottom이 x 하위 q%보다 왼쪽으로 못 내려감(0.18~0.26 조정)
+FLOOR_Q = 0.18          # bottom이 x 하위 q%보다 왼쪽으로 못 내려감(0.18~0.26 조정)
 MIN_RUN_FRAC = 0.04     # 스파이크 방지(보통 고정)
 
 # ===================== 유틸 =====================
