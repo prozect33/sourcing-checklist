@@ -304,7 +304,7 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
     components.html(html, height=56)
 
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
-    st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
+    st.markdown("### 4) 제외한 키워드 (통합 · 한바구니 · 중복 제거)")
     all_words = _gather_exclusion_keywords(exclusions)
     total = len(all_words)
     if total == 0:
