@@ -26,11 +26,11 @@ REV_COL = "총 전환매출액(14일)"
 REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
 
 # ====== 탐지 파라미터(팀 고정) ======
-SMOOTH_DIVISOR = 85        # 창 = round(N / 50), 최소 7, 홀수  (완만 구간 보존 위해 60→50으로 다소 강하게)
-LOW_Q = 0.70               # 양의 기울기 하위 25% 이상을 오르막으로 간주(완만 포함)
-LOW_Q_FALLBACK = 0.60      # 데이터 약할 때 완화
-GAP_TOL_DIVISOR = 300      # 빈틈 메움 허용 폭 = ceil(N / 100) 포인트
-MIN_RUN_FRAC = 0.06        # 최소 지속 길이 비율(스파이크 방지)
+SMOOTH_DIVISOR = 70        # 창 = round(N / 50), 최소 7, 홀수  (완만 구간 보존 위해 60→50으로 다소 강하게)
+LOW_Q = 0.65               # 양의 기울기 하위 25% 이상을 오르막으로 간주(완만 포함)
+LOW_Q_FALLBACK = 0.55      # 데이터 약할 때 완화
+GAP_TOL_DIVISOR = 180      # 빈틈 메움 허용 폭 = ceil(N / 100) 포인트
+MIN_RUN_FRAC = 0.04        # 최소 지속 길이 비율(스파이크 방지)
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
