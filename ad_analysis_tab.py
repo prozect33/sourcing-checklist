@@ -96,22 +96,29 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
     for keyword, g in df_search.groupby("keyword"):
         g = g.sort_values("date").reset_index(drop=True)
 
-        g["cum_orders"] = g["orders_14d"].cumsum()
+        # ✅ 1. 실제 발생한 전환 수 계산
+        g["orders"] = g["orders_14d"].diff().fillna(g["orders_14d"])
+
+        # ✅ 2. 누적 전환 / 평균 전환
+        g["cum_orders"] = g["orders"].cumsum()
         g["day_number"] = range(1, len(g) + 1)
         g["avg_orders_per_day"] = g["cum_orders"] / g["day_number"]
 
+        # ✅ 3. 평균 전환이 1 넘는 최초 시점 찾기
         hit = g[g["avg_orders_per_day"] >= 1]
         if hit.empty:
             continue
 
-        pos = hit.index[0]  # 인덱스가 0부터 시작이라 그대로 위치로 사용 가능
+        pos = hit.index[0]
         g_until = g.iloc[:pos + 1]
 
+        # ✅ 4. 슬라이스된 값으로 집계
         rows.append({
             "active_days": g_until["impressions"].gt(0).sum(),
             "impressions": g_until["impressions"].sum(),
             "clicks": g_until["clicks"].sum()
         })
+
 
     tdf = pd.DataFrame(rows)
 
