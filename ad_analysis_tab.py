@@ -66,7 +66,6 @@ def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df = df_raw.copy()
     df["date"] = _to_date(df[DATE_COL])
     df = df[df["date"].notna()].copy()
-    # 키워드는 원문 그대로(공백 포함) 보존
     df["keyword"] = df[KW_COL].astype(str).fillna("")
     df["surface"] = df[SURF_COL].astype(str).fillna("").str.strip()
     df["impressions"] = _to_int(df[IMP_COL])
@@ -187,10 +186,10 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
     return list(dict.fromkeys(seq))  # 순서 보존 중복 제거
 
 def _format_keywords_line_exact(words: Iterable[str]) -> str:
-    return ",\u200b".join([w for w in words])  # 콤마 + ZWSP
+    return ",\u200b".join([w for w in words])
 
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    """분석 결과 저장 버튼과 유사한 컴팩트 사이즈(폰트 14px, 가로 자동)."""
+    """웹 클립보드 권한 이슈를 우회하기 위한 최소 UI. 왜: 한 번에 전달하기 위함."""
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
@@ -249,7 +248,7 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
       }};
     </script>
     """
-    components.html(html, height=56)  # 컴팩트 높이
+    components.html(html, height=56)
 
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
@@ -259,7 +258,7 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
         st.caption("제외 키워드 없음")
         return
     line = _format_keywords_line_exact(all_words)
-    _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")  # 컴팩트 버튼
+    _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
 
 # ============== 저장 로직 ==============
 def _save_to_supabase(
@@ -327,20 +326,22 @@ def _save_to_supabase(
     supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
     st.success(f"저장 성공 (ID: {run_id})")
 
-# ============== Streamlit 탭 ==============
+# ============== Streamlit 탭 (간소 UI: 손익분기 ROAS + 분석하기) ==============
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     if up is None:
-        st.info("파일 업로드 후 분석 폼이 생성됩니다."); return
+        st.info("파일 업로드 후 손익분기 ROAS를 입력하고 [🔍 분석하기]를 눌러주세요.")
+        return
 
-    c1, c2, c3 = st.columns([2, 2, 2])
-    with c1: product_name = st.text_input("상품명", value="", key="ad_product")
-    with c2: target_roas = st.number_input("목표 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_target")
-    with c3: breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
-    note = st.text_input("메모(선택)", value="", key="ad_note")
-    if not product_name.strip():
-        st.warning("상품명을 입력하세요."); return
+    breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
+
+    run = st.button("🔍 분석하기", type="primary", use_container_width=True, key="ad_run")
+    if not run and not st.session_state.get("ad_ran", False):
+        st.caption("값을 입력한 뒤 [🔍 분석하기]를 누르면 분석을 시작합니다.")
+        return
+    if run:
+        st.session_state["ad_ran"] = True
 
     try:
         df_raw = _load_df(up)
@@ -364,7 +365,11 @@ def render_ad_analysis_tab(supabase):
             "주문": o, "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
             "ROAS": round(_safe_div(r, c) * 100, 2),
         }
-    rows = [_row("전체", df), _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]), _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE])]
+    rows = [
+        _row("전체", df),
+        _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]),
+        _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE]),
+    ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     st.markdown("### 2) CPC-누적매출 비중 & 컷")
@@ -399,25 +404,34 @@ def render_ad_analysis_tab(supabase):
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    # 4) 통합 제외 키워드: 컴팩트 복사 버튼만 노출
     _render_exclusion_union(exclusions)
 
-    st.markdown("### 5) Supabase 저장")
-    if st.button("✅ 분석 결과 저장", key="ad_save"):
-        try:
-            _save_to_supabase(
-                supabase,
-                upload=up,
-                product_name=product_name,
-                note=note,
-                totals=totals,
-                target_roas=float(target_roas),
-                breakeven_roas=float(breakeven_roas),
-                cuts=cuts,
-                shares=shares,
-                aov_p50_value=aov50,
-                kw=kw,
-                exclusions=exclusions,
-            )
-        except Exception as e:
-            st.error(f"저장 실패: {e}")
+    with st.expander("💾 저장 (선택)", expanded=False):
+        st.caption("필요 시 저장 정보를 입력하세요. 왜: 이력/재현을 위해.")
+        c1, c2, c3 = st.columns([2, 2, 2])
+        with c1: product_name = st.text_input("상품명(선택)", value="", key="ad_product_opt")
+        with c2: target_roas = st.number_input("목표 ROAS(선택)", min_value=0.0, value=0.0, step=10.0, key="ad_target_opt")
+        with c3: note = st.text_input("메모(선택)", value="", key="ad_note_opt")
+
+        can_save = bool(product_name.strip())
+        save_btn = st.button("✅ 분석 결과 저장", disabled=not can_save, key="ad_save")
+        if not can_save:
+            st.info("저장을 하려면 상품명을 입력하세요.")
+        if save_btn and can_save:
+            try:
+                _save_to_supabase(
+                    supabase,
+                    upload=up,
+                    product_name=product_name,
+                    note=note,
+                    totals=totals,
+                    target_roas=float(target_roas),
+                    breakeven_roas=float(breakeven_roas),
+                    cuts=cuts,
+                    shares=shares,
+                    aov_p50_value=aov50,
+                    kw=kw,
+                    exclusions=exclusions,
+                )
+            except Exception as e:
+                st.error(f"저장 실패: {e}")
