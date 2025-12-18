@@ -51,7 +51,7 @@ def _median_int(v) -> int:
     return int(s.median()) if not s.empty else 0
 
 def build_min_conversion_condition(df: pd.DataFrame) -> Dict[str, float]:
-    return calc_base_threshold_avg_order(df)
+    return calc_base_threshold_t(df)
 
 def format_min_condition_label(min_cond: Dict[str, float]) -> str:
     return (
