@@ -113,9 +113,11 @@ def calc_base_threshold_t(df: pd.DataFrame) -> Dict[str, float]:
             "clicks": g_until["clicks"].sum()
         })
 
-    # ✅ 여기!!
+    tdf = pd.DataFrame(rows)
+
     st.write("조건 만족 키워드 수:", df_search["keyword"].nunique())
     st.write("rows에 담긴 값 수:", len(rows))
+    st.dataframe(tdf.describe())  # 👈 중앙값 확인
 
     tdf = pd.DataFrame(rows)
     if tdf.empty:
