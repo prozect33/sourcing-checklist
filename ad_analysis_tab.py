@@ -287,8 +287,6 @@ def render_ad_analysis_tab(supabase):
             if total_search_cost > 0 else 0.0,
             2
         )
-
-        # 출력 (줄바꿈 포함)
         st.markdown(f"""
         - **CPC_cut bottom:** {round(cpc_cut_bottom, 2)}원  
           · 검색 광고 매출 비중 {rev_share_bottom}%  
