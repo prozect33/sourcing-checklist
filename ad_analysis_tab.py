@@ -1,4 +1,5 @@
 # app/ad_analysis.py
+
 from __future__ import annotations
 
 import hashlib
@@ -43,9 +44,6 @@ def _to_date(s: pd.Series) -> pd.Series:
 def _safe_div(a: float | int, b: float | int, default: float = 0.0) -> float:
     a, b = float(a), float(b)
     return default if b == 0 else a / b
-
-def _median_1d(s: pd.Series) -> float:
-    return float(np.round(s.median(), 1)) if not s.empty else 0.0
 
 # ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
@@ -143,10 +141,14 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     total_rev = float(conv["revenue_14d"].sum())
     conv["cum_rev"] = conv["revenue_14d"].cumsum()
     conv["cum_rev_share"] = (conv["cum_rev"] / (total_rev if total_rev > 0 else 1.0)).clip(0, 1)
+
     x = conv["cpc"].to_numpy(dtype=float)
     y = conv["cum_rev_share"].to_numpy(dtype=float)
+
     x_clip = np.clip(x, np.quantile(x, 0.01), np.quantile(x, 0.99))
     y_smooth = _rolling_median(y, win=max(3, int(len(y) * 0.07)))
+
+    # bottom: 강건 니 검출 → 10% crossing → 초반 최대기울기
     idx_bottom = _robust_slope_knee(x_clip, y_smooth, lo_q=0.05, hi_q=0.60, k=3.0)
     if idx_bottom is None:
         idx_bottom = _first_crossing(y_smooth, 0.10)
@@ -155,12 +157,16 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
         dx = np.diff(x_clip[:hi]); dy = np.diff(y_smooth[:hi])
         idx_bottom = int(np.argmax(dy / (dx + 1e-12)) + 1) if hi > 1 else 0
     bottom_cpc = float(x[max(0, min(idx_bottom, len(x) - 1))])
+
+    # top: y-x 최대(정규화+완화)
     x_n = (x_clip - x_clip.min()) / (x_clip.max() - x_clip.min() + 1e-12)
     y_n = (y_smooth - y_smooth.min()) / (y_smooth.max() - y_smooth.min() + 1e-12)
     idx_top = int(np.argmax(y_n - x_n))
     top_cpc = float(x[idx_top])
+
     if len(x) <= 3:
         bottom_cpc = float(x[0]); top_cpc = float(x[-1])
+
     return CpcCuts(bottom=bottom_cpc, top=top_cpc), conv
 
 # ============== 비중 계산(분모=전체 채널) ==============
@@ -170,9 +176,11 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
     kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
+
     def _share(mask: pd.Series, col: str, denom: float) -> float:
         num = float(kw_click.loc[mask, col].sum())
         return round(_safe_div(num, denom, 0.0) * 100, 2)
+
     mask_bottom = kw_click["cpc"] <= cuts.bottom
     mask_top = kw_click["cpc"] >= cuts.top
     return {
@@ -182,7 +190,7 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
         "cost_share_top": _share(mask_top, "cost", total_cost_all),
     }
 
-# ============== 제외 키워드 계산 ==============
+# ============== 제외 키워드 ==============
 def _aov_p50(conv: pd.DataFrame) -> float:
     orders = conv["orders_14d"]; rev = conv["revenue_14d"]
     valid = rev[orders > 0] / orders[orders > 0]
@@ -337,29 +345,53 @@ def _save_to_supabase(
     supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
     st.success(f"저장 성공 (ID: {run_id})")
 
-# ============== 상호작용: 자동 + 수동 오버라이드 ==============
-def _snap_to_nearest(values: np.ndarray, v: float) -> float:
-    """왜: 사람이 움직일 때 실제 포인트에 맞추면 해석 용이."""
-    if values.size == 0:
-        return float(v)
-    idx = int(np.argmin(np.abs(values - v)))
-    return float(values[idx])
+# ============== 세션/파일 시그니처 ==============
+def _file_signature(up) -> str:
+    try:
+        data = up.getvalue()
+    except Exception:
+        return ""
+    return hashlib.sha1(data).hexdigest()
 
-# ============== Streamlit 탭 ==============
+# ============== Streamlit 탭 (자동+수동, 상태 유지) ==============
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
 
+    # 상태 초기화
+    st.session_state.setdefault("ad_started", False)
+    st.session_state.setdefault("ad_file_sig", "")
+
+    # 파일 변경 시 리셋
+    current_sig = _file_signature(up) if up is not None else ""
+    if current_sig and current_sig != st.session_state["ad_file_sig"]:
+        st.session_state["ad_file_sig"] = current_sig
+        st.session_state["ad_started"] = False
+        st.session_state.pop("bottom_manual", None)
+        st.session_state.pop("top_manual", None)
+        st.session_state.pop("use_manual", None)
+
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    run = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
-    if not run:
+    c_start, c_reset = st.columns([3, 1])
+    with c_start:
+        clicked_start = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
+    with c_reset:
+        if st.button("↩️ 처음으로", use_container_width=True, help="상태 초기화"):
+            st.session_state["ad_started"] = False
+            return
+
+    if clicked_start:
+        if up is None:
+            st.error("파일을 업로드하세요.")
+            return
+        st.session_state["ad_started"] = True
+        st.session_state["ad_file_sig"] = current_sig
+
+    if not st.session_state["ad_started"]:
         return
 
-    if up is None:
-        st.error("파일을 업로드하세요.")
-        return
-
+    # ====== 분석 화면 ======
     try:
         df_raw = _load_df(up)
         df = _normalize(df_raw)
@@ -396,59 +428,49 @@ def render_ad_analysis_tab(supabase):
         aov50 = 0.0
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
     else:
-        # ----- 수동 오버라이드 UI -----
         cpc_vals = conv["cpc"].to_numpy(dtype=float)
         cpc_min, cpc_max = float(np.nanmin(cpc_vals)), float(np.nanmax(cpc_vals))
-        st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색 영역(클릭>0) 중 CPC 조건 충족 키워드 합")
-        with st.expander("⚙️ 컷 설정", expanded=False):
-            c1, c2, c3 = st.columns([1,1,1])
-            with c1:
-                manual = st.toggle("수동으로 조정", value=False, help="끄면 자동 컷 사용")
-            with c2:
-                snap = st.checkbox("포인트에 스냅", value=True, help="실제 CPC 값으로 자동 맞춤")
-            with c3:
-                if st.button("자동값으로 리셋"):
-                    st.session_state["bottom_manual"] = cuts_auto.bottom
-                    st.session_state["top_manual"] = cuts_auto.top
-            # 초기 상태 보장
+
+        st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색(클릭>0) 중 CPC 조건 충족 키워드 합")
+
+        with st.expander("⚙️ 컷 설정 (자동+수동)", expanded=False):
             st.session_state.setdefault("bottom_manual", cuts_auto.bottom)
             st.session_state.setdefault("top_manual", cuts_auto.top)
-            # 슬라이더
-            b = st.slider(
-                "bottom (≤)", min_value=float(cpc_min), max_value=float(cpc_max),
-                value=float(st.session_state["bottom_manual"]), step=0.01, key="bottom_slider"
-            )
-            t = st.slider(
-                "top (≥)", min_value=float(cpc_min), max_value=float(cpc_max),
-                value=float(st.session_state["top_manual"]), step=0.01, key="top_slider"
-            )
-            # 제약조건: bottom < top
+
+            manual = st.toggle("수동으로 조정", value=st.session_state.get("use_manual", False), key="use_manual")
+            snap = st.checkbox("포인트에 스냅", value=True, key="snap_on")
+
+            if st.button("자동값으로 리셋"):
+                st.session_state["bottom_manual"] = cuts_auto.bottom
+                st.session_state["top_manual"] = cuts_auto.top
+
+            b = st.slider("bottom (≤)", min_value=cpc_min, max_value=cpc_max,
+                          value=float(st.session_state["bottom_manual"]), step=0.01, key="bottom_slider")
+            t = st.slider("top (≥)", min_value=cpc_min, max_value=cpc_max,
+                          value=float(st.session_state["top_manual"]), step=0.01, key="top_slider")
+
             if b >= t:
-                # why: 시각적으로 겹치면 top을 한 칸 올림
                 t = min(cpc_max, b + max(0.01, (cpc_max - cpc_min) * 0.001))
             if snap:
-                b = _snap_to_nearest(cpc_vals, b)
-                t = _snap_to_nearest(cpc_vals, t)
+                bi = int(np.argmin(np.abs(cpc_vals - b))); b = float(cpc_vals[bi])
+                ti = int(np.argmin(np.abs(cpc_vals - t))); t = float(cpc_vals[ti])
+
             st.session_state["bottom_manual"] = b
             st.session_state["top_manual"] = t
 
-        # 실제 사용할 컷
         cuts_use = CpcCuts(
-            bottom=float(st.session_state["bottom_manual"]) if 'manual' in locals() and manual else cuts_auto.bottom,
-            top=float(st.session_state["top_manual"]) if 'manual' in locals() and manual else cuts_auto.top,
+            bottom=float(st.session_state["bottom_manual"]) if st.session_state.get("use_manual") else cuts_auto.bottom,
+            top=float(st.session_state["top_manual"]) if st.session_state.get("use_manual") else cuts_auto.top,
         )
 
-        # 차트 (선 + 가이드 라인)
         chart = alt.Chart(conv).mark_line().encode(x=alt.X("cpc:Q"), y=alt.Y("cum_rev_share:Q"))
         vline_bottom = alt.Chart(pd.DataFrame({"c": [cuts_use.bottom]})).mark_rule(strokeDash=[2, 2]).encode(x="c:Q")
         vline_top = alt.Chart(pd.DataFrame({"c": [cuts_use.top]})).mark_rule(strokeDash=[6, 4]).encode(x="c:Q")
         st.altair_chart(chart + vline_bottom + vline_top, use_container_width=True)
 
-        # 지표 재계산
         shares = _search_shares_for_cuts(kw, cuts_use)
         aov50 = _aov_p50(conv)
 
-        # 표시 블록
         st.markdown(
             f"""
 - **CPC_cut bottom:** {round(cuts_use.bottom, 2)}원  
