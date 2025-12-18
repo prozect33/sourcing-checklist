@@ -130,10 +130,17 @@ def _compute_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     return cuts, conv
 
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
+    """
+    분모: 전체 채널 합(검색+비검색)  ← 변경됨
+    분자: 검색 영역 + 클릭>0, CPC 조건(≤ bottom / ≥ top) 충족 키워드 합
+    """
+    # --- 분자 계산(검색, 클릭>0에서 조건 충족) ---
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
-    total_search_cost = float(kw_search_all["cost"].sum())
-    total_search_rev = float(kw_search_all["revenue_14d"].sum())
     kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
+
+    # --- 분모: 전체 채널 ---
+    total_cost_all = float(kw["cost"].sum())
+    total_rev_all = float(kw["revenue_14d"].sum())
 
     def _share(mask: pd.Series, col: str, denom: float) -> float:
         num = float(kw_click.loc[mask, col].sum())
@@ -142,10 +149,10 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
     mask_bottom = kw_click["cpc"] <= cuts.bottom
     mask_top = kw_click["cpc"] >= cuts.top
     return {
-        "rev_share_bottom": _share(mask_bottom, "revenue_14d", total_search_rev),
-        "cost_share_bottom": _share(mask_bottom, "cost", total_search_cost),
-        "rev_share_top": _share(mask_top, "revenue_14d", total_search_rev),
-        "cost_share_top": _share(mask_top, "cost", total_search_cost),
+        "rev_share_bottom": _share(mask_bottom, "revenue_14d", total_rev_all),
+        "cost_share_bottom": _share(mask_bottom, "cost", total_cost_all),
+        "rev_share_top": _share(mask_top, "revenue_14d", total_rev_all),
+        "cost_share_top": _share(mask_top, "cost", total_cost_all),
     }
 
 def _aov_p50(conv: pd.DataFrame) -> float:
@@ -256,7 +263,7 @@ def _save_to_supabase(
 ) -> None:
     run_id = str(uuid.uuid4())
     file_sha1 = hashlib.sha1(upload.getvalue()).hexdigest()
-    st.caption(f"파일 해시: {file_sha1[:12]}…")  # 왜: 이력 추적
+    st.caption(f"파일 해시: {file_sha1[:12]}…")
     supabase.table("ad_analysis_runs").insert(
         {
             "run_id": run_id,
@@ -302,21 +309,19 @@ def _save_to_supabase(
     supabase.table("ad_analysis_artifacts").upsert(artifacts).execute()
     st.success(f"저장 성공 (ID: {run_id})")
 
-# ============== Streamlit 탭 (ROAS 입력/버튼 항상 노출, 안내문 제거) ==============
+# ============== Streamlit 탭 ==============
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
 
-    # 처음부터 항상 보이게
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # 기본(무난) 스타일 버튼: type 지정 안 함
     run = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
     if not run:
         return
 
     if up is None:
-        st.error("파일을 업로드하세요.")  # 왜: 행동 피드백만 제공
+        st.error("파일을 업로드하세요.")
         return
 
     try:
@@ -362,7 +367,9 @@ def render_ad_analysis_tab(supabase):
         shares = _search_shares_for_cuts(kw, cuts)
         aov50 = _aov_p50(conv)
 
-        # === 복구된 표시 블록 (수정전 파일의 표기 형식 재도입) ===
+        # 분모 안내(오해 방지)
+        st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색 영역(클릭>0) 중 CPC 조건 충족 키워드 합")
+
         st.markdown(
             f"""
 - **CPC_cut bottom:** {round(cuts.bottom, 2)}원  
