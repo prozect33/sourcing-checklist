@@ -499,7 +499,7 @@ def _aov_p50(df: pd.DataFrame) -> float:
     if not mask.any():
         return 0.0
     aov = (s_rev[mask] / s_orders[mask]).replace([np.inf, -np.inf], np.nan).dropna()
-    if aov.empty():
+    if aov.empty:
         return 0.0
     return float(np.median(aov))
 
