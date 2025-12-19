@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import json
+import re  # 공백 라인 필터/분리에 필요
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Iterable, List, Tuple
@@ -285,27 +286,30 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
 
 # ===== 키워드 분리/병합 =====
 def _split_keywords(text: str) -> list[str]:
-    if text is None:
+    if not text:
         return []
-    parts = text.split(",")                    # 공백 포함 그대로 보존
-    return [p for p in parts if p != ""]       # 완전 빈 토큰만 제거 (공백만 있는 토큰은 보존)
+    # 각 줄 앞/뒤 공백 제거하되, 중간 공백은 유지
+    parts = [p.strip() for p in str(text).split("\n")]
+    return [p for p in parts if p != ""]
 
 def _merge_keywords(current: list[str], previous: list[str]) -> list[str]:
-    seen = set()
-    merged: list[str] = []
+    seen, merged = set(), []
     for w in current + previous:
-        if w not in seen:                      # 공백/대소문자 포함 원문 그대로 비교
-            seen.add(w)
-            merged.append(w)
+        if w not in seen:
+            seen.add(w); merged.append(w)
     return merged
 
-def _format_keywords_line_storage(words: Iterable[str]) -> str:
-    return ",".join([w for w in words if w])
+def _format_keywords_line_storage(words: list[str]) -> str:
+    # 저장 시에도 앞/뒤 공백 제거 후 빈 항목 제외
+    cleaned = [w.strip() for w in words]
+    return "\n".join([w for w in cleaned if w != ""])
 
 # ===================== 복사 UI(내용 숨김, 제스처 기반) =====================
 def _copy_button_hidden(text: str, key: str) -> None:
-    """내용은 숨기고 버튼만 노출, 클릭 제스처로 복사."""
-    safe = html.escape(text)
+    """줄바꿈 포함 텍스트를 안전하게 클립보드로 복사."""
+    safe = html.escape(text or "")
+    # JS 문자열 리터럴 깨짐 방지: \n 이스케이프, \r 제거
+    safe_js = safe.replace("\r", "").replace("\n", "\\n")
     components.html(
         f"""
         <div style="margin:6px 0;">
@@ -315,7 +319,7 @@ def _copy_button_hidden(text: str, key: str) -> None:
           <span id="msg-{key}" style="font-size:13px;color:#4CAF50;margin-left:8px;"></span>
         </div>
         <script>
-          const hidden_{key} = "{safe}"
+          const hidden_{key} = "{safe_js}"
             .replaceAll("&amp;","&").replaceAll("&lt;","<")
             .replaceAll("&gt;",">").replaceAll("&quot;","\\\"");
           const btn = document.getElementById("btn-{key}");
@@ -359,7 +363,7 @@ def _supabase_rows(res: Any) -> List[Dict]:
 
 def _save_or_update_merged(supabase: Any, product_name: str, current_words: List[str]) -> tuple[bool, str, str, int]:
     """
-    현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드로 저장/덮어쓰기.
+    현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드 저장/덮어쓰기.
     returns: (ok, message, merged_line, merged_count)
     """
     if supabase is None:
