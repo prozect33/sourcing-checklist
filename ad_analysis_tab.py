@@ -15,82 +15,73 @@ import altair as alt  # kept for compatibility (unused in Plotly chart)
 import plotly.graph_objects as go
 
 # path: app/ad_analysis.py
-
 import io
+import uuid
+import pandas as pd
 from datetime import datetime, timezone
 
-# --- Supabase 저장 유틸: 앱 환경에 맞게 TABLE/BUCKET 상수만 조정 ---
-SUPABASE_TABLE = "ad_analysis"   # ← 환경에 맞게 변경
-SUPABASE_BUCKET = "ad-uploads"   # ← 환경에 맞게 변경
+SUPABASE_TABLE = "ad_analysis"   # 환경에 맞게
+SUPABASE_BUCKET = "ad-uploads"   # 환경에 맞게
 
 def _save_to_supabase(
     supabase,
     *,
-    upload,  # Streamlit UploadedFile
+    upload,
     product_name: str,
     note: str,
     totals: dict,
     breakeven_roas: float,
-    cuts,  # CpcCuts
+    cuts,
     shares: dict,
     aov_p50_value: float,
     kw,  # pd.DataFrame
     exclusions: dict,  # {"a": df, "b": df, "c": df, "d": df}
 ) -> str:
-    """
-    Streamlit '저장' 처리.
-    - Storage: 원본 업로드/CSV 아웃풋 업로드
-    - Table: 메타데이터 1건 insert
-    반환: run_id(UUID4 문자열)
-    """
-    # 필수 검사(why: 런타임 환경 차단)
-    if supabase is None:
-        raise ValueError("Supabase 클라이언트가 없습니다.")
-    if not hasattr(supabase, "table") or not hasattr(supabase, "storage"):
-        raise ValueError("유효한 Supabase 클라이언트가 아닙니다.")
+    if supabase is None or not hasattr(supabase, "table") or not hasattr(supabase, "storage"):
+        raise ValueError("유효한 Supabase 클라이언트가 없습니다.")
     if upload is None or not getattr(upload, "name", ""):
         raise ValueError("업로드 파일이 없습니다.")
 
-    # 식별자/경로
     run_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
     base_dir = f"ad_runs/{run_id}"
 
-    # 직렬화 헬퍼
     def _df_to_csv_bytes(df) -> bytes:
         buf = io.BytesIO()
-        # 안전: 비어있으면 컬럼만 가진 빈 파일 생성
         (df if df is not None else pd.DataFrame()).to_csv(buf, index=False, encoding="utf-8-sig")
         return buf.getvalue()
 
-    def _upload_bytes(bucket, path, data: bytes, content_type: str):
-        # why: 중복 저장 허용
-        resp = bucket.upload(path, data, {"content-type": content_type, "upsert": True})
-        # Storage 파이썬 SDK는 예외를 던지지 않을 수 있으므로 최소 확인
+    def _upload_bytes(bucket, path: str, data: bytes, content_type: str):
+        # why: supabase-py는 JS와 달리 헤더 값 문자열을 기대. 'x-upsert': 'true'
+        file_options = {
+            "content-type": content_type,
+            "x-upsert": "true",  # ← 핵심 수정(불린 금지)
+        }
+        resp = bucket.upload(path, data, file_options)
+        # 일부 클라이언트는 응답이 다를 수 있어 최소 확인만 수행
         if hasattr(resp, "status_code") and 200 <= resp.status_code < 300:
             return
-        # 일부 클라이언트는 dict 반환
-        if isinstance(resp, dict) and resp.get("Key") or resp.get("id") or resp.get("path"):
+        if isinstance(resp, dict) and (resp.get("Key") or resp.get("id") or resp.get("path")):
             return
-        # 실패로 간주
+        # 실패 시 예외
         raise RuntimeError(f"Storage 업로드 실패: {path}")
 
     storage = supabase.storage.from_(SUPABASE_BUCKET)
 
-    # 1) 원본 파일 업로드
+    # 1) 원본 파일
     orig_name = upload.name
     orig_bytes = upload.getvalue() if hasattr(upload, "getvalue") else upload.read()
     orig_path = f"{base_dir}/original/{orig_name}"
     _upload_bytes(storage, orig_path, orig_bytes, "application/octet-stream")
 
-    # 2) 결과 CSV 업로드
+    # 2) 결과 CSV
     kw_path = f"{base_dir}/exports/kw.csv"
     _upload_bytes(storage, kw_path, _df_to_csv_bytes(kw), "text/csv")
     for label in ("a", "b", "c", "d"):
         df = exclusions.get(label, pd.DataFrame())
         _upload_bytes(storage, f"{base_dir}/exports/ex_{label}.csv", _df_to_csv_bytes(df), "text/csv")
 
-    # 3) 메타 레코드 구성
+    # 3) 메타 레코드
     meta = {
         "run_id": run_id,
         "created_at": ts,
@@ -118,7 +109,6 @@ def _save_to_supabase(
             "rev_share_top_search": float(shares.get("rev_share_top_search", 0.0)),
         },
         "aov_p50": float(aov_p50_value),
-        # 참고 경로만 보관(대용량 저장은 Storage에만)
         "exports": {
             "kw_csv": kw_path,
             "ex_a_csv": f"{base_dir}/exports/ex_a.csv",
@@ -128,9 +118,7 @@ def _save_to_supabase(
         },
     }
 
-    # 4) 테이블 Insert
     res = supabase.table(SUPABASE_TABLE).insert(meta).execute()
-    # 다양한 SDK 대응: 실패시 error 속성/데이터 길이로 판단
     if hasattr(res, "error") and res.error:
         raise RuntimeError(f"DB 저장 실패: {res.error}")
     if hasattr(res, "data") and res.data is None:
