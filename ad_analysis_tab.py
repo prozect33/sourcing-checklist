@@ -384,7 +384,7 @@ def _save_or_update_merged(supabase: Any, product_name: str, current_words: List
 
 # ===================== 4) 저장/병합/복사 =====================
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
-    st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
+    st.markdown("### 4) 제외 키워드")
     all_words = _gather_exclusion_keywords(exclusions)
     if not all_words:
         return
