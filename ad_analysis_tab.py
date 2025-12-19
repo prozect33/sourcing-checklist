@@ -445,14 +445,6 @@ def render_ad_analysis_tab(supabase):
         # why: rerun 때 버튼값은 False로 떨어짐 → 세션 플래그로만 판정
         st.session_state["ad_run_started"] = True
 
-    # (선택) 전체 초기화
-    reset_clicked = st.button("⛔ 분석 초기화", key="ad_full_reset", use_container_width=True)
-    if reset_clicked:
-        st.session_state["ad_run_started"] = False
-        for k in ("q_idx_floor_bottom", "q_idx_ceil_top"):
-            st.session_state.pop(k, None)
-        return  # 전체 리셋 후 종료
-
     # --- [핵심 수정②] 조기 종료 게이트를 세션 플래그로 ---
     if not st.session_state["ad_run_started"]:
         return
