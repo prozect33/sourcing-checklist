@@ -14,70 +14,85 @@ import streamlit.components.v1 as components
 import altair as alt  # kept for compatibility (unused in Plotly chart)
 import plotly.graph_objects as go
 
-# path: scripts/smoke_supabase.py
-"""
-Supabase 연결/버킷/DB 스모크 테스트:
-- 환경변수:
-  SUPABASE_URL, SUPABASE_SERVICE_KEY(서버 키), AD_BUCKET_NAME(실제 버킷명)
-- 실행: python scripts/smoke_supabase.py
-"""
+# path: app.py
+
 import os
 import sys
-import uuid
-import json
-from datetime import datetime, timezone, timedelta
+import traceback
+from types import ModuleType
+
+import streamlit as st
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY: ad_analysis_tab 이름/위치 문제, 내부 SyntaxError를 빠르게 진단하기 위한 래퍼
+# ─────────────────────────────────────────────────────────────────────────────
+def safe_import() -> ModuleType:
+    """
+    ad_analysis_tab → ad_analysis 순으로 모듈 임포트 시도.
+    실패 시 Streamlit 화면에 상세 진단 정보 표시 후 예외 재발생.
+    """
+    candidates = ["ad_analysis_tab", "ad_analysis"]  # ← 이름 불일치 대비
+    errors = []
+
+    for name in candidates:
+        try:
+            return __import__(name)  # 표준 import
+        except Exception as e:
+            errors.append((name, e, traceback.format_exc()))
+
+    # 진단 패널
+    st.error("모듈 임포트 실패: ad_analysis_tab / ad_analysis 둘 다 불가")
+    with st.expander("자세한 오류 보기"):
+        for name, exc, tb in errors:
+            st.write(f"### `{name}` import error")
+            st.code(tb, language="text")
+
+        st.write("### 환경 진단")
+        st.write("**작업 디렉토리**:", os.getcwd())
+        st.write("**sys.path (상위 10)**:")
+        st.code("\n".join(sys.path[:10]), language="text")
+
+        # 루트 디렉토리 파일 나열(상위 200개 제한)
+        try:
+            root_files = sorted(os.listdir("."))
+            st.write("**프로젝트 루트 파일** (일부):")
+            st.code("\n".join(root_files[:200]), language="text")
+        except Exception as e:
+            st.write("루트 파일 나열 실패:", str(e))
+
+        st.info(
+            "- `ad_analysis_tab.py` 파일이 루트에 있는지 확인\n"
+            "- 파일명이 `ad_analysis.py`라면 import 문을 `from ad_analysis import render_ad_analysis_tab`로 변경\n"
+            "- 모듈 내부에 `def render_ad_analysis_tab(...):`가 실제로 정의됐는지 확인\n"
+            "- SyntaxError가 보이면 해당 줄을 수정"
+        )
+
+    # 마지막 예외를 던져 Streamlit 트레이스 유지
+    raise errors[-1][1] if errors else ImportError("ad_analysis_tab import failed")
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 try:
-    from supabase import create_client, Client
+    mod = safe_import()
+    # render 심볼 확인
+    if not hasattr(mod, "render_ad_analysis_tab"):
+        raise AttributeError(
+            "임포트는 성공했지만 `render_ad_analysis_tab` 함수를 찾을 수 없습니다. "
+            "모듈 안에 동일 이름의 함수를 정의하세요."
+        )
+    render_ad_analysis_tab = getattr(mod, "render_ad_analysis_tab")
 except Exception:
-    print("ERROR: pip install supabase")
-    sys.exit(1)
+    # 이미 safe_import에서 화면에 진단을 보여줌. 여기서도 마지막 안전망.
+    st.stop()
 
-REQUIRED_ENVS = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY", "AD_BUCKET_NAME"]
+# ─────────────────────────────────────────────────────────────────────────────
+# Streamlit 앱 본문
+# ─────────────────────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Ad Analysis", layout="wide", page_icon="📈")
+st.title("📈 Ad Analysis")
 
-def getenv_or_exit(name: str) -> str:
-    v = os.getenv(name)
-    if not v:
-        raise SystemExit(f"Missing env: {name}")
-    return v
-
-def main() -> None:
-    # 1) env 로드
-    url = getenv_or_exit("SUPABASE_URL")
-    key = getenv_or_exit("SUPABASE_SERVICE_KEY")  # why: 서명 URL/버킷 검증/insert에 권장
-    bucket_name = getenv_or_exit("AD_BUCKET_NAME")
-
-    # 2) 클라이언트
-    supabase: Client = create_client(url, key)
-
-    # 3) Storage: 버킷 확인 + 업로드 + 서명 URL
-    print(f"[storage] bucket = {bucket_name}")
-    storage = supabase.storage
-
-    # 존재 유무 확인(목록 조회가 막혀있을 수 있어 from_ 바로 사용)
-    bucket = storage.from_(bucket_name)
-
-    test_key = f"smoke/{uuid.uuid4()}/hello.txt"
-    data = b"hello, supabase\n"
-    # 헤더 값은 문자열이어야 함
-    resp = bucket.upload(test_key, data, {"content-type": "text/plain", "x-upsert": "true"})
-    # 최소 성공 판정
-    if isinstance(resp, dict) and not (resp.get("Key") or resp.get("id") or resp.get("path")):
-        raise RuntimeError(f"storage upload failed: {resp}")
-    print(f"[storage] uploaded: {test_key}")
-
-    # 서명 URL(60분)
-    signed = bucket.create_signed_url(test_key, int(timedelta(hours=1).total_seconds()))
-    if not isinstance(signed, dict) or "signedURL" not in signed:
-        raise RuntimeError(f"signed url failed: {signed}")
-    print(f"[storage] signed url ok")
-
-    # 4) DB: ad_analysis insert + select
-    run_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
-    meta = {
-        "run_id": run_i
-
+# 실제 탭 렌더
+render_ad_analysis_tab()
 
 # ====== 표준 컬럼명 ======
 DATE_COL = "날짜"
