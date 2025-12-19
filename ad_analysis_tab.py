@@ -104,7 +104,8 @@ def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df = df_raw.copy()
     df["date"] = _to_date(df[DATE_COL])
     df = df[df["date"].notna()].copy()
-    df["keyword"] = df[KW_COL].astype(str).fillna("")
+    # 변경 지점(단 한 줄): ASCII 콤마만 제거(정규식 비사용). 이유: 줄바꿈 기준 사용 시 ',' 혼선 방지.
+    df["keyword"] = df[KW_COL].astype(str).str.replace(",", "", regex=False)
     df["surface"] = df[SURF_COL].astype(str).fillna("").str.strip()
     df["impressions"] = _to_int(df[IMP_COL])
     df["clicks"] = _to_int(df[CLK_COL])
@@ -258,8 +259,8 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
         "rev_share_top":     _pct(rev_ge_top,     total_rev_all),
         "cost_share_bottom_search": _pct(cost_le_bottom, total_cost_search),
         "rev_share_bottom_search":  _pct(rev_le_bottom,  total_rev_search),
-        "cost_share_top_search":    _pct(cost_ge_top,    total_cost_search),
-        "rev_share_top_search":     _pct(rev_ge_top,     total_rev_search),
+        "cost_share_top_search":    _pct(cost_ge_top,     total_cost_search),
+        "rev_share_top_search":     _pct(rev_ge_top,      total_rev_search),
     }
 
 def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
