@@ -728,12 +728,12 @@ def render_ad_analysis_tab(supabase):
     st.markdown(
         f"""
     - **CPC_cut bottom:** {sel_cuts.bottom:.2f}원  
-      · 광고 매출 비중 {shares['rev_share_bottom']:.2f}% / 검색광고 매출 비중 {shares['rev_share_bottom_search']:.2f}%  
-      · 광고비 비중 {shares['cost_share_bottom']:.2f}% / 검색광고 광고비 비중 {shares['cost_share_bottom_search']:.2f}%
+      · 전체 광고 매출 비중 {shares['rev_share_bottom']:.2f}% / 검색 광고 매출 비중 {shares['rev_share_bottom_search']:.2f}%  
+      · 전체 광고비 비중 {shares['cost_share_bottom']:.2f}% / 검색 광고 광고비 비중 {shares['cost_share_bottom_search']:.2f}%
 
     - **CPC_cut top:** {sel_cuts.top:.2f}원  
-      · 광고 매출 비중 {shares['rev_share_top']:.2f}% / 검색광고 매출 비중 {shares['rev_share_top_search']:.2f}%  
-      · 광고비 비중 {shares['cost_share_top']:.2f}% / 검색광고 광고비 비중 {shares['cost_share_top_search']:.2f}%
+      · 전체 광고 매출 비중 {shares['rev_share_top']:.2f}% / 검색 광고 매출 비중 {shares['rev_share_top_search']:.2f}%  
+      · 전체 광고비 비중 {shares['cost_share_top']:.2f}% / 검색 광고 광고비 비중 {shares['cost_share_top_search']:.2f}%
     """
     )
 
