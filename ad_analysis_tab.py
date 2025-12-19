@@ -33,7 +33,7 @@ LOWBACK_DELTA = 0.24  # low_back_q = SLOPE_Q - LOWBACK_DELTA
 MIN_RUN_FRAC = 0.04  # 스파이크 방지
 
 # ====== 수동 캡 프리셋(화살표 단계) ======
-Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30, 0.50]  # bottom용
+Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]  # bottom용
 TOP_PRESETS: List[float] = list(reversed(Q_PRESETS))           # top은 역배치
 DEFAULT_FLOOR_Q = 0.05
 DEFAULT_CEIL_Q = 0.05  # (중요) _init_cap_indices가 Q_PRESETS로 인덱싱하므로 그대로 두세요
