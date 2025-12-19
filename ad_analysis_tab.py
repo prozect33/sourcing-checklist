@@ -38,8 +38,8 @@ BOTTOM_Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
 TOP_Q_PRESETS:    List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
 
 # 초기 기본값(가급적 그대로 두세요)
-DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0.05]   # 하위 q 기본
-DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0.05]      # 상위 1-q에서의 q 기본(=0.05→95% 분위)
+DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0]   # 하위 q 기본
+DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0]      # 상위 1-q에서의 q 기본(=0.05→95% 분위)
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
