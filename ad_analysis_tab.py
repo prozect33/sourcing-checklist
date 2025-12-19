@@ -604,7 +604,6 @@ def render_ad_analysis_tab(supabase):
     # 자동 버튼 생성(선 개수만큼)
     c1, c2 = st.columns(2)
     with c1:
-        st.caption(f"**Bottom floor** • {len(bottom_lines)}개 후보")
         # 버튼들을 격자로 자동 배치
         ncols = min(10, len(bottom_lines))
         idx = 0
@@ -619,10 +618,8 @@ def render_ad_analysis_tab(supabase):
                     st.session_state["sel_bottom_idx"] = idx  # why: 선택 유지
                 idx += 1
         b_idx = st.session_state["sel_bottom_idx"]  # 보정된 인덱스 사용
-        st.caption(f"선택: B{b_idx + 1} · {bottom_lines[b_idx]:.2f}원")
 
     with c2:
-        st.caption(f"**Top ceiling** • {len(top_lines)}개 후보")
         ncols = min(10, len(top_lines))
         idx = 0
         rows = (len(top_lines) + ncols - 1) // ncols
@@ -636,7 +633,6 @@ def render_ad_analysis_tab(supabase):
                     st.session_state["sel_top_idx"] = idx
                 idx += 1
         t_idx = st.session_state["sel_top_idx"]  # 보정된 인덱스 사용
-        st.caption(f"선택: T{t_idx + 1} · {top_lines[t_idx]:.2f}원")
 
     # 선택값 확정(보정 인덱스로)
     sel_cuts = CpcCuts(
