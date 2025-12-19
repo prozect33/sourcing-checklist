@@ -7,10 +7,9 @@ from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
-import altair as alt  # kept for compatibility (unused in Plotly chart)
-import plotly.graph_objects as go
 
 # ====== 표준 컬럼명 ======
 DATE_COL = "날짜"
@@ -24,25 +23,27 @@ ORD_COL = "총 주문수(14일)"
 REV_COL = "총 전환매출액(14일)"
 REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
 
-# ====== 자동(bottom/top) 계산 파라미터(고정) ======
-SMOOTH_DIVISOR = 70  # 창 = round(N / 70), 홀수, 최소7
-SLOPE_Q = 0.64  # high 임계 분위
-LOWBACK_DELTA = 0.24  # low_back_q = SLOPE_Q - LOWBACK_DELTA
-MIN_RUN_FRAC = 0.04  # 스파이크 방지
+# ====== 자동 컷 계산 파라미터 ======
+SMOOTH_DIVISOR = 70   # 왜: 과도한 노이즈 억제(데이터 길이에 비례)
+SLOPE_Q = 0.64        # 왜: ‘가파른 구간’ 임계값(경험적)
+LOWBACK_DELTA = 0.24  # 왜: 완화된 임계로 영역 확장
+MIN_RUN_FRAC = 0.04   # 왜: 짧은 스파이크 방지
 
-# ====== 수동 캡 프리셋(분리: bottom / top 각각) ======
+# ====== 수동 캡 프리셋 ======
 BOTTOM_Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
 TOP_Q_PRESETS:    List[float] = [0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
 
-# 초기 기본값(가급적 그대로 두세요)
-DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0]   # 하위 q 기본
-DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0]      # 상위 1-q에서의 q 기본(=0.05→95% 분위)
+# 초기 기본값
+DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0]
+DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0]
+
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
 def _to_date(s: pd.Series) -> pd.Series:
+    """여러 날짜 포맷(문자, 8/6자리, 엑셀 시리얼)을 수용."""
     txt = s.astype(str).str.strip()
     dt_general = pd.to_datetime(txt, errors="coerce")
     digits = txt.str.replace(r"[^0-9]", "", regex=True)
@@ -67,6 +68,7 @@ def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
     return np.convolve(ypad, kernel, mode="valid")
 
 def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
+    """기울기 임계 통과 구간 중 x-거리 기준 최장 구간 반환."""
     best_span, best_s, cur_s = 0.0, -1, -1
     for i, v in enumerate(mask):
         if v and cur_s == -1:
@@ -84,18 +86,9 @@ def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
         e += 1
     return best_s, e
 
-def _nearest_preset_index(q: float) -> int:
-    return int(np.argmin([abs(p - q) for p in BOTTOM_Q_PRESETS]))
-
 def _quantile_x(x: np.ndarray, q: float) -> float:
     return float(np.quantile(x, float(np.clip(q, 0.0, 1.0))))
 
-def _init_cap_indices() -> tuple[int, int]:
-    idx_floor = _nearest_preset_index(DEFAULT_FLOOR_Q)
-    idx_ceil = len(TOP_Q_PRESETS) - 1
-    return idx_floor, idx_ceil
-
-# ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
     try:
         if upload.name.lower().endswith(".csv"):
@@ -121,6 +114,7 @@ def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["orders_14d"] = _to_int(df[ORD_COL])
     df["revenue_14d"] = _to_int(df[REV_COL])
     return df
+
 
 # ============== 집계/지표 ==============
 def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
@@ -149,41 +143,48 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     return kw, totals
 
-# ============== 컷 계산(자동 + 캡) ==============
+
+# ============== 컷 계산(자동) + 후보 라인 ==============
 @dataclass(frozen=True)
 class CpcCuts:
     bottom: float
     top: float
 
 def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
+    """누적 매출 기여 곡선 기반 자동 컷 산출."""
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
         return CpcCuts(0.0, 0.0), conv
+
     total_conv_rev = float(conv["revenue_14d"].sum())
     conv["cum_rev"] = conv["revenue_14d"].cumsum()
     conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1.0)).clip(0, 1)
+
     x = conv["cpc"].to_numpy(dtype=float)
     y = conv["cum_rev_share"].to_numpy(dtype=float)
     n = len(x)
     if n < 5:
         return CpcCuts(bottom=float(x[0]), top=float(x[-1])), conv
+
     x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-    idx_top = int(np.argmax(y_n - x_n))
+    idx_top = int(np.argmax(y_n - x_n))  # 왜: 가장 ‘효율 초과’ 지점
+
     smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
         smooth_win += 1
     y_s = _moving_average(y, smooth_win)
     slope = np.gradient(y_s, x)
+
     pos = slope[slope > 0]
     if pos.size == 0 or not np.any(np.isfinite(pos)):
         idx_bottom = 0
     else:
         high_thr = float(np.quantile(pos, float(np.clip(SLOPE_Q, 0.55, 0.9))))
-        s_high, e_high = _longest_true_run_by_x(slope >= high_thr, x)
+        s_high, _ = _longest_true_run_by_x(slope >= high_thr, x)
         if s_high == -1:
             high_thr = float(np.quantile(pos, 0.55))
-            s_high, e_high = _longest_true_run_by_x(slope >= high_thr, x)
+            s_high, _ = _longest_true_run_by_x(slope >= high_thr, x)
         if s_high == -1:
             idx_bottom = 0
         else:
@@ -200,21 +201,11 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
             if (e - s + 1) < min_run:
                 e = min(n - 1, s + min_run - 1)
             idx_bottom = int(s)
+
     return CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top])), conv
 
-def _apply_caps(auto_cuts: CpcCuts, conv: pd.DataFrame, floor_q: float, ceil_q: float) -> CpcCuts:
-    x = conv["cpc"].to_numpy(float)
-    floor_x = _quantile_x(x, floor_q)
-    ceil_x = _quantile_x(x, 1.0 - ceil_q)
-    bottom = max(float(auto_cuts.bottom), float(floor_x))
-    top = min(float(auto_cuts.top), float(ceil_x))
-    if top <= bottom:
-        top = float(x[-1])
-        st.warning("top ≤ bottom 이 되어 top을 최댓값으로 완화했습니다. (CEIL 단계를 오른쪽으로 옮겨보세요)")
-    return CpcCuts(bottom=bottom, top=top)
-
-# ====== (신규) 후보 선 생성/중복 제거 ======
 def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List[float], List[float]]:
+    """자동 컷을 베이스로 하여 프리셋 분위로 후보선 생성(중복 제거)."""
     x = conv["cpc"].to_numpy(float)
     bottom_vals = []
     for q in BOTTOM_Q_PRESETS:
@@ -224,54 +215,52 @@ def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List
     for q in TOP_Q_PRESETS:
         ceil_x = _quantile_x(x, 1.0 - q)
         top_vals.append(min(float(auto_cuts.top), float(ceil_x)))
+
     def _dedup_sorted(vals: List[float]) -> List[float]:
         rounded = [round(v, 2) for v in vals]
-        uniq = sorted(dict.fromkeys(rounded))
-        return uniq
+        return sorted(dict.fromkeys(rounded))
+
     return _dedup_sorted(bottom_vals), _dedup_sorted(top_vals)
 
-def _nearest_index(values: List[float], target: float) -> int:
-    if not values:
-        return 0
-    return int(np.argmin([abs(v - target) for v in values]))
 
 # ============== 지표/표시 ==============
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
+
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE]
     total_cost_search = float(kw_search_all["cost"].sum())
     total_rev_search = float(kw_search_all["revenue_14d"].sum())
+
     if (total_cost_all <= 0 and total_rev_all <= 0) or kw_search_all.empty:
-        return {
-            "cost_share_bottom": 0.0, "rev_share_bottom": 0.0,
-            "cost_share_top": 0.0,    "rev_share_top": 0.0,
-            "cost_share_bottom_search": 0.0, "rev_share_bottom_search": 0.0,
-            "cost_share_top_search": 0.0,    "rev_share_top_search": 0.0,
-        }
+        return {k: 0.0 for k in [
+            "cost_share_bottom","rev_share_bottom","cost_share_top","rev_share_top",
+            "cost_share_bottom_search","rev_share_bottom_search",
+            "cost_share_top_search","rev_share_top_search"
+        ]}
+
     base = kw[(kw["surface"] == SURF_SEARCH_VALUE) & (kw["clicks"] > 0)].copy()
     if base.empty:
-        return {
-            "cost_share_bottom": 0.0, "rev_share_bottom": 0.0,
-            "cost_share_top": 0.0,    "rev_share_top": 0.0,
-            "cost_share_bottom_search": 0.0, "rev_share_bottom_search": 0.0,
-            "cost_share_top_search": 0.0,    "rev_share_top_search": 0.0,
-        }
+        return {k: 0.0 for k in [
+            "cost_share_bottom","rev_share_bottom","cost_share_top","rev_share_top",
+            "cost_share_bottom_search","rev_share_bottom_search",
+            "cost_share_top_search","rev_share_top_search"
+        ]}
+
     if "cpc" not in base.columns or base["cpc"].isna().any():
         base["cpc"] = base["cost"] / base["clicks"]
-    m_le_bottom = base["cpc"] <= float(cuts.bottom)   # ≤ bottom
-    m_ge_top    = base["cpc"] >= float(cuts.top)      # ≥ top
+
+    m_le_bottom = base["cpc"] <= float(cuts.bottom)
+    m_ge_top    = base["cpc"] >= float(cuts.top)
+
     cost_le_bottom = float(base.loc[m_le_bottom, "cost"].sum())
     rev_le_bottom  = float(base.loc[m_le_bottom, "revenue_14d"].sum())
     cost_ge_top    = float(base.loc[m_ge_top,    "cost"].sum())
     rev_ge_top     = float(base.loc[m_ge_top,    "revenue_14d"].sum())
-    def _safe_div(a, b, default=0.0):
-        try:
-            return a / b if b else default
-        except Exception:
-            return default
+
     def _pct(num: float, den: float) -> float:
         return round(_safe_div(num, den, 0.0) * 100, 2)
+
     return {
         "cost_share_bottom": _pct(cost_le_bottom, total_cost_all),
         "rev_share_bottom":  _pct(rev_le_bottom,  total_rev_all),
@@ -283,40 +272,10 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
         "rev_share_top_search":     _pct(rev_ge_top,     total_rev_search),
     }
 
-def _compute_exclusions(
-    kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, breakeven_roas: float
-) -> Dict[str, pd.DataFrame]:
-    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cuts.top)].copy()
-    ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cuts.bottom) & (kw["clicks"] >= 1)].copy()
-    cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
-    ex_c = kw[kw["orders_14d"] == 0].copy()
-    ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
-    ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
-    ex_c["roas_if_1_order"] = (
-        (aov_p50_value / ex_c["cost_after_1click"] * 100)
-        .replace([np.inf, -np.inf], 0)
-        .fillna(0)
-        .round(2)
-        if aov_p50_value > 0
-        else 0.0
-    )
-    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
-    ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
-    return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
-
 def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
     cols = [
-        "keyword",
-        "surface",
-        "active_days",
-        "impressions",
-        "clicks",
-        "cost",
-        "orders_14d",
-        "revenue_14d",
-        "ctr",
-        "cpc",
-        "roas_14d",
+        "keyword","surface","active_days","impressions","clicks","cost",
+        "orders_14d","revenue_14d","ctr","cpc","roas_14d",
     ]
     if dff.empty:
         st.markdown(f"#### {title} (0개)")
@@ -324,7 +283,8 @@ def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = 
     if extra:
         cols += list(extra)
     st.markdown(f"#### {title} ({len(dff)}개)")
-    st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200), use_container_width=True, hide_index=True)
+    st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200),
+                 use_container_width=True, hide_index=True)
 
 def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]:
     seq: List[str] = []
@@ -338,6 +298,7 @@ def _format_keywords_line_exact(words: Iterable[str]) -> str:
     return ",\u200b".join([w for w in words])
 
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
+    # 왜: Streamlit 기본 버튼으로는 클립보드 접근 제한 → custom JS 사용
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
@@ -368,51 +329,51 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
     all_words = _gather_exclusion_keywords(exclusions)
-    total = len(all_words)
-    if total == 0:
+    if not all_words:
         return
     line = _format_keywords_line_exact(all_words)
-    _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
+    _copy_to_clipboard_button(f"[복사하기] 총{len(all_words)}개", line, key="ex_union_copy")
 
-# ============== Plotly 차트 (개선: 다중 선 + 강조) ==============
+
+# ============== Plotly 차트 ==============
 def _plot_cpc_curve_plotly_multi(
     kw: pd.DataFrame,
     selected: CpcCuts,
     bottoms: List[float],
     tops: List[float],
 ) -> None:
+    """누적 매출 비중 곡선 + 선택/후보 컷 시각화."""
     BOTTOM_COLOR = "#1f77b4"
     TOP_COLOR = "#d62728"
+
     conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
     if conv.empty:
         st.warning("전환 발생 키워드가 없어 그래프를 표시할 수 없습니다.")
         return
+
     conv = conv.sort_values("cpc").reset_index(drop=True)
     total_conv_rev = float(conv["revenue_14d"].sum())
     if total_conv_rev <= 0:
         st.warning("conv 총매출이 0입니다.")
         return
+
     x_vals = conv["cpc"].to_numpy(float)
     y_share_conv = (conv["revenue_14d"].cumsum().to_numpy(float) / total_conv_rev).clip(0, 1)
+
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=x_vals,
-            y=y_share_conv,
-            mode="lines",
-            line=dict(width=2),
-            name="누적비중(≤CPC)",
-            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
-        )
-    )
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=y_share_conv, mode="lines",
+        line=dict(width=2), name="누적비중(≤CPC)",
+        hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
+    ))
     fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color=BOTTOM_COLOR, line_width=3)
     fig.add_vline(x=selected.top,    line_dash="solid", opacity=1.0, line_color=TOP_COLOR,   line_width=3)
-    idx_b = int(np.argmin(np.abs(x_vals - selected.bottom)))
-    idx_t = int(np.argmin(np.abs(x_vals - selected.top)))
+
     for b in bottoms:
         fig.add_vline(x=b, line_dash="dot",  opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
     for t in tops:
         fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color=TOP_COLOR,   line_width=1)
+
     fig.update_layout(
         height=380,
         margin=dict(l=20, r=20, t=30, b=20),
@@ -423,8 +384,10 @@ def _plot_cpc_curve_plotly_multi(
     )
     st.plotly_chart(fig, use_container_width=True)
 
+
 # ============== Streamlit 탭 ==============
 def _aov_p50(df: pd.DataFrame) -> float:
+    """주문 발생 구간의 P50 AOV."""
     if df is None or df.empty:
         return 0.0
     rev_col = "revenue_14d"
@@ -441,25 +404,23 @@ def _aov_p50(df: pd.DataFrame) -> float:
         return 0.0
     return float(np.median(aov))
 
-def render_ad_analysis_tab(supabase):
+def render_ad_analysis_tab() -> None:
+    """광고 분석 단일 탭. 저장 기능/외부 의존성 제거."""
     st.subheader("광고분석 (총 14일 기준)")
 
-    # --- 입력 위젯 ---
+    # 입력
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # --- 분석 세션 상태 (버튼의 일회성 회피) ---
+    # 실행 트리거(왜: 버튼 중복 실행/깜빡임 방지)
     if "ad_run_started" not in st.session_state:
         st.session_state["ad_run_started"] = False
-    run_clicked = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
-    if run_clicked:
+    if st.button("🔍 분석하기", key="ad_run", use_container_width=True):
         st.session_state["ad_run_started"] = True
-
-    # --- 조기 종료 게이트를 세션 플래그로 ---
     if not st.session_state["ad_run_started"]:
         return
 
-    # --- 검증 ---
+    # 검증/정규화
     if up is None:
         st.error("파일을 업로드하세요.")
         return
@@ -473,7 +434,7 @@ def render_ad_analysis_tab(supabase):
         st.error("유효한 데이터가 없습니다.")
         return
 
-    # --- 집계 ---
+    # 집계
     kw, totals = _aggregate_kw(df)
 
     st.markdown("### 1) 기본 성과 지표")
@@ -504,23 +465,25 @@ def render_ad_analysis_tab(supabase):
     ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    # --- 컷 & 캡 ---
+    # 컷 & 후보
     st.markdown("### 2) CPC-누적매출 비중")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
     if conv.empty:
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
         return
 
-    # 후보 선 생성(중복 제거)
     bottom_lines, top_lines = _build_candidate_lines(conv, auto_cuts)
+    if not bottom_lines or not top_lines:
+        st.warning("후보 선이 없습니다. 데이터 분포를 확인하세요.")
+        return
 
-    # 최초 진입 시 선택 인덱스 초기화
+    # 선택 인덱스 초기화/클램프
     if "sel_bottom_idx" not in st.session_state or "sel_top_idx" not in st.session_state:
         x = conv["cpc"].to_numpy(float)
         default_bottom = max(float(auto_cuts.bottom), _quantile_x(x, DEFAULT_FLOOR_Q))
         default_top = min(float(auto_cuts.top), _quantile_x(x, 1.0 - DEFAULT_CEIL_Q))
-        st.session_state["sel_bottom_idx"] = _nearest_index(bottom_lines, round(default_bottom, 2))
-        st.session_state["sel_top_idx"] = _nearest_index(top_lines, round(default_top, 2))
+        st.session_state["sel_bottom_idx"] = int(np.argmin([abs(v - round(default_bottom, 2)) for v in bottom_lines]))
+        st.session_state["sel_top_idx"] = int(np.argmin([abs(v - round(default_top, 2)) for v in top_lines]))
 
     def _clamp(i: int, n: int) -> int:
         return 0 if n <= 0 else int(max(0, min(i, n - 1)))
@@ -528,47 +491,39 @@ def render_ad_analysis_tab(supabase):
     st.session_state["sel_bottom_idx"] = _clamp(st.session_state["sel_bottom_idx"], len(bottom_lines))
     st.session_state["sel_top_idx"] = _clamp(st.session_state["sel_top_idx"], len(top_lines))
 
-    if len(bottom_lines) == 0 or len(top_lines) == 0:
-        st.warning("후보 선이 없습니다. 데이터 분포를 확인하세요.")
-        return
-
+    # 선택 버튼
     c1, c2 = st.columns(2)
     with c1:
         ncols = min(10, len(bottom_lines))
         idx = 0
-        rows = (len(bottom_lines) + ncols - 1) // ncols
-        for _ in range(rows):
+        rows_btn = (len(bottom_lines) + ncols - 1) // ncols
+        for _ in range(rows_btn):
             cols = st.columns(ncols)
             for c in range(ncols):
                 if idx >= len(bottom_lines):
                     break
-                label = f"B{idx + 1}"
-                if cols[c].button(label, key=f"btn_b_{idx}"):
-                    st.session_state["sel_bottom_idx"] = idx  # why: 선택 유지
+                if cols[c].button(f"B{idx + 1}", key=f"btn_b_{idx}"):
+                    st.session_state["sel_bottom_idx"] = idx  # 왜: 명시적 선택 유지
                 idx += 1
         b_idx = st.session_state["sel_bottom_idx"]
 
     with c2:
         ncols = min(10, len(top_lines))
         idx = 0
-        rows = (len(top_lines) + ncols - 1) // ncols
-        for _ in range(rows):
+        rows_btn = (len(top_lines) + ncols - 1) // ncols
+        for _ in range(rows_btn):
             cols = st.columns(ncols)
             for c in range(ncols):
                 if idx >= len(top_lines):
                     break
-                label = f"T{idx + 1}"
-                if cols[c].button(label, key=f"btn_t_{idx}"):
+                if cols[c].button(f"T{idx + 1}", key=f"btn_t_{idx}"):
                     st.session_state["sel_top_idx"] = idx
                 idx += 1
         t_idx = st.session_state["sel_top_idx"]
 
-    sel_cuts = CpcCuts(
-        bottom=float(bottom_lines[b_idx]),
-        top=float(top_lines[t_idx]),
-    )
+    sel_cuts = CpcCuts(bottom=float(bottom_lines[b_idx]), top=float(top_lines[t_idx]))
 
-    # --- 차트 & 지표 ---
+    # 차트 & 지표
     _plot_cpc_curve_plotly_multi(kw, sel_cuts, bottom_lines, top_lines)
 
     shares = _search_shares_for_cuts(kw, sel_cuts)
@@ -576,17 +531,17 @@ def render_ad_analysis_tab(supabase):
 
     st.markdown(
         f"""
-    - **CPC_cut bottom:** {sel_cuts.bottom:.2f}원  
-      · 전체 광고 매출 비중 {shares['rev_share_bottom']:.2f}% / 검색 광고 매출 비중 {shares['rev_share_bottom_search']:.2f}%  
-      · 전체 광고비 비중 {shares['cost_share_bottom']:.2f}% / 검색 광고 광고비 비중 {shares['cost_share_bottom_search']:.2f}%
+- **CPC_cut bottom:** {sel_cuts.bottom:.2f}원  
+  · 전체 매출비중 {shares['rev_share_bottom']:.2f}% / 검색 매출비중 {shares['rev_share_bottom_search']:.2f}%  
+  · 전체 광고비비중 {shares['cost_share_bottom']:.2f}% / 검색 광고비비중 {shares['cost_share_bottom_search']:.2f}%
 
-    - **CPC_cut top:** {sel_cuts.top:.2f}원  
-      · 전체 광고 매출 비중 {shares['rev_share_top']:.2f}% / 검색 광고 매출 비중 {shares['rev_share_top_search']:.2f}%  
-      · 전체 광고비 비중 {shares['cost_share_top']:.2f}% / 검색 광고 광고비 비중 {shares['cost_share_top_search']:.2f}%
-    """
+- **CPC_cut top:** {sel_cuts.top:.2f}원  
+  · 전체 매출비중 {shares['rev_share_top']:.2f}% / 검색 매출비중 {shares['rev_share_top_search']:.2f}%  
+  · 전체 광고비비중 {shares['cost_share_top']:.2f}% / 검색 광고비비중 {shares['cost_share_top_search']:.2f}%
+"""
     )
 
-    # --- 제외 키워드 ---
+    # 제외 키워드
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
     _display_table("a) CPC_cut top 이상 전환 0", exclusions["a"])
@@ -596,4 +551,6 @@ def render_ad_analysis_tab(supabase):
 
     _render_exclusion_union(exclusions)
 
-    # 저장 기능 제거됨(의도적): UI/로직/외부 저장 호출 없음
+# 사용 예:
+# if __name__ == "__main__":
+#     render_ad_analysis_tab()
