@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -404,15 +404,36 @@ def _aov_p50(df: pd.DataFrame) -> float:
         return 0.0
     return float(np.median(aov))
 
-def render_ad_analysis_tab() -> None:
-    """광고 분석 단일 탭. 저장 기능/외부 의존성 제거."""
+def _compute_exclusions(
+    kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, breakeven_roas: float
+) -> Dict[str, pd.DataFrame]:
+    ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cuts.top)].copy()
+    ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cuts.bottom) & (kw["clicks"] >= 1)].copy()
+    cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
+    ex_c = kw[kw["orders_14d"] == 0].copy()
+    ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
+    ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
+    ex_c["roas_if_1_order"] = (
+        (aov_p50_value / ex_c["cost_after_1click"] * 100)
+        .replace([np.inf, -np.inf], 0)
+        .fillna(0)
+        .round(2)
+        if aov_p50_value > 0
+        else 0.0
+    )
+    ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
+    ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
+    return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
+
+def render_ad_analysis_tab(supabase: Any | None = None) -> None:
+    """광고 분석 단일 탭. 저장 기능/외부 의존성 제거. supabase 인자는 역호환용(미사용)."""
     st.subheader("광고분석 (총 14일 기준)")
 
     # 입력
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # 실행 트리거(왜: 버튼 중복 실행/깜빡임 방지)
+    # 실행 트리거
     if "ad_run_started" not in st.session_state:
         st.session_state["ad_run_started"] = False
     if st.button("🔍 분석하기", key="ad_run", use_container_width=True):
@@ -553,4 +574,4 @@ def render_ad_analysis_tab() -> None:
 
 # 사용 예:
 # if __name__ == "__main__":
-#     render_ad_analysis_tab()
+#     render_ad_analysis_tab(None)
