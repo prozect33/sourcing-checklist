@@ -307,39 +307,56 @@ def _nearest_index(values: List[float], target: float) -> int:
 # ============== 지표/표시 ==============
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     """
-    의미 복구(b안): 분모를 conv(orders_14d>0) 총매출/총비용으로 계산.
-    UI 형식은 그대로 유지(사이드 지표 카드에 %로 노출).
+    분모: 전체 광고비/전체 매출 (검색/비검색 모두 포함, 주문 여부 무관)
+    분자: [검색 영역 & 클릭>0] 기준에서 CPC 구간 합계
+      - bottom: CPC ≤ bottom '까지' 합계
+      - top   : CPC ≥ top    '부터' 합계
+    반환: 전체 대비 비중(%), 소수 2자리
     """
-    conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
-    if conv.empty:
+    # 1) 분모 = 전체
+    total_cost_all = float(kw["cost"].sum())
+    total_rev_all = float(kw["revenue_14d"].sum())
+
+    if total_cost_all <= 0 and total_rev_all <= 0:
         return {
             "rev_share_bottom": 0.0, "cost_share_bottom": 0.0,
-            "rev_share_top": 0.0,    "cost_share_top": 0.0,
+            "rev_share_top": 0.0, "cost_share_top": 0.0,
         }
 
-    total_cost_conv = float(conv["cost"].sum())
-    total_rev_conv = float(conv["revenue_14d"].sum())
+    # 2) 분자 = [검색 & 클릭>0]만 사용 (키워드 단위가 아니라도 cpc 기준 필터 가능)
+    base = kw[(kw["surface"] == SURF_SEARCH_VALUE) & (kw["clicks"] > 0)].copy()
+    if base.empty:
+        return {
+            "rev_share_bottom": 0.0, "cost_share_bottom": 0.0,
+            "rev_share_top": 0.0, "cost_share_top": 0.0,
+        }
 
-    def _share(mask: pd.Series, col: str, denom: float) -> float:
-        num = float(conv.loc[mask, col].sum())
-        return round(_safe_div(num, denom, 0.0) * 100, 2)
+    # 3) CPC 보정: 컬럼이 없거나 결측이 있으면 cost/clicks로 계산
+    if "cpc" not in base.columns or base["cpc"].isna().any():
+        base["cpc"] = base["cost"] / base["clicks"]
 
-    mask_bottom = conv["cpc"] <= cuts.bottom
-    mask_top = conv["cpc"] >= cuts.top
+    # 4) 구간 마스크 (까지/부터)
+    m_le_bottom = base["cpc"] <= float(cuts.bottom)   # ≤ bottom
+    m_ge_top    = base["cpc"] >= float(cuts.top)      # ≥ top
+
+    # 5) 구간 합계(원)
+    cost_le_bottom = float(base.loc[m_le_bottom, "cost"].sum())
+    rev_le_bottom  = float(base.loc[m_le_bottom, "revenue_14d"].sum())
+    cost_ge_top    = float(base.loc[m_ge_top,    "cost"].sum())
+    rev_ge_top     = float(base.loc[m_ge_top,    "revenue_14d"].sum())
+
+    # 6) 전체 대비 비중(%)
+    def _pct(num: float, den: float) -> float:
+        return round(_safe_div(num, den, 0.0) * 100, 2)
 
     return {
-        "rev_share_bottom": _share(mask_bottom, "revenue_14d", total_rev_conv),
-        "cost_share_bottom": _share(mask_bottom, "cost",        total_cost_conv),
-        "rev_share_top":    _share(mask_top,    "revenue_14d", total_rev_conv),
-        "cost_share_top":   _share(mask_top,    "cost",        total_cost_conv),
+        # Bottom: '까지'
+        "cost_share_bottom": _pct(cost_le_bottom, total_cost_all),
+        "rev_share_bottom":  _pct(rev_le_bottom,  total_rev_all),
+        # Top: '부터'
+        "cost_share_top":    _pct(cost_ge_top,    total_cost_all),
+        "rev_share_top":     _pct(rev_ge_top,     total_rev_all),
     }
-
-def _aov_p50(conv: pd.DataFrame) -> float:
-    orders = conv["orders_14d"]
-    rev = conv["revenue_14d"]
-    valid = rev[orders > 0] / orders[orders > 0]
-    return float(valid.quantile(0.5)) if not valid.empty else 0.0
-
 
 def _compute_exclusions(
     kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, breakeven_roas: float
@@ -682,7 +699,7 @@ def render_ad_analysis_tab(supabase):
     shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
 
-    st.caption("비중 분모: 전환발생 키워드(conv) 총매출·총비용, 분자: conv 중 CPC 조건 충족 키워드 합")
+    st.caption("비중 분모: 전체 광고비·전체 매출 / 분자: [검색 영역 & 클릭>0]에서 CPC 구간 합계(≤bottom, ≥top)")
     st.markdown(
         f"""
 - **CPC_cut bottom:** {round(sel_cuts.bottom, 2)}원  
