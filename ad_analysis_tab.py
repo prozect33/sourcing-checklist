@@ -567,6 +567,18 @@ def render_ad_analysis_tab(supabase):
         st.session_state["sel_bottom_idx"] = _nearest_index(bottom_lines, round(default_bottom, 2))
         st.session_state["sel_top_idx"] = _nearest_index(top_lines, round(default_top, 2))
 
+    # ▼ 추가: 인덱스 보정(프리셋 변경/중복 제거로 후보 개수 달라질 때 IndexError 방지)
+    def _clamp(i: int, n: int) -> int:
+        return 0 if n <= 0 else int(max(0, min(i, n - 1)))
+
+    st.session_state["sel_bottom_idx"] = _clamp(st.session_state["sel_bottom_idx"], len(bottom_lines))
+    st.session_state["sel_top_idx"] = _clamp(st.session_state["sel_top_idx"], len(top_lines))
+
+    # 후보선이 비어있는 극단 상황 처리(드묾)
+    if len(bottom_lines) == 0 or len(top_lines) == 0:
+        st.warning("후보 선이 없습니다. 데이터 분포를 확인하세요.")
+        return
+
     # 자동 버튼 생성(선 개수만큼)
     c1, c2 = st.columns(2)
     with c1:
@@ -584,7 +596,8 @@ def render_ad_analysis_tab(supabase):
                 if cols[c].button(label, key=f"btn_b_{idx}"):
                     st.session_state["sel_bottom_idx"] = idx  # why: 선택 유지
                 idx += 1
-        st.caption(f"선택: B{st.session_state['sel_bottom_idx'] + 1} · {bottom_lines[st.session_state['sel_bottom_idx']]:.2f}원")
+        b_idx = st.session_state["sel_bottom_idx"]  # 보정된 인덱스 사용
+        st.caption(f"선택: B{b_idx + 1} · {bottom_lines[b_idx]:.2f}원")
 
     with c2:
         st.caption(f"**Top ceiling** • {len(top_lines)}개 후보")
@@ -600,12 +613,13 @@ def render_ad_analysis_tab(supabase):
                 if cols[c].button(label, key=f"btn_t_{idx}"):
                     st.session_state["sel_top_idx"] = idx
                 idx += 1
-        st.caption(f"선택: T{st.session_state['sel_top_idx'] + 1} · {top_lines[st.session_state['sel_top_idx']]:.2f}원")
+        t_idx = st.session_state["sel_top_idx"]  # 보정된 인덱스 사용
+        st.caption(f"선택: T{t_idx + 1} · {top_lines[t_idx]:.2f}원")
 
-    # 선택값 확정
+    # 선택값 확정(보정 인덱스로)
     sel_cuts = CpcCuts(
-        bottom=float(bottom_lines[st.session_state["sel_bottom_idx"]]),
-        top=float(top_lines[st.session_state["sel_top_idx"]]),
+        bottom=float(bottom_lines[b_idx]),
+        top=float(top_lines[t_idx]),
     )
 
     # --- 차트 & 지표 ---
