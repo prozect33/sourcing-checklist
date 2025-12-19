@@ -302,40 +302,45 @@ def _merge_keywords(current: List[str], previous: List[str]) -> List[str]:
 def _format_keywords_line_storage(words: Iterable[str]) -> str:
     return ",".join([w for w in words if w])
 
-# ===================== 복사 UI(제스처 기반) =====================
-def _copy_block_with_button(text: str, key: str) -> None:
-    """why: 사용자 제스처 기반 복사 + 텍스트 자동 선택."""
-    safe = html.escape(text)
+# ===================== 복사 UI(내용 숨김, 제스처 기반) =====================
+def _copy_button_hidden(text: str, key: str) -> None:
+    """내용은 숨기고 버튼만 노출, 클릭 제스처로 복사."""
+    safe = html.escape(text)  # XSS 최소화
     components.html(
         f"""
         <div style="margin:6px 0;">
-          <textarea id="ta-{key}" readonly rows="4" style="width:100%;box-sizing:border-box;white-space:nowrap;overflow:auto;">{safe}</textarea>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-            <button id="btn-{key}" style="padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer;">복사</button>
-            <span id="msg-{key}" style="font-size:13px;color:#4CAF50;"></span>
-            <span style="font-size:12px;color:#666;">(선택됨 · Ctrl+C 가능)</span>
-          </div>
+          <button id="btn-{key}" style="padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer;">
+            복사
+          </button>
+          <span id="msg-{key}" style="font-size:13px;color:#4CAF50;margin-left:8px;"></span>
         </div>
         <script>
-          const ta  = document.getElementById("ta-{key}");
+          const hidden_{key} = "{safe}"
+            .replaceAll("&amp;","&").replaceAll("&lt;","<")
+            .replaceAll("&gt;",">").replaceAll("&quot;","\\\"");
           const btn = document.getElementById("btn-{key}");
           const msg = document.getElementById("msg-{key}");
-          setTimeout(()=>{{ try{{ ta.focus(); ta.select(); }}catch(_){{}} }}, 0);
           btn.onclick = async () => {{
             try {{
-              await navigator.clipboard.writeText(ta.value);
+              await navigator.clipboard.writeText(hidden_{key});
               msg.textContent = "복사됨";
             }} catch (e) {{
               try {{
-                ta.focus(); ta.select(); document.execCommand('copy');
+                const ta = document.createElement('textarea');
+                ta.value = hidden_{key};
+                ta.style.position='fixed'; ta.style.top='-9999px';
+                document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy');
+                document.body.removeChild(ta);
                 msg.textContent = "복사됨";
-              }} catch (e2) {{ msg.textContent = "복사 실패"; }}
+              }} catch (e2) {{
+                msg.textContent = "복사 실패";
+              }}
             }}
             setTimeout(()=> msg.textContent = "", 2000);
           }};
         </script>
         """,
-        height=150,
+        height=40,
     )
 
 # ===================== Supabase I/O =====================
@@ -408,8 +413,8 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any |
         ok, msg, merged_line = _save_or_update_merged(supabase, product_name.strip(), current_words)
         if ok:
             st.success(f"[{product_name}] {msg}")
-            # 병합 결과 표시+선택+[복사] 버튼(제스처 기반)
-            _copy_block_with_button(merged_line, key="merged_clip")
+            # ▶ 내용 미표시: 버튼만 보여 복사
+            _copy_button_hidden(merged_line, key="merged_clip_hidden")
             # 목록 캐시 갱신
             names = st.session_state.get("ex_names_all", [])
             if product_name not in names:
