@@ -439,10 +439,15 @@ def _plot_cpc_curve_plotly_multi(
     bottoms: List[float],
     tops: List[float],
 ) -> None:
+    # 색상 지정(Plotly 기본 팔레트 계열)
+    BOTTOM_COLOR = "#1f77b4"  # 파랑
+    TOP_COLOR = "#d62728"     # 빨강
+
     x = conv["cpc"].to_numpy(float)
     y = conv["cum_rev_share"].to_numpy(float)
 
     fig = go.Figure()
+    # 원본 곡선
     fig.add_trace(
         go.Scatter(
             x=x, y=y, mode="lines", name="cum_rev_share",
@@ -450,28 +455,42 @@ def _plot_cpc_curve_plotly_multi(
         )
     )
 
-    # 보조선(모든 후보)
+    # ---- 후보선(옅게) ----
+    # bottom 후보 = 파랑 점선
     for b in bottoms:
-        fig.add_vline(x=b, line_dash="dot", opacity=0.35)
+        fig.add_vline(x=b, line_dash="dot", opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
+
+    # top 후보 = 빨강 파선
     for t in tops:
-        fig.add_vline(x=t, line_dash="dash", opacity=0.35)
+        fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color=TOP_COLOR, line_width=1)
 
-    # 선택 강조
-    # why: 선택 확인을 쉽게 하기 위해 더 진하게 + 마커
-    fig.add_vline(x=selected.bottom, line_dash="dot")
-    fig.add_vline(x=selected.top, line_dash="dash")
+    # ---- 선택선(진하게) ----
+    # bottom 선택 = 파랑 실선(강조)
+    fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color=BOTTOM_COLOR, line_width=3)
+    # top 선택 = 빨강 실선(강조)
+    fig.add_vline(x=selected.top, line_dash="solid", opacity=1.0, line_color=TOP_COLOR, line_width=3)
 
-    # 선택 포인트 마커
+    # 선택 포인트 마커(색 매칭)
     idx_b = int(np.argmin(np.abs(x - selected.bottom)))
     idx_t = int(np.argmin(np.abs(x - selected.top)))
     fig.add_trace(
         go.Scatter(
-            x=[x[idx_b], x[idx_t]],
-            y=[y[idx_b], y[idx_t]],
+            x=[x[idx_b]], y=[y[idx_b]],
             mode="markers",
-            name="selected",
-            marker=dict(symbol="triangle-up", size=12),
+            name="bottom selected",
+            marker=dict(symbol="triangle-up", size=12, color=BOTTOM_COLOR),  # 파랑
             hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
+            showlegend=False,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x[idx_t]], y=[y[idx_t]],
+            mode="markers",
+            name="top selected",
+            marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),     # 빨강
+            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
+            showlegend=False,
         )
     )
 
@@ -484,7 +503,6 @@ def _plot_cpc_curve_plotly_multi(
         showlegend=False,
     )
     st.plotly_chart(fig, use_container_width=True)
-
 
 # ============== Streamlit 탭 ==============
 def render_ad_analysis_tab(supabase):
