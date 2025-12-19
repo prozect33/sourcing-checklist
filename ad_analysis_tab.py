@@ -585,21 +585,19 @@ def render_ad_analysis_tab(supabase):
         save_btn = st.button("✅ 분석 결과 저장", disabled=not can_save, key="ad_save")
 
         if save_btn and can_save:
-            if "_save_to_supabase" not in globals():
-                st.error("이 파일에 _save_to_supabase()가 없습니다. 기존 프로젝트 구현을 유지하거나 함수 정의를 추가해야 합니다.")
-                return
-            _save_to_supabase(
-                supabase,
-                upload=up,
-                product_name=product_name,
-                note=note,
-                totals=totals,
-                breakeven_roas=float(breakeven_roas),
-                cuts=cuts,
-                shares=shares,
-                aov_p50_value=aov50,
-                kw=kw,
-                exclusions=exclusions,
-            )
+            try:
+                _save_to_supabase(
+                    supabase,
+                    upload=up,
+                    product_name=product_name,
+                    note=note,
+                    totals=totals,
+                    breakeven_roas=float(breakeven_roas),
+                    cuts=cuts,
+                    shares=shares,
+                    aov_p50_value=aov50,
+                    kw=kw,
+                    exclusions=exclusions,
+                )
             except Exception as e:
                 st.error(f"저장 실패: {e}")
