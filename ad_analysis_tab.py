@@ -14,6 +14,129 @@ import streamlit.components.v1 as components
 import altair as alt  # kept for compatibility (unused in Plotly chart)
 import plotly.graph_objects as go
 
+# path: app/ad_analysis.py
+
+import io
+from datetime import datetime, timezone
+
+# --- Supabase 저장 유틸: 앱 환경에 맞게 TABLE/BUCKET 상수만 조정 ---
+SUPABASE_TABLE = "ad_analysis"   # ← 환경에 맞게 변경
+SUPABASE_BUCKET = "ad-uploads"   # ← 환경에 맞게 변경
+
+def _save_to_supabase(
+    supabase,
+    *,
+    upload,  # Streamlit UploadedFile
+    product_name: str,
+    note: str,
+    totals: dict,
+    breakeven_roas: float,
+    cuts,  # CpcCuts
+    shares: dict,
+    aov_p50_value: float,
+    kw,  # pd.DataFrame
+    exclusions: dict,  # {"a": df, "b": df, "c": df, "d": df}
+) -> str:
+    """
+    Streamlit '저장' 처리.
+    - Storage: 원본 업로드/CSV 아웃풋 업로드
+    - Table: 메타데이터 1건 insert
+    반환: run_id(UUID4 문자열)
+    """
+    # 필수 검사(why: 런타임 환경 차단)
+    if supabase is None:
+        raise ValueError("Supabase 클라이언트가 없습니다.")
+    if not hasattr(supabase, "table") or not hasattr(supabase, "storage"):
+        raise ValueError("유효한 Supabase 클라이언트가 아닙니다.")
+    if upload is None or not getattr(upload, "name", ""):
+        raise ValueError("업로드 파일이 없습니다.")
+
+    # 식별자/경로
+    run_id = str(uuid.uuid4())
+    ts = datetime.now(timezone.utc).isoformat()
+    base_dir = f"ad_runs/{run_id}"
+
+    # 직렬화 헬퍼
+    def _df_to_csv_bytes(df) -> bytes:
+        buf = io.BytesIO()
+        # 안전: 비어있으면 컬럼만 가진 빈 파일 생성
+        (df if df is not None else pd.DataFrame()).to_csv(buf, index=False, encoding="utf-8-sig")
+        return buf.getvalue()
+
+    def _upload_bytes(bucket, path, data: bytes, content_type: str):
+        # why: 중복 저장 허용
+        resp = bucket.upload(path, data, {"content-type": content_type, "upsert": True})
+        # Storage 파이썬 SDK는 예외를 던지지 않을 수 있으므로 최소 확인
+        if hasattr(resp, "status_code") and 200 <= resp.status_code < 300:
+            return
+        # 일부 클라이언트는 dict 반환
+        if isinstance(resp, dict) and resp.get("Key") or resp.get("id") or resp.get("path"):
+            return
+        # 실패로 간주
+        raise RuntimeError(f"Storage 업로드 실패: {path}")
+
+    storage = supabase.storage.from_(SUPABASE_BUCKET)
+
+    # 1) 원본 파일 업로드
+    orig_name = upload.name
+    orig_bytes = upload.getvalue() if hasattr(upload, "getvalue") else upload.read()
+    orig_path = f"{base_dir}/original/{orig_name}"
+    _upload_bytes(storage, orig_path, orig_bytes, "application/octet-stream")
+
+    # 2) 결과 CSV 업로드
+    kw_path = f"{base_dir}/exports/kw.csv"
+    _upload_bytes(storage, kw_path, _df_to_csv_bytes(kw), "text/csv")
+    for label in ("a", "b", "c", "d"):
+        df = exclusions.get(label, pd.DataFrame())
+        _upload_bytes(storage, f"{base_dir}/exports/ex_{label}.csv", _df_to_csv_bytes(df), "text/csv")
+
+    # 3) 메타 레코드 구성
+    meta = {
+        "run_id": run_id,
+        "created_at": ts,
+        "product_name": product_name.strip(),
+        "note": note.strip(),
+        "upload_filename": orig_name,
+        "upload_path": orig_path,
+        "totals": {
+            "total_cost": int(totals.get("total_cost", 0)),
+            "total_rev": int(totals.get("total_rev", 0)),
+            "total_orders": int(totals.get("total_orders", 0)),
+            "date_min": str(totals.get("date_min", "")),
+            "date_max": str(totals.get("date_max", "")),
+        },
+        "breakeven_roas": float(breakeven_roas),
+        "cuts": {"bottom": float(getattr(cuts, "bottom", 0.0)), "top": float(getattr(cuts, "top", 0.0))},
+        "shares": {
+            "cost_share_bottom": float(shares.get("cost_share_bottom", 0.0)),
+            "rev_share_bottom": float(shares.get("rev_share_bottom", 0.0)),
+            "cost_share_top": float(shares.get("cost_share_top", 0.0)),
+            "rev_share_top": float(shares.get("rev_share_top", 0.0)),
+            "cost_share_bottom_search": float(shares.get("cost_share_bottom_search", 0.0)),
+            "rev_share_bottom_search": float(shares.get("rev_share_bottom_search", 0.0)),
+            "cost_share_top_search": float(shares.get("cost_share_top_search", 0.0)),
+            "rev_share_top_search": float(shares.get("rev_share_top_search", 0.0)),
+        },
+        "aov_p50": float(aov_p50_value),
+        # 참고 경로만 보관(대용량 저장은 Storage에만)
+        "exports": {
+            "kw_csv": kw_path,
+            "ex_a_csv": f"{base_dir}/exports/ex_a.csv",
+            "ex_b_csv": f"{base_dir}/exports/ex_b.csv",
+            "ex_c_csv": f"{base_dir}/exports/ex_c.csv",
+            "ex_d_csv": f"{base_dir}/exports/ex_d.csv",
+        },
+    }
+
+    # 4) 테이블 Insert
+    res = supabase.table(SUPABASE_TABLE).insert(meta).execute()
+    # 다양한 SDK 대응: 실패시 error 속성/데이터 길이로 판단
+    if hasattr(res, "error") and res.error:
+        raise RuntimeError(f"DB 저장 실패: {res.error}")
+    if hasattr(res, "data") and res.data is None:
+        raise RuntimeError("DB 저장 실패: 빈 응답")
+    return run_id
+
 # ====== 표준 컬럼명 ======
 DATE_COL = "날짜"
 KW_COL = "키워드"
