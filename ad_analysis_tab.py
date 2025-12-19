@@ -307,55 +307,75 @@ def _nearest_index(values: List[float], target: float) -> int:
 # ============== 지표/표시 ==============
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     """
-    분모: 전체 광고비/전체 매출 (검색/비검색 모두 포함, 주문 여부 무관)
-    분자: [검색 영역 & 클릭>0] 기준에서 CPC 구간 합계
-      - bottom: CPC ≤ bottom '까지' 합계
-      - top   : CPC ≥ top    '부터' 합계
-    반환: 전체 대비 비중(%), 소수 2자리
+    분모(전체): 전체 광고비/전체 매출
+    분모(검색): '검색 영역' 전체 광고비/전체 매출  ← 새로 추가
+    분자: [검색 영역 & 클릭>0]에서 CPC 구간 합계
+      - bottom: CPC ≤ bottom '까지'
+      - top   : CPC ≥ top    '부터'
+    반환: 전체 대비 % (기존 키) + 검색 대비 % (신규 *_search 키)
     """
-    # 1) 분모 = 전체
+    # ── 분모(전체) ─────────────────────────────────────────────
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
 
-    if total_cost_all <= 0 and total_rev_all <= 0:
+    # ── 분모(검색 전체) : 클릭 조건 없이 '검색 영역' 총합 ─────────
+    kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE]
+    total_cost_search = float(kw_search_all["cost"].sum())
+    total_rev_search = float(kw_search_all["revenue_14d"].sum())
+
+    # 방어
+    if (total_cost_all <= 0 and total_rev_all <= 0) or kw_search_all.empty:
         return {
-            "rev_share_bottom": 0.0, "cost_share_bottom": 0.0,
-            "rev_share_top": 0.0, "cost_share_top": 0.0,
+            "cost_share_bottom": 0.0, "rev_share_bottom": 0.0,
+            "cost_share_top": 0.0,    "rev_share_top": 0.0,
+            "cost_share_bottom_search": 0.0, "rev_share_bottom_search": 0.0,
+            "cost_share_top_search": 0.0,    "rev_share_top_search": 0.0,
         }
 
-    # 2) 분자 = [검색 & 클릭>0]만 사용 (키워드 단위가 아니라도 cpc 기준 필터 가능)
+    # ── 분자: [검색 & 클릭>0] + CPC 구간 ───────────────────────
     base = kw[(kw["surface"] == SURF_SEARCH_VALUE) & (kw["clicks"] > 0)].copy()
     if base.empty:
         return {
-            "rev_share_bottom": 0.0, "cost_share_bottom": 0.0,
-            "rev_share_top": 0.0, "cost_share_top": 0.0,
+            "cost_share_bottom": 0.0, "rev_share_bottom": 0.0,
+            "cost_share_top": 0.0,    "rev_share_top": 0.0,
+            "cost_share_bottom_search": 0.0, "rev_share_bottom_search": 0.0,
+            "cost_share_top_search": 0.0,    "rev_share_top_search": 0.0,
         }
 
-    # 3) CPC 보정: 컬럼이 없거나 결측이 있으면 cost/clicks로 계산
+    # CPC 보정(없거나 결측이면 계산)
     if "cpc" not in base.columns or base["cpc"].isna().any():
         base["cpc"] = base["cost"] / base["clicks"]
 
-    # 4) 구간 마스크 (까지/부터)
     m_le_bottom = base["cpc"] <= float(cuts.bottom)   # ≤ bottom
     m_ge_top    = base["cpc"] >= float(cuts.top)      # ≥ top
 
-    # 5) 구간 합계(원)
+    # 분자 합계(원)
     cost_le_bottom = float(base.loc[m_le_bottom, "cost"].sum())
     rev_le_bottom  = float(base.loc[m_le_bottom, "revenue_14d"].sum())
     cost_ge_top    = float(base.loc[m_ge_top,    "cost"].sum())
     rev_ge_top     = float(base.loc[m_ge_top,    "revenue_14d"].sum())
 
-    # 6) 전체 대비 비중(%)
+    def _safe_div(a, b, default=0.0):
+        try:
+            return a / b if b else default
+        except Exception:
+            return default
+
     def _pct(num: float, den: float) -> float:
         return round(_safe_div(num, den, 0.0) * 100, 2)
 
     return {
-        # Bottom: '까지'
+        # 기존: 분모=전체
         "cost_share_bottom": _pct(cost_le_bottom, total_cost_all),
         "rev_share_bottom":  _pct(rev_le_bottom,  total_rev_all),
-        # Top: '부터'
         "cost_share_top":    _pct(cost_ge_top,    total_cost_all),
         "rev_share_top":     _pct(rev_ge_top,     total_rev_all),
+
+        # 신규: 분모=검색 전체(‘검색 영역’ 총합)
+        "cost_share_bottom_search": _pct(cost_le_bottom, total_cost_search),
+        "rev_share_bottom_search":  _pct(rev_le_bottom,  total_rev_search),
+        "cost_share_top_search":    _pct(cost_ge_top,    total_cost_search),
+        "rev_share_top_search":     _pct(rev_ge_top,     total_rev_search),
     }
 
 def _compute_exclusions(
