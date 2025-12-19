@@ -440,7 +440,6 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
         return []
 
 def _render_saved_exclusions_names(supabase: Any | None) -> None:
-    st.markdown("### 5) 저장된 제외 키워드 (목록)")
     if "ex_names_all" not in st.session_state:
         st.session_state["ex_names_all"] = _fetch_unique_product_names(supabase, max_rows=500)
     if "ex_names_page" not in st.session_state:
