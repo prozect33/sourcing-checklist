@@ -1,6 +1,7 @@
 # app/ad_analysis_tab.py
 from __future__ import annotations
 
+import html
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -284,14 +285,12 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
 
 # ===== 키워드 병합/정규화 =====
 def _split_keywords(text: str) -> List[str]:
-    """why: 공백/제로폭 제거 후 유효 토큰만."""
     if not text:
         return []
     tokens = [t.replace("\u200b", "").strip() for t in text.split(",")]
     return [t for t in tokens if t]
 
 def _merge_keywords(current: List[str], previous: List[str]) -> List[str]:
-    """why: 현재 우선, 과거는 아직 없는 것만 뒤에 추가(순서 보존)."""
     seen = set()
     merged: List[str] = []
     for w in current + previous:
@@ -301,28 +300,42 @@ def _merge_keywords(current: List[str], previous: List[str]) -> List[str]:
     return merged
 
 def _format_keywords_line_storage(words: Iterable[str]) -> str:
-    """why: 저장은 콤마만(공백/제로폭 없이)"""
     return ",".join([w for w in words if w])
 
-# ===================== 클립보드/JS =====================
-def _copy_to_clipboard_auto(text: str) -> None:
-    # why: 자동 복사 시도(브라우저 정책상 실패 가능)
+# ===================== 복사 UI(제스처 기반) =====================
+def _copy_block_with_button(text: str, key: str) -> None:
+    """why: 사용자 제스처 기반 복사 + 텍스트 자동 선택."""
+    safe = html.escape(text)
     components.html(
         f"""
+        <div style="margin:6px 0;">
+          <textarea id="ta-{key}" readonly rows="4" style="width:100%;box-sizing:border-box;white-space:nowrap;overflow:auto;">{safe}</textarea>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <button id="btn-{key}" style="padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer;">복사</button>
+            <span id="msg-{key}" style="font-size:13px;color:#4CAF50;"></span>
+            <span style="font-size:12px;color:#666;">(선택됨 · Ctrl+C 가능)</span>
+          </div>
+        </div>
         <script>
-          const txt = {json.dumps(text)};
-          (async () => {{
-            try {{ await navigator.clipboard.writeText(txt); }}
-            catch (e) {{
-              const area = document.createElement('textarea');
-              area.value = txt; area.style.position='fixed'; area.style.top='-9999px';
-              document.body.appendChild(area); area.focus(); area.select(); document.execCommand('copy');
-              document.body.removeChild(area);
+          const ta  = document.getElementById("ta-{key}");
+          const btn = document.getElementById("btn-{key}");
+          const msg = document.getElementById("msg-{key}");
+          setTimeout(()=>{{ try{{ ta.focus(); ta.select(); }}catch(_){{}} }}, 0);
+          btn.onclick = async () => {{
+            try {{
+              await navigator.clipboard.writeText(ta.value);
+              msg.textContent = "복사됨";
+            }} catch (e) {{
+              try {{
+                ta.focus(); ta.select(); document.execCommand('copy');
+                msg.textContent = "복사됨";
+              }} catch (e2) {{ msg.textContent = "복사 실패"; }}
             }}
-          }})();
+            setTimeout(()=> msg.textContent = "", 2000);
+          }};
         </script>
         """,
-        height=0,
+        height=150,
     )
 
 # ===================== Supabase I/O =====================
@@ -341,35 +354,30 @@ def _supabase_rows(res: Any) -> List[Dict]:
 
 def _save_or_update_merged(supabase: Any, product_name: str, current_words: List[str]) -> tuple[bool, str, str]:
     """
-    why: 현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드로 '덮어쓰기' 저장.
+    현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드로 '덮어쓰기' 저장.
     returns: (ok, message, merged_line)
     """
     if supabase is None:
         return False, "supabase 클라이언트가 없습니다.", ""
     try:
-        # 과거 조회(있으면 1건만 쓰도록 설계)
-        sel = supabase.table(SUPABASE_TABLE).select("id,product_name,keywords").eq("product_name", product_name).limit(1).execute()
+        sel = (
+            supabase.table(SUPABASE_TABLE)
+            .select("id,product_name,keywords")
+            .eq("product_name", product_name)
+            .limit(1)
+            .execute()
+        )
         rows = _supabase_rows(sel)
-
         prev_words: List[str] = _split_keywords((rows[0].get("keywords", "") if rows else ""))
 
-        # 병합
         merged_words = _merge_keywords(current_words, prev_words)
         merged_line = _format_keywords_line_storage(merged_words)
 
-        # 저장시각
         kst = timezone(timedelta(hours=9))
         saved_at = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S%z")
-
-        payload = {
-            "product_name": product_name,
-            "saved_at": saved_at,
-            "keywords": merged_line,
-            "count": len(merged_words),
-        }
+        payload = {"product_name": product_name, "saved_at": saved_at, "keywords": merged_line, "count": len(merged_words)}
 
         if rows:
-            # 덮어쓰기(update)
             upd = supabase.table(SUPABASE_TABLE).update(payload).eq("product_name", product_name).execute()
             if hasattr(upd, "error") and upd.error:
                 return False, str(upd.error), ""
@@ -384,25 +392,25 @@ def _save_or_update_merged(supabase: Any, product_name: str, current_words: List
 
 # ===================== 4) 저장/병합/복사 =====================
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
-    st.markdown("### 4) 제외 키워드")
+    st.markdown("### 4) 제외 키워드 (통합 · 중복 제거)")
     all_words = _gather_exclusion_keywords(exclusions)
     if not all_words:
         return
 
-    # 저장 포맷은 ','만 사용
-    current_words = [w for w in all_words if w]
+    current_words = [w for w in all_words if w]  # 저장 포맷은 ','만
 
-    # 예시 제거: placeholder 없이
+    # placeholder 제거
     product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="")
 
-    # 버튼 문구 변경 + 수동 복사 버튼 제거
+    # 버튼: 저장 및 병합 복사
     do_merge_copy = st.button("저장 및 병합 복사", key="ex_union_merge_copy", disabled=(not product_name.strip()))
     if do_merge_copy:
         ok, msg, merged_line = _save_or_update_merged(supabase, product_name.strip(), current_words)
         if ok:
             st.success(f"[{product_name}] {msg}")
-            _copy_to_clipboard_auto(merged_line)  # why: 병합본을 즉시 복사
-            # 목록 캐시 갱신(있으면 유지, 없으면 맨 앞에 삽입)
+            # 병합 결과 표시+선택+[복사] 버튼(제스처 기반)
+            _copy_block_with_button(merged_line, key="merged_clip")
+            # 목록 캐시 갱신
             names = st.session_state.get("ex_names_all", [])
             if product_name not in names:
                 st.session_state["ex_names_all"] = [product_name] + names
@@ -414,9 +422,11 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
     if supabase is None:
         return []
     try:
-        q = (supabase.table(SUPABASE_TABLE)
-             .select("product_name,saved_at")
-             .order("saved_at", desc=True))
+        q = (
+            supabase.table(SUPABASE_TABLE)
+            .select("product_name,saved_at")
+            .order("saved_at", desc=True)
+        )
         if hasattr(q, "range"):
             res = q.range(0, max(1, int(max_rows)) - 1).execute()
         else:
@@ -431,7 +441,7 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
         names = [str(r.get("product_name", "")).strip() for r in data if isinstance(r, dict)]
         names = [n for n in names if n]
         seen, uniq = set(), []
-        for n in names:
+        for n in names:  # 최신순으로 왔으니 최초 등장만 유지
             if n not in seen:
                 seen.add(n)
                 uniq.append(n)
@@ -440,6 +450,7 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
         return []
 
 def _render_saved_exclusions_names(supabase: Any | None) -> None:
+    st.markdown("### 5) 저장된 제외 키워드 (목록)")
     if "ex_names_all" not in st.session_state:
         st.session_state["ex_names_all"] = _fetch_unique_product_names(supabase, max_rows=500)
     if "ex_names_page" not in st.session_state:
