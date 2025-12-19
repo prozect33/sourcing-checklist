@@ -15,48 +15,77 @@ import altair as alt  # kept for compatibility (unused in Plotly chart)
 import plotly.graph_objects as go
 
 # path: app/ad_analysis.py
-
 import io
+import os
 import uuid
+from typing import List, Iterable, Union
 import pandas as pd
 from datetime import datetime, timezone
 
-SUPABASE_TABLE = "ad_analysis"     # ← 당신의 테이블명
-SUPABASE_BUCKET = "ad-uploads"     # ← 실제 존재하는 Storage 버킷명으로 바꾸세요
+# ── 환경 설정 ────────────────────────────────────────────────────────────────
+SUPABASE_TABLE = os.getenv("AD_TABLE_NAME", "ad_analysis")
+SUPABASE_BUCKET = os.getenv("AD_BUCKET_NAME", "ad-uploads")  # ← 실제 버킷명으로 교체
+DIAG_LIST_ONLY = False  # True로 두면 버킷 목록만 출력하고 업로드/DB는 생략
 
+# ── 예외 ────────────────────────────────────────────────────────────────────
 class BucketNotFound(RuntimeError):
     pass
 
+# ── 유틸 ────────────────────────────────────────────────────────────────────
+def _normalize_bucket_name(b) -> Union[str, None]:
+    """서로 다른 SDK 응답 형태를 안전하게 name만 추출."""
+    if isinstance(b, dict):
+        return b.get("name") or b.get("bucket_name")
+    return getattr(b, "name", None)
+
+def _list_bucket_names(supabase) -> List[str]:
+    """현재 프로젝트의 버킷 이름 리스트(익명 키면 실패 가능)."""
+    try:
+        buckets = supabase.storage.list_buckets()  # supabase-py v2
+        return sorted([n for n in map(_normalize_bucket_name, buckets or []) if n])
+    except Exception:
+        return []  # anon 키/구버전일 수 있음 → 목록 제공 불가
+
 def _ensure_bucket_exists(supabase, bucket_name: str):
     """
-    why: 404 Bucket not found 방지. 
-    - anon 키 환경: 단순 존재 확인만 가능. 없으면 명확히 실패시킴.
-    - service role 키 환경: 없으면 생성 시도.
+    - 존재하면 storage.from_(bucket_name) 반환.
+    - 없으면: 서비스키면 생성 시도, 실패/anon키면 존재 버킷 목록 포함하여 명확히 실패.
     """
     storage = supabase.storage
-    # 1) 존재 확인 (가능한 경우에 한함)
-    try:
-        buckets = storage.list_buckets()  # supabase-py v2 기준
-        names = {b.get("name") if isinstance(b, dict) else getattr(b, "name", None) for b in buckets or []}
-        if bucket_name in names:
-            return storage.from_(bucket_name)
-    except Exception:
-        # 일부 버전에서 list_buckets 미지원일 수 있음 → 바로 from_() 사용
-        pass
+    names = _list_bucket_names(supabase)
+    if names and bucket_name in names:
+        return storage.from_(bucket_name)
 
-    # 2) 생성 시도(서비스 롤 키일 때만 성공). 실패하면 그대로 에러 유도.
+    # 생성 시도(서비스 롤 키에서만 성공)
     try:
-        # public 여부는 환경에 맞게 조정
         storage.create_bucket(bucket_name, {"public": False})
         return storage.from_(bucket_name)
     except Exception:
-        # 명확한 메시지로 중단
+        hint_suffix = ""
+        if names:
+            hint_suffix = f" 현재 프로젝트 버킷들: {', '.join(names)}"
         raise BucketNotFound(
-            f"Storage 버킷 '{bucket_name}'을(를) 찾을 수 없습니다. "
-            f"Supabase 대시보드 → Storage에서 동일한 이름의 버킷을 생성하거나, "
-            f"코드의 SUPABASE_BUCKET을 실제 버킷명으로 변경하세요."
+            f"Storage 버킷 '{bucket_name}'을(를) 찾을 수 없습니다."
+            f" 대시보드(Storage→Buckets)에서 실제 이름을 확인해 SUPABASE_BUCKET을 수정하거나,"
+            f" 서비스 키 환경에서 해당 이름으로 버킷을 생성하세요.{hint_suffix}"
         )
 
+def _df_to_csv_bytes(df) -> bytes:
+    buf = io.BytesIO()
+    (df if df is not None else pd.DataFrame()).to_csv(buf, index=False, encoding="utf-8-sig")
+    return buf.getvalue()
+
+def _upload_bytes(bucket, path: str, data: bytes, content_type: str):
+    # why: supabase-py는 헤더 값 문자열 요구
+    file_options = {"content-type": content_type, "x-upsert": "true"}
+    resp = bucket.upload(path, data, file_options)
+    if hasattr(resp, "status_code") and 200 <= resp.status_code < 300:
+        return
+    if isinstance(resp, dict) and (resp.get("Key") or resp.get("id") or resp.get("path")):
+        return
+    raise RuntimeError(f"Storage 업로드 실패: {path}")
+
+# ── 메인 저장 함수 ───────────────────────────────────────────────────────────
 def _save_to_supabase(
     supabase,
     *,
@@ -68,51 +97,44 @@ def _save_to_supabase(
     cuts,
     shares: dict,
     aov_p50_value: float,
-    kw,                 # pd.DataFrame
-    exclusions: dict,   # {"a": df, "b": df, "c": df, "d": df}
+    kw,               # pd.DataFrame
+    exclusions: dict, # {"a": df, "b": df, "c": df, "d": df}
 ) -> str:
     if supabase is None or not hasattr(supabase, "table") or not hasattr(supabase, "storage"):
         raise ValueError("유효한 Supabase 클라이언트가 없습니다.")
     if upload is None or not getattr(upload, "name", ""):
         raise ValueError("업로드 파일이 없습니다.")
 
+    # ── 진단 모드: 버킷 목록만 표시하고 중단 ───────────────────────────────
+    if DIAG_LIST_ONLY:
+        names = _list_bucket_names(supabase)
+        raise RuntimeError(
+            "진단 모드(DIAG_LIST_ONLY=True): 업로드 중단.\n"
+            + ("프로젝트 버킷 목록: " + (", ".join(names) if names else "(목록 조회 불가: anon 키/권한 부족 가능)"))
+        )
+
+    # ── 버킷 확보 ──────────────────────────────────────────────────────────
+    storage_bucket = _ensure_bucket_exists(supabase, SUPABASE_BUCKET)
+
+    # ── 식별자/경로 ────────────────────────────────────────────────────────
     run_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
     base_dir = f"ad_runs/{run_id}"
 
-    def _df_to_csv_bytes(df) -> bytes:
-        buf = io.BytesIO()
-        (df if df is not None else pd.DataFrame()).to_csv(buf, index=False, encoding="utf-8-sig")
-        return buf.getvalue()
-
-    def _upload_bytes(bucket, path: str, data: bytes, content_type: str):
-        # why: supabase-py는 헤더 값 문자열 요구. 'x-upsert': 'true'
-        file_options = {"content-type": content_type, "x-upsert": "true"}
-        resp = bucket.upload(path, data, file_options)
-        # 최소 성공 판단
-        if hasattr(resp, "status_code") and 200 <= resp.status_code < 300:
-            return
-        if isinstance(resp, dict) and (resp.get("Key") or resp.get("id") or resp.get("path")):
-            return
-        raise RuntimeError(f"Storage 업로드 실패: {path}")
-
-    # ── 여기서 버킷 존재 확인/보장 ─────────────────────────────
-    storage_bucket = _ensure_bucket_exists(supabase, SUPABASE_BUCKET)
-
-    # 1) 원본 파일
+    # ── 1) 원본 업로드 ────────────────────────────────────────────────────
     orig_name = upload.name
     orig_bytes = upload.getvalue() if hasattr(upload, "getvalue") else upload.read()
     orig_path = f"{base_dir}/original/{orig_name}"
     _upload_bytes(storage_bucket, orig_path, orig_bytes, "application/octet-stream")
 
-    # 2) 결과 CSV
+    # ── 2) 결과 CSV 업로드 ────────────────────────────────────────────────
     kw_path = f"{base_dir}/exports/kw.csv"
     _upload_bytes(storage_bucket, kw_path, _df_to_csv_bytes(kw), "text/csv")
     for label in ("a", "b", "c", "d"):
         df = exclusions.get(label, pd.DataFrame())
         _upload_bytes(storage_bucket, f"{base_dir}/exports/ex_{label}.csv", _df_to_csv_bytes(df), "text/csv")
 
-    # 3) 메타 레코드
+    # ── 3) 메타 insert ────────────────────────────────────────────────────
     meta = {
         "run_id": run_id,
         "created_at": ts,
@@ -148,7 +170,6 @@ def _save_to_supabase(
             "ex_d_csv": f"{base_dir}/exports/ex_d.csv",
         },
     }
-
     res = supabase.table(SUPABASE_TABLE).insert(meta).execute()
     if hasattr(res, "error") and res.error:
         raise RuntimeError(f"DB 저장 실패: {res.error}")
