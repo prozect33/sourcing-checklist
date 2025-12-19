@@ -101,12 +101,13 @@ def _nearest_preset_index(q: float) -> int:
 def _quantile_x(x: np.ndarray, q: float) -> float:
     return float(np.quantile(x, float(np.clip(q, 0.0, 1.0))))
 
-
 def _init_cap_indices() -> tuple[int, int]:
+    # bottom: 프리셋 기본값 유지(가까운 값)
     idx_floor = _nearest_preset_index(DEFAULT_FLOOR_Q)
-    idx_ceil = _nearest_preset_index(DEFAULT_CEIL_Q)
-    return idx_floor, idx_ceil
 
+    # top: 6/6에서 시작 → 'top 선택에 쓰는 리스트'의 마지막 인덱스
+    # TOP_PRESETS를 쓰고 있다면:
+    idx_ceil = len(TOP_PRESETS) - 1
 
 # ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
