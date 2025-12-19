@@ -334,31 +334,35 @@ def _save_exclusion_to_supabase(supabase: Any, product_name: str, keywords_line:
     except Exception as e:
         return False, f"저장 실패: {e}"
 
-def _fetch_saved_exclusions_page(supabase: Any, offset: int, limit: int) -> Tuple[bool, str, List[Dict]]:
-    """목록형: 전체에서 최신순 페이지네이션. anon 키면 RLS select 필요."""
+# === 목록형 전용: 상품명만 최신순·중복제거 후 반환 ===
+def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]:
     if supabase is None:
-        return False, "supabase 클라이언트가 없습니다.", []
+        return []
     try:
-        # PostgREST range: 0-indexed inclusive. v2 SDK는 .range 사용.
-        q = (
-            supabase.table(SUPABASE_TABLE)
-            .select("id,product_name,saved_at,keywords,count")
-            .order("saved_at", desc=True)
-        )
-        # SDK v2 호환: .range(start, end)
-        start = max(0, int(offset))
-        end = start + max(1, int(limit)) - 1
+        q = (supabase.table(SUPABASE_TABLE)
+             .select("product_name,saved_at")
+             .order("saved_at", desc=True))
         if hasattr(q, "range"):
-            res = q.range(start, end).execute()
+            res = q.range(0, max(1, int(max_rows)) - 1).execute()  # end inclusive
         else:
-            # v1 호환: limit/offset
-            res = q.limit(int(limit)).offset(int(offset)).execute()
-        if hasattr(res, "error") and res.error:
-            return False, str(res.error), []
-        rows = _supabase_rows(res)
-        return True, "ok", rows
-    except Exception as e:
-        return False, f"조회 실패: {e}", []
+            res = q.limit(int(max_rows)).execute()
+        data = getattr(res, "data", None)
+        if not isinstance(data, list):
+            js = getattr(res, "json", None)
+            if isinstance(js, dict) and isinstance(js.get("data"), list):
+                data = js["data"]
+        if not isinstance(data, list):
+            return []
+        names = [str(r.get("product_name", "")).strip() for r in data if isinstance(r, dict)]
+        names = [n for n in names if n]
+        seen, uniq = set(), []
+        for n in names:            # why: 이미 최신순 → 처음 본 이름만 유지
+            if n not in seen:
+                seen.add(n)
+                uniq.append(n)
+        return uniq
+    except Exception:
+        return []
 
 # ===================== UI: 4) 저장/복사 =====================
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
@@ -386,76 +390,49 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any |
             st.error(msg)
     _copy_to_clipboard_button(f"[복사하기] 총{len(all_words)}개", line, key="ex_union_copy")
 
-# ===================== UI: 5) 저장된 제외 키워드 (목록형) =====================
-def _render_saved_exclusions_list(supabase: Any | None) -> None:
+# ===================== UI: 5) 저장된 제외 키워드 (목록: 상품명만) =====================
+def _render_saved_exclusions_names(supabase: Any | None) -> None:
     st.markdown("### 5) 저장된 제외 키워드 (목록)")
-    # 상태 초기화
-    if "ex_list_page" not in st.session_state:
-        st.session_state["ex_list_page"] = 0
-    if "ex_list_page_size" not in st.session_state:
-        st.session_state["ex_list_page_size"] = 20
+    # 최초 1회 로드 후 캐시
+    if "ex_names_all" not in st.session_state:
+        st.session_state["ex_names_all"] = _fetch_unique_product_names(supabase, max_rows=500)
+    if "ex_names_page" not in st.session_state:
+        st.session_state["ex_names_page"] = 0
 
-    c1, c2, c3 = st.columns([1,1,6])
-    with c1:
-        page_size = st.selectbox("페이지 크기", options=[10, 20, 50], index=[10,20,50].index(st.session_state["ex_list_page_size"]), key="ex_list_size_sel")
-        st.session_state["ex_list_page_size"] = int(page_size)
-    with c2:
-        # 새로고침(페이지 유지)
-        refresh = st.button("새로고침", key="ex_list_refresh", use_container_width=True)
-    with c3:
-        st.caption("최신 저장 순으로 표시됩니다.")
+    names: List[str] = st.session_state["ex_names_all"]
+    page: int = int(st.session_state["ex_names_page"])
+    PAGE_SIZE = 20
 
-    # 페이지 오프셋 계산
-    page = int(st.session_state["ex_list_page"])
-    limit = int(st.session_state["ex_list_page_size"])
-    offset = page * limit
+    # 페이지 보정
+    max_page = 0 if not names else (len(names) - 1) // PAGE_SIZE
+    page = max(0, min(page, max_page))
+    st.session_state["ex_names_page"] = page
 
-    ok, msg, rows = _fetch_saved_exclusions_page(supabase, offset=offset, limit=limit)
-    if not ok:
-        st.error(msg)
-        return
+    # 현재 페이지 슬라이스
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    slice_names = names[start:end]
 
-    if not rows:
-        if page == 0:
-            st.info("저장된 항목이 없습니다.")
-        else:
-            st.info("더 이상 항목이 없습니다.")
-        # 이전 페이지 버튼만 노출
-        prev_dis = page <= 0
+    # 목록 출력: 상품명만
+    if not slice_names:
+        st.info("저장된 항목이 없습니다.")
+    else:
+        for name in slice_names:
+            st.markdown(f"- {name}")
+
+    # 네비게이션: 필요할 때만 노출
+    show_prev = page > 0
+    show_next = page < max_page
+    if show_prev or show_next:
         cprev, cnext = st.columns(2)
         with cprev:
-            if st.button("이전", disabled=prev_dis, key=f"ex_list_prev_empty", use_container_width=True):
-                st.session_state["ex_list_page"] = max(0, page - 1)
+            if show_prev and st.button("이전", key=f"ex_names_prev_{page}", use_container_width=True):
+                st.session_state["ex_names_page"] = page - 1
+                st.experimental_rerun()
         with cnext:
-            st.button("다음", disabled=True, key=f"ex_list_next_empty", use_container_width=True)
-        return
-
-    # 목록 렌더(행형 카드)
-    for i, row in enumerate(rows):
-        product = row.get("product_name", "") or ""
-        saved_at = row.get("saved_at", "") or ""
-        count = row.get("count", 0) or 0
-        kws = row.get("keywords", "") or ""
-        cc1, cc2 = st.columns([6,2])
-        with cc1:
-            st.markdown(f"**{product}** · {saved_at} · {count}개")
-            st.code(kws, language="text")
-        with cc2:
-            _copy_to_clipboard_button("복사", kws, key=f"ex_list_copy_{page}_{i}")
-
-    # 페이지 네비게이션
-    cprev, cnext = st.columns(2)
-    with cprev:
-        prev_dis = page <= 0
-        if st.button("이전", disabled=prev_dis, key=f"ex_list_prev_{page}", use_container_width=True):
-            st.session_state["ex_list_page"] = max(0, page - 1)
-            st.experimental_rerun()
-    with cnext:
-        # next 가능성 판단: 현재 rows 수가 limit와 같으면 다음 페이지 시도 가능
-        next_dis = len(rows) < limit
-        if st.button("다음", disabled=next_dis, key=f"ex_list_next_{page}", use_container_width=True):
-            st.session_state["ex_list_page"] = page + 1
-            st.experimental_rerun()
+            if show_next and st.button("다음", key=f"ex_names_next_{page}", use_container_width=True):
+                st.session_state["ex_names_page"] = page + 1
+                st.experimental_rerun()
 
 # ===================== 차트 =====================
 def _plot_cpc_curve_plotly_multi(kw: pd.DataFrame, selected: CpcCuts, bottoms: List[float], tops: List[float]) -> None:
@@ -626,8 +603,8 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    _render_exclusion_union(exclusions, supabase)         # 4)
-    _render_saved_exclusions_list(supabase)               # 5) 목록형
+    _render_exclusion_union(exclusions, supabase)      # 4) 저장/복사
+    _render_saved_exclusions_names(supabase)           # 5) 목록(상품명만)
 
 # if __name__ == "__main__":
 #     render_ad_analysis_tab(None)
