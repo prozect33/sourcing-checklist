@@ -431,50 +431,66 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     line = _format_keywords_line_exact(all_words)
     _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
 
-
 # ============== Plotly 차트 (개선: 다중 선 + 강조) ==============
 def _plot_cpc_curve_plotly_multi(
-    kw: pd.DataFrame,               # <-- 본문 기준 계산을 위해 kw 전체를 받음
+    kw: pd.DataFrame,
     selected: CpcCuts,
     bottoms: List[float],
     tops: List[float],
 ) -> None:
-    """그래프/툴팁을 '본문 기준'으로 표준화.
+    """본문 기준 누적 그래프(계단형).
     y(x) = (검색 & 클릭>0 & CPC<=x 매출) / (전 채널 총매출)
-    bottom: ≤cut 누적, top: ≥cut 합(= 총매출-≤cut 누적)으로 마커 표기.
+    bottom: ≤cut 누적, top: ≥cut 합.
     """
     BOTTOM_COLOR = "#1f77b4"  # 파랑
     TOP_COLOR = "#d62728"     # 빨강
 
-    # 분모: 전 채널 총매출
     total_rev_all = float(kw["revenue_14d"].sum())
-
-    # 분자 대상: 검색 & 클릭>0
     kw_search = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
     kw_click = kw_search[(kw_search["clicks"] > 0) & (kw_search["cpc"].notna())].copy()
     if kw_click.empty or total_rev_all <= 0:
         st.warning("그래프를 표시할 데이터가 부족합니다.")
         return
 
-    # x축(CPC) 정렬, ≤x 누적 매출과 본문 기준 비중
-    dfc = kw_click.sort_values("cpc")[["cpc", "revenue_14d"]].copy()
-    dfc["cum_rev_le"] = dfc["revenue_14d"].cumsum()
-    dfc["y_share_body"] = dfc["cum_rev_le"] / total_rev_all
+    # 1) CPC별 매출 집계 → 누적합 (계단형용)
+    dfc = (
+        kw_click
+        .groupby("cpc", as_index=False)["revenue_14d"]
+        .sum()
+        .sort_values("cpc")
+        .reset_index(drop=True)
+    )
 
-    x = dfc["cpc"].to_numpy(float)
-    y = dfc["y_share_body"].to_numpy(float)
+    # 앵커점: 시작(0,0) 보장
+    x_vals = dfc["cpc"].to_numpy(float)
+    y_cum = dfc["revenue_14d"].cumsum().to_numpy(float)
+    y_share_body = y_cum / total_rev_all
 
-    # 검색&클릭>0 총매출(≥cut 계산용)
+    # 전 검색&클릭>0 매출(상한)
     rev_search_click_total = float(dfc["revenue_14d"].sum())
+    max_share = rev_search_click_total / total_rev_all if total_rev_all > 0 else 0.0
 
-    # ----- Plotly -----
+    # 시작점/끝점 앵커 추가 → 그래프 안정
+    import numpy as _np
+    if len(x_vals) == 0:
+        st.warning("그래프를 표시할 데이터가 부족합니다.")
+        return
+    x0 = _np.concatenate(([x_vals[0] - 1e-6], x_vals, [x_vals[-1] + 1e-6]))
+    y0 = _np.concatenate(([0.0], y_share_body, [max_share]))
+
+    # ===== Plotly =====
     fig = go.Figure()
 
-    # 본문 기준 곡선(≤CPC 누적 비중)
+    # 본문 기준 누적(계단형)
     fig.add_trace(
         go.Scatter(
-            x=x, y=y, mode="lines", name="본문 기준 누적비중(≤CPC)",
-            hovertemplate="CPC=%{x:.0f}<br>Share(본문)=%{y:.2%}<extra></extra>"
+            x=x0,
+            y=y0,
+            mode="lines",
+            line=dict(width=2),
+            name="본문 기준 누적비중(≤CPC)",
+            line_shape="hv",  # 계단형
+            hovertemplate="CPC=%{x:.0f}<br>Share(본문)=%{y:.2%}<extra></extra>",
         )
     )
 
@@ -488,18 +504,15 @@ def _plot_cpc_curve_plotly_multi(
     fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color=BOTTOM_COLOR, line_width=3)
     fig.add_vline(x=selected.top,    line_dash="solid", opacity=1.0, line_color=TOP_COLOR,   line_width=3)
 
-    # 인덱스 근사치
-    import numpy as _np
-    idx_b = int(_np.searchsorted(x, selected.bottom, side="right") - 1)
-    idx_b = max(0, min(idx_b, len(x) - 1))
-    idx_t = int(_np.searchsorted(x, selected.top, side="right") - 1)
-    idx_t = max(0, min(idx_t, len(x) - 1))
+    # 인덱스 근사치(≤cut 위치를 계단 내에서 찾음)
+    idx_b = int(_np.searchsorted(x_vals, selected.bottom, side="right") - 1)
+    idx_b = max(0, min(idx_b, len(x_vals) - 1))
 
     # bottom 마커: ≤cut 누적(본문 기준)
-    bottom_share_body = float(dfc.iloc[idx_b]["y_share_body"])
+    bottom_share_body = float(y_share_body[idx_b])
     fig.add_trace(
         go.Scatter(
-            x=[x[idx_b]], y=[bottom_share_body],
+            x=[x_vals[idx_b]], y=[bottom_share_body],
             mode="markers",
             name="bottom selected",
             marker=dict(symbol="triangle-up", size=12, color=BOTTOM_COLOR),
@@ -510,24 +523,21 @@ def _plot_cpc_curve_plotly_multi(
         )
     )
 
-    # top 마커: ≥cut 합(본문 기준) = sum(revenue_14d where CPC >= cut) / 전사 총매출
-    rev_top_ge = float(dfc.loc[dfc["cpc"] >= selected.top, "revenue_14d"].sum())
-    top_share_body = rev_top_ge / total_rev_all
+    # top 마커: ≥cut 합(본문 기준) — 정확히 “≥”
+    rev_top_ge = float(kw_click.loc[kw_click["cpc"] >= selected.top, "revenue_14d"].sum())
+    top_share_body = (rev_top_ge / total_rev_all) if total_rev_all > 0 else 0.0
     fig.add_trace(
         go.Scatter(
-            x=[selected.top], y=[top_share_body],  # 기준값에 정확히 찍기
+            x=[selected.top], y=[top_share_body],
             mode="markers",
             name="top selected",
             marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),
-            hovertemplate=(
-                "CPC=%{x:.0f}"
-                "<br>Share(본문, ≥CPC)=%{y:.2%}"
-                "<extra></extra>"
-            ),
+            hovertemplate=("CPC=%{x:.0f}"
+                           "<br>Share(본문, ≥CPC)=%{y:.2%}"
+                           "<extra></extra>"),
             showlegend=False,
         )
     )
-
 
     fig.update_layout(
         height=380,
