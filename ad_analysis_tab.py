@@ -558,6 +558,35 @@ def _plot_cpc_curve_plotly_multi(
 
 
 # ============== Streamlit 탭 ==============
+def _aov_p50(df: pd.DataFrame) -> float:
+    """
+    AOV의 50퍼센타일(중앙값)을 KRW로 반환.
+    - 분자: revenue_14d
+    - 분모: orders_14d
+    - orders_14d > 0 인 행만 사용
+    - 안전 처리: 결측/0/무한값 제거
+    """
+    if df is None or df.empty:
+        return 0.0
+
+    rev_col = "revenue_14d"
+    ord_col = "orders_14d"
+    if rev_col not in df.columns or ord_col not in df.columns:
+        return 0.0
+
+    s_orders = pd.to_numeric(df[ord_col], errors="coerce")
+    s_rev = pd.to_numeric(df[rev_col], errors="coerce")
+
+    mask = (s_orders > 0) & s_rev.notna()
+    if not mask.any():
+        return 0.0
+
+    aov = (s_rev[mask] / s_orders[mask]).replace([np.inf, -np.inf], np.nan).dropna()
+    if aov.empty:
+        return 0.0
+
+    return float(np.median(aov))
+    
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
 
