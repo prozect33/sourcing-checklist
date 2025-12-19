@@ -151,19 +151,23 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     total_conv_rev = float(conv["revenue_14d"].sum())
     conv["cum_rev"] = conv["revenue_14d"].cumsum()
     conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1.0)).clip(0, 1)
+
     x = conv["cpc"].to_numpy(float)
     y = conv["cum_rev_share"].to_numpy(float)
     n = len(x)
     if n < 5:
         return CpcCuts(bottom=float(x[0]), top=float(x[-1])), conv
+
     x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
     idx_top = int(np.argmax(y_n - x_n))
+
     smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
         smooth_win += 1
     y_s = _moving_average(y, smooth_win)
     slope = np.gradient(y_s, x)
+
     pos = slope[slope > 0]
     if pos.size == 0 or not np.any(np.isfinite(pos)):
         idx_bottom = 0
@@ -189,6 +193,7 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
             if (e - s + 1) < min_run:
                 e = min(n - 1, s + min_run - 1)
             idx_bottom = int(s)
+
     return CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top])), conv
 
 def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List[float], List[float]]:
@@ -210,15 +215,18 @@ def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
+
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE]
     total_cost_search = float(kw_search_all["cost"].sum())
     total_rev_search = float(kw_search_all["revenue_14d"].sum())
+
     if (total_cost_all <= 0 and total_rev_all <= 0) or kw_search_all.empty:
         return {k: 0.0 for k in [
             "cost_share_bottom","rev_share_bottom","cost_share_top","rev_share_top",
             "cost_share_bottom_search","rev_share_bottom_search",
             "cost_share_top_search","rev_share_top_search"
         ]}
+
     base = kw[(kw["surface"] == SURF_SEARCH_VALUE) & (kw["clicks"] > 0)].copy()
     if base.empty:
         return {k: 0.0 for k in [
@@ -226,16 +234,21 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
             "cost_share_bottom_search","rev_share_bottom_search",
             "cost_share_top_search","rev_share_top_search"
         ]}
+
     if "cpc" not in base.columns or base["cpc"].isna().any():
         base["cpc"] = base["cost"] / base["clicks"]
+
     m_le_bottom = base["cpc"] <= float(cuts.bottom)
     m_ge_top    = base["cpc"] >= float(cuts.top)
+
     cost_le_bottom = float(base.loc[m_le_bottom, "cost"].sum())
     rev_le_bottom  = float(base.loc[m_le_bottom, "revenue_14d"].sum())
     cost_ge_top    = float(base.loc[m_ge_top,    "cost"].sum())
     rev_ge_top     = float(base.loc[m_ge_top,    "revenue_14d"].sum())
+
     def _pct(num: float, den: float) -> float:
         return round(_safe_div(num, den, 0.0) * 100, 2)
+
     return {
         "cost_share_bottom": _pct(cost_le_bottom, total_cost_all),
         "rev_share_bottom":  _pct(rev_le_bottom,  total_rev_all),
@@ -248,7 +261,10 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
     }
 
 def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
-    cols = ["keyword","surface","active_days","impressions","clicks","cost","orders_14d","revenue_14d","ctr","cpc","roas_14d"]
+    cols = [
+        "keyword","surface","active_days","impressions","clicks","cost",
+        "orders_14d","revenue_14d","ctr","cpc","roas_14d",
+    ]
     if dff.empty:
         st.markdown(f"#### {title} (0개)")
         return
@@ -266,37 +282,48 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
             seq.extend(df["keyword"].astype(str).tolist())
     return list(dict.fromkeys(seq))
 
-def _format_keywords_line_exact(words: Iterable[str]) -> str:
-    return ",\u200b".join([w for w in words])
+# ===== 키워드 병합/정규화 =====
+def _split_keywords(text: str) -> List[str]:
+    """why: 공백/제로폭 제거 후 유효 토큰만."""
+    if not text:
+        return []
+    tokens = [t.replace("\u200b", "").strip() for t in text.split(",")]
+    return [t for t in tokens if t]
+
+def _merge_keywords(current: List[str], previous: List[str]) -> List[str]:
+    """why: 현재 우선, 과거는 아직 없는 것만 뒤에 추가(순서 보존)."""
+    seen = set()
+    merged: List[str] = []
+    for w in current + previous:
+        if w and w not in seen:
+            seen.add(w)
+            merged.append(w)
+    return merged
+
+def _format_keywords_line_storage(words: Iterable[str]) -> str:
+    """why: 저장은 콤마만(공백/제로폭 없이)"""
+    return ",".join([w for w in words if w])
 
 # ===================== 클립보드/JS =====================
-def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    payload = json.dumps(text)
-    html = f"""
-    <div style="display:flex;align-items:center;gap:8px;">
-      <button id="copybtn-{key}" role="button" aria-label="{label}"
-        style="display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;font-size:14px;line-height:1.25;border:1px solid rgba(49,51,63,0.2);border-radius:8px;background:#ffffff;cursor:pointer;box-shadow: 0 1px 2px rgba(0,0,0,0.04);transition: transform .02s, box-shadow .15s, background .15s;">
-        {label}
-      </button>
-      <span id="copystat-{key}" style="font-size:13px;color:#4CAF50;"></span>
-    </div>
-    <script>
-      const txt_{key} = {payload};
-      const btn_{key} = document.getElementById("copybtn-{key}");
-      const stat_{key} = document.getElementById("copystat-{key}");
-      btn_{key}.onclick = async () => {{
-        try {{ await navigator.clipboard.writeText(txt_{key}); stat_{key}.textContent = "복사됨"; }}
-        catch (e) {{
-          const area = document.createElement('textarea');
-          area.value = txt_{key}; area.style.position = 'fixed'; area.style.top = '-1000px';
-          document.body.appendChild(area); area.focus(); area.select(); document.execCommand('copy');
-          document.body.removeChild(area); stat_{key}.textContent = "복사됨";
-        }}
-        setTimeout(()=> stat_{key}.textContent = "", 2000);
-      }};
-    </script>
-    """
-    components.html(html, height=56)
+def _copy_to_clipboard_auto(text: str) -> None:
+    # why: 자동 복사 시도(브라우저 정책상 실패 가능)
+    components.html(
+        f"""
+        <script>
+          const txt = {json.dumps(text)};
+          (async () => {{
+            try {{ await navigator.clipboard.writeText(txt); }}
+            catch (e) {{
+              const area = document.createElement('textarea');
+              area.value = txt; area.style.position='fixed'; area.style.top='-9999px';
+              document.body.appendChild(area); area.focus(); area.select(); document.execCommand('copy');
+              document.body.removeChild(area);
+            }}
+          }})();
+        </script>
+        """,
+        height=0,
+    )
 
 # ===================== Supabase I/O =====================
 def _supabase_rows(res: Any) -> List[Dict]:
@@ -306,35 +333,83 @@ def _supabase_rows(res: Any) -> List[Dict]:
     js = getattr(res, "json", None)
     if isinstance(js, dict) and isinstance(js.get("data"), list):
         return [r for r in js["data"] if isinstance(r, dict)]
-    if isinstance(res, dict):
-        if isinstance(res.get("data"), list):
-            return [r for r in res["data"] if isinstance(r, dict)]
-        if isinstance(res, list):
-            return [r for r in res if isinstance(r, dict)]
+    if isinstance(res, dict) and isinstance(res.get("data"), list):
+        return [r for r in res["data"] if isinstance(r, dict)]
     if isinstance(res, list):
         return [r for r in res if isinstance(r, dict)]
     return []
 
-def _save_exclusion_to_supabase(supabase: Any, product_name: str, keywords_line: str) -> tuple[bool, str]:
+def _save_or_update_merged(supabase: Any, product_name: str, current_words: List[str]) -> tuple[bool, str, str]:
+    """
+    why: 현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드로 '덮어쓰기' 저장.
+    returns: (ok, message, merged_line)
+    """
     if supabase is None:
-        return False, "supabase 클라이언트가 없습니다."
+        return False, "supabase 클라이언트가 없습니다.", ""
     try:
+        # 과거 조회(있으면 1건만 쓰도록 설계)
+        sel = supabase.table(SUPABASE_TABLE).select("id,product_name,keywords").eq("product_name", product_name).limit(1).execute()
+        rows = _supabase_rows(sel)
+
+        prev_words: List[str] = _split_keywords((rows[0].get("keywords", "") if rows else ""))
+
+        # 병합
+        merged_words = _merge_keywords(current_words, prev_words)
+        merged_line = _format_keywords_line_storage(merged_words)
+
+        # 저장시각
         kst = timezone(timedelta(hours=9))
         saved_at = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S%z")
-        payload = {
-            "product_name": product_name.strip(),
-            "saved_at": saved_at,
-            "keywords": keywords_line,
-            "count": len([w for w in keywords_line.split(",") if w.strip()]),
-        }
-        res = supabase.table(SUPABASE_TABLE).insert(payload).execute()
-        if hasattr(res, "error") and res.error:
-            return False, str(res.error)
-        return True, "저장 완료"
-    except Exception as e:
-        return False, f"저장 실패: {e}"
 
-# === 목록형 전용: 상품명만 최신순·중복제거 후 반환 ===
+        payload = {
+            "product_name": product_name,
+            "saved_at": saved_at,
+            "keywords": merged_line,
+            "count": len(merged_words),
+        }
+
+        if rows:
+            # 덮어쓰기(update)
+            upd = supabase.table(SUPABASE_TABLE).update(payload).eq("product_name", product_name).execute()
+            if hasattr(upd, "error") and upd.error:
+                return False, str(upd.error), ""
+        else:
+            ins = supabase.table(SUPABASE_TABLE).insert(payload).execute()
+            if hasattr(ins, "error") and ins.error:
+                return False, str(ins.error), ""
+
+        return True, "저장 및 병합 완료", merged_line
+    except Exception as e:
+        return False, f"저장/병합 실패: {e}", ""
+
+# ===================== 4) 저장/병합/복사 =====================
+def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
+    st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
+    all_words = _gather_exclusion_keywords(exclusions)
+    if not all_words:
+        return
+
+    # 저장 포맷은 ','만 사용
+    current_words = [w for w in all_words if w]
+
+    # 예시 제거: placeholder 없이
+    product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="")
+
+    # 버튼 문구 변경 + 수동 복사 버튼 제거
+    do_merge_copy = st.button("저장 및 병합 복사", key="ex_union_merge_copy", disabled=(not product_name.strip()))
+    if do_merge_copy:
+        ok, msg, merged_line = _save_or_update_merged(supabase, product_name.strip(), current_words)
+        if ok:
+            st.success(f"[{product_name}] {msg}")
+            _copy_to_clipboard_auto(merged_line)  # why: 병합본을 즉시 복사
+            # 목록 캐시 갱신(있으면 유지, 없으면 맨 앞에 삽입)
+            names = st.session_state.get("ex_names_all", [])
+            if product_name not in names:
+                st.session_state["ex_names_all"] = [product_name] + names
+        else:
+            st.error(msg)
+
+# ===================== 5) 저장된 제외 키워드 (상품명 목록만) =====================
 def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]:
     if supabase is None:
         return []
@@ -343,7 +418,7 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
              .select("product_name,saved_at")
              .order("saved_at", desc=True))
         if hasattr(q, "range"):
-            res = q.range(0, max(1, int(max_rows)) - 1).execute()  # end inclusive
+            res = q.range(0, max(1, int(max_rows)) - 1).execute()
         else:
             res = q.limit(int(max_rows)).execute()
         data = getattr(res, "data", None)
@@ -356,7 +431,7 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
         names = [str(r.get("product_name", "")).strip() for r in data if isinstance(r, dict)]
         names = [n for n in names if n]
         seen, uniq = set(), []
-        for n in names:            # why: 이미 최신순 → 처음 본 이름만 유지
+        for n in names:
             if n not in seen:
                 seen.add(n)
                 uniq.append(n)
@@ -364,36 +439,8 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
     except Exception:
         return []
 
-# ===================== UI: 4) 저장/복사 =====================
-def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
-    st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
-    all_words = _gather_exclusion_keywords(exclusions)
-    if not all_words:
-        return
-    line = _format_keywords_line_exact(all_words)
-    product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="예: ABC-123 블루 1팩")
-    do_save_copy = st.button("저장 및 복사하기", key="ex_union_save_copy", disabled=(not product_name.strip()))
-    if do_save_copy:
-        ok, msg = _save_exclusion_to_supabase(supabase, product_name, line)
-        if ok:
-            st.success(f"[{product_name}] {msg}")
-            components.html(
-                f"""
-                <script>
-                  const txt = {json.dumps(line)};
-                  (async () => {{ try {{ await navigator.clipboard.writeText(txt); }} catch (e) {{}} }})();
-                </script>
-                """,
-                height=0,
-            )
-        else:
-            st.error(msg)
-    _copy_to_clipboard_button(f"[복사하기] 총{len(all_words)}개", line, key="ex_union_copy")
-
-# ===================== UI: 5) 저장된 제외 키워드 (목록: 상품명만) =====================
 def _render_saved_exclusions_names(supabase: Any | None) -> None:
     st.markdown("### 5) 저장된 제외 키워드 (목록)")
-    # 최초 1회 로드 후 캐시
     if "ex_names_all" not in st.session_state:
         st.session_state["ex_names_all"] = _fetch_unique_product_names(supabase, max_rows=500)
     if "ex_names_page" not in st.session_state:
@@ -403,24 +450,20 @@ def _render_saved_exclusions_names(supabase: Any | None) -> None:
     page: int = int(st.session_state["ex_names_page"])
     PAGE_SIZE = 20
 
-    # 페이지 보정
     max_page = 0 if not names else (len(names) - 1) // PAGE_SIZE
     page = max(0, min(page, max_page))
     st.session_state["ex_names_page"] = page
 
-    # 현재 페이지 슬라이스
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
     slice_names = names[start:end]
 
-    # 목록 출력: 상품명만
     if not slice_names:
         st.info("저장된 항목이 없습니다.")
     else:
         for name in slice_names:
             st.markdown(f"- {name}")
 
-    # 네비게이션: 필요할 때만 노출
     show_prev = page > 0
     show_next = page < max_page
     if show_prev or show_next:
@@ -434,7 +477,7 @@ def _render_saved_exclusions_names(supabase: Any | None) -> None:
                 st.session_state["ex_names_page"] = page + 1
                 st.experimental_rerun()
 
-# ===================== 차트 =====================
+# ===================== 차트/제외/엔트리 =====================
 def _plot_cpc_curve_plotly_multi(kw: pd.DataFrame, selected: CpcCuts, bottoms: List[float], tops: List[float]) -> None:
     conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
     if conv.empty:
@@ -463,7 +506,6 @@ def _plot_cpc_curve_plotly_multi(kw: pd.DataFrame, selected: CpcCuts, bottoms: L
                       yaxis=dict(tickformat=".0%"), showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
-# ===================== 제외 로직/엔트리 =====================
 def _aov_p50(df: pd.DataFrame) -> float:
     if df is None or df.empty:
         return 0.0
@@ -488,8 +530,12 @@ def _compute_exclusions(kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, b
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
     ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
     ex_c["roas_if_1_order"] = (
-        (aov_p50_value / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
-        if aov_p50_value > 0 else 0.0
+        (aov_p50_value / ex_c["cost_after_1click"] * 100)
+        .replace([np.inf, -np.inf], 0)
+        .fillna(0)
+        .round(2)
+        if aov_p50_value > 0
+        else 0.0
     )
     ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
     ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
@@ -497,6 +543,7 @@ def _compute_exclusions(kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, b
 
 def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     st.subheader("광고분석 (총 14일 기준)")
+
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
@@ -528,12 +575,19 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
 
     def _row(name: str, sub: pd.DataFrame) -> Dict[str, float | int | str]:
         c = int(sub["cost"].sum()); r = int(sub["revenue_14d"].sum()); o = int(sub["orders_14d"].sum())
-        return {"영역": name, "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
-                "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
-                "주문": o, "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
-                "ROAS": round(_safe_div(r, c) * 100, 2)}
+        return {
+            "영역": name,
+            "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
+            "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
+            "주문": o, "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
+            "ROAS": round(_safe_div(r, c) * 100, 2),
+        }
 
-    rows = [_row("전체", df), _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]), _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE])]
+    rows = [
+        _row("전체", df),
+        _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]),
+        _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE]),
+    ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     st.markdown("### 2) CPC-누적매출 비중")
@@ -554,7 +608,9 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         st.session_state["sel_bottom_idx"] = int(np.argmin([abs(v - round(default_bottom, 2)) for v in bottom_lines]))
         st.session_state["sel_top_idx"] = int(np.argmin([abs(v - round(default_top, 2)) for v in top_lines]))
 
-    def _clamp(i: int, n: int) -> int: return 0 if n <= 0 else int(max(0, min(i, n - 1)))
+    def _clamp(i: int, n: int) -> int:
+        return 0 if n <= 0 else int(max(0, min(i, n - 1)))
+
     st.session_state["sel_bottom_idx"] = _clamp(st.session_state["sel_bottom_idx"], len(bottom_lines))
     st.session_state["sel_top_idx"] = _clamp(st.session_state["sel_top_idx"], len(top_lines))
 
@@ -565,8 +621,10 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         for _ in range(rows_btn):
             cols = st.columns(ncols)
             for c in range(ncols):
-                if idx >= len(bottom_lines): break
-                if cols[c].button(f"B{idx + 1}", key=f"btn_b_{idx}"): st.session_state["sel_bottom_idx"] = idx
+                if idx >= len(bottom_lines):
+                    break
+                if cols[c].button(f"B{idx + 1}", key=f"btn_b_{idx}"):
+                    st.session_state["sel_bottom_idx"] = idx
                 idx += 1
         b_idx = st.session_state["sel_bottom_idx"]
     with c2:
@@ -575,8 +633,10 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         for _ in range(rows_btn):
             cols = st.columns(ncols)
             for c in range(ncols):
-                if idx >= len(top_lines): break
-                if cols[c].button(f"T{idx + 1}", key=f"btn_t_{idx}"): st.session_state["sel_top_idx"] = idx
+                if idx >= len(top_lines):
+                    break
+                if cols[c].button(f"T{idx + 1}", key=f"btn_t_{idx}"):
+                    st.session_state["sel_top_idx"] = idx
                 idx += 1
         t_idx = st.session_state["sel_top_idx"]
 
@@ -585,16 +645,18 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
 
     shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
+
     st.markdown(
         f"""
 - **CPC_cut bottom:** {sel_cuts.bottom:.2f}원  
-  · 전체 매출 비중 {shares['rev_share_bottom']:.2f}% / 검색 매출 비중 {shares['rev_share_bottom_search']:.2f}%
-  · 전체 광고비 비중 {shares['cost_share_bottom']:.2f}% / 검색 광고비 비중 {shares['cost_share_bottom_search']:.2f}%
+  · 전체 매출비중 {shares['rev_share_bottom']:.2f}% / 검색 매출비중 {shares['rev_share_bottom_search']:.2f}%  
+  · 전체 광고비비중 {shares['cost_share_bottom']:.2f}% / 검색 광고비비중 {shares['cost_share_bottom_search']:.2f}%
 
 - **CPC_cut top:** {sel_cuts.top:.2f}원  
-  · 전체 매출 비중 {shares['rev_share_top']:.2f}% / 검색 매출 비중 {shares['rev_share_top_search']:.2f}%
-  · 전체 광고비 비중 {shares['cost_share_top']:.2f}% / 검색 광고비 비중 {shares['cost_share_top_search']:.2f}%
-""")
+  · 전체 매출비중 {shares['rev_share_top']:.2f}% / 검색 매출비중 {shares['rev_share_top_search']:.2f}%  
+  · 전체 광고비비중 {shares['cost_share_top']:.2f}% / 검색 광고비비중 {shares['cost_share_top_search']:.2f}%
+"""
+    )
 
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
@@ -603,8 +665,11 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    _render_exclusion_union(exclusions, supabase)      # 4) 저장/복사
-    _render_saved_exclusions_names(supabase)           # 5) 목록(상품명만)
+    # 4) 저장 및 병합 복사
+    _render_exclusion_union(exclusions, supabase)
+
+    # 5) 저장명 목록(상품명만)
+    _render_saved_exclusions_names(supabase)
 
 # if __name__ == "__main__":
 #     render_ad_analysis_tab(None)
