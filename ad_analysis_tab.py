@@ -630,7 +630,7 @@ def render_ad_analysis_tab(supabase):
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # --- 컷 & 캡 ---
-    st.markdown("### 2) CPC-누적매출 비중 & 컷 (모든 q선 미리보기 + 자동 버튼 선택)")
+    st.markdown("### 2) CPC-누적매출 비중
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
     if conv.empty:
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
