@@ -306,26 +306,33 @@ def _nearest_index(values: List[float], target: float) -> int:
 
 # ============== 지표/표시 ==============
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
-    kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
-    kw_click = kw_search_all[kw_search_all["clicks"] > 0].copy()
+    """
+    의미 복구(b안): 분모를 conv(orders_14d>0) 총매출/총비용으로 계산.
+    UI 형식은 그대로 유지(사이드 지표 카드에 %로 노출).
+    """
+    conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
+    if conv.empty:
+        return {
+            "rev_share_bottom": 0.0, "cost_share_bottom": 0.0,
+            "rev_share_top": 0.0,    "cost_share_top": 0.0,
+        }
 
-    total_cost_all = float(kw["cost"].sum())
-    total_rev_all = float(kw["revenue_14d"].sum())
+    total_cost_conv = float(conv["cost"].sum())
+    total_rev_conv = float(conv["revenue_14d"].sum())
 
     def _share(mask: pd.Series, col: str, denom: float) -> float:
-        num = float(kw_click.loc[mask, col].sum())
+        num = float(conv.loc[mask, col].sum())
         return round(_safe_div(num, denom, 0.0) * 100, 2)
 
-    mask_bottom = kw_click["cpc"] <= cuts.bottom
-    mask_top = kw_click["cpc"] >= cuts.top
+    mask_bottom = conv["cpc"] <= cuts.bottom
+    mask_top = conv["cpc"] >= cuts.top
 
     return {
-        "rev_share_bottom": _share(mask_bottom, "revenue_14d", total_rev_all),
-        "cost_share_bottom": _share(mask_bottom, "cost", total_cost_all),
-        "rev_share_top": _share(mask_top, "revenue_14d", total_rev_all),
-        "cost_share_top": _share(mask_top, "cost", total_cost_all),
+        "rev_share_bottom": _share(mask_bottom, "revenue_14d", total_rev_conv),
+        "cost_share_bottom": _share(mask_bottom, "cost",        total_cost_conv),
+        "rev_share_top":    _share(mask_top,    "revenue_14d", total_rev_conv),
+        "cost_share_top":   _share(mask_top,    "cost",        total_cost_conv),
     }
-
 
 def _aov_p50(conv: pd.DataFrame) -> float:
     orders = conv["orders_14d"]
@@ -438,116 +445,100 @@ def _plot_cpc_curve_plotly_multi(
     bottoms: List[float],
     tops: List[float],
 ) -> None:
-    """본문 기준 누적 그래프(계단형).
-    y(x) = (검색 & 클릭>0 & CPC<=x 매출) / (전 채널 총매출)
-    bottom: ≤cut 누적, top: ≥cut 합.
     """
-    BOTTOM_COLOR = "#1f77b4"  # 파랑
-    TOP_COLOR = "#d62728"     # 빨강
+    conv 기준 누적 그래프(선형).
+    y(x) = (주문>0 키워드 & CPC<=x의 누적매출) / (conv 총매출)
 
-    total_rev_all = float(kw["revenue_14d"].sum())
-    kw_search = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
-    kw_click = kw_search[(kw_search["clicks"] > 0) & (kw_search["cpc"].notna())].copy()
-    if kw_click.empty or total_rev_all <= 0:
-        st.warning("그래프를 표시할 데이터가 부족합니다.")
+    유지되는 최신 기능:
+    - 색·두께·레이아웃
+    - 선택선(굵은 vline 2개)
+    - 후보선(옅은 vline 다중 표시)
+    - 마커 스타일(삼각형/크기/색)
+    - 프리셋/버튼 네비(세션 상태 포함)
+    - 호버 템플릿/툴팁 문구
+    - 앱 구조/탭/사이드 지표 UI
+    """
+    # 색상(현행 유지)
+    BOTTOM_COLOR = "#1f77b4"
+    TOP_COLOR = "#d62728"
+
+    # 1) conv 집합(의미 복구: orders_14d>0 기반)
+    conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
+    if conv.empty:
+        st.warning("전환 발생 키워드가 없어 그래프를 표시할 수 없습니다.")
+        return
+    conv = conv.sort_values("cpc").reset_index(drop=True)
+
+    total_conv_rev = float(conv["revenue_14d"].sum())
+    if total_conv_rev <= 0:
+        st.warning("conv 총매출이 0입니다.")
         return
 
-    # 1) CPC별 매출 집계 → 누적합 (계단형용)
-    dfc = (
-        kw_click
-        .groupby("cpc", as_index=False)["revenue_14d"]
-        .sum()
-        .sort_values("cpc")
-        .reset_index(drop=True)
-    )
+    # 2) 누적 매출 비중(cum_rev_share)
+    x_vals = conv["cpc"].to_numpy(float)
+    y_share_conv = (conv["revenue_14d"].cumsum().to_numpy(float) / total_conv_rev).clip(0, 1)
 
-    # 앵커점: 시작(0,0) 보장
-    x_vals = dfc["cpc"].to_numpy(float)
-    y_cum = dfc["revenue_14d"].cumsum().to_numpy(float)
-    y_share_body = y_cum / total_rev_all
-
-    # 전 검색&클릭>0 매출(상한)
-    rev_search_click_total = float(dfc["revenue_14d"].sum())
-    max_share = rev_search_click_total / total_rev_all if total_rev_all > 0 else 0.0
-
-    # 시작점/끝점 앵커 추가 → 그래프 안정
-    import numpy as _np
-    if len(x_vals) == 0:
-        st.warning("그래프를 표시할 데이터가 부족합니다.")
-        return
-    x0 = _np.concatenate(([x_vals[0] - 1e-6], x_vals, [x_vals[-1] + 1e-6]))
-    y0 = _np.concatenate(([0.0], y_share_body, [max_share]))
-
-    # ===== Plotly =====
+    # 3) 본선(선형) — 스타일/레이아웃/호버는 현행 유지 컨셉
     fig = go.Figure()
-
-    # 본문 기준 누적(계단형)
     fig.add_trace(
         go.Scatter(
-            x=x0,
-            y=y0,
+            x=x_vals,
+            y=y_share_conv,
             mode="lines",
             line=dict(width=2),
-            name="본문 기준 누적비중(≤CPC)",
-            line_shape="linear",  # 계단형
-            hovertemplate="CPC=%{x:.0f}<br>Share(본문)=%{y:.2%}<extra></extra>",
+            name="누적비중(≤CPC)",
+            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
         )
     )
 
-    # 후보선(옅게)
-    for b in bottoms:
-        fig.add_vline(x=b, line_dash="dot", opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
-    for t in tops:
-        fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color=TOP_COLOR, line_width=1)
-
-    # 선택선(진하게)
+    # 4) 진한 선택선(굵은 vline 2개) — 유지
     fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color=BOTTOM_COLOR, line_width=3)
     fig.add_vline(x=selected.top,    line_dash="solid", opacity=1.0, line_color=TOP_COLOR,   line_width=3)
 
-    # 인덱스 근사치(≤cut 위치를 계단 내에서 찾음)
-    idx_b = int(_np.searchsorted(x_vals, selected.bottom, side="right") - 1)
-    idx_b = max(0, min(idx_b, len(x_vals) - 1))
+    # 5) 마커 스타일 — 유지(좌표는 68768 방식: 최근접 인덱스)
+    idx_b = int(np.argmin(np.abs(x_vals - selected.bottom)))
+    idx_t = int(np.argmin(np.abs(x_vals - selected.top)))
 
-    # bottom 마커: ≤cut 누적(본문 기준)
-    bottom_share_body = float(y_share_body[idx_b])
     fig.add_trace(
         go.Scatter(
-            x=[x_vals[idx_b]], y=[bottom_share_body],
+            x=[x_vals[idx_b]],
+            y=[float(y_share_conv[idx_b])],
             mode="markers",
             name="bottom selected",
             marker=dict(symbol="triangle-up", size=12, color=BOTTOM_COLOR),
-            hovertemplate=("CPC=%{x:.0f}"
-                           "<br>Share(본문, ≤CPC)=%{y:.2%}"
-                           "<extra></extra>"),
+            hovertemplate="CPC=%{x:.0f}<br>Share(≤CPC)=%{y:.2%}<extra></extra>",
             showlegend=False,
         )
     )
-
-    # top 마커: ≥cut 합(본문 기준) — 정확히 “≥”
-    rev_top_ge = float(kw_click.loc[kw_click["cpc"] >= selected.top, "revenue_14d"].sum())
-    top_share_body = (rev_top_ge / total_rev_all) if total_rev_all > 0 else 0.0
     fig.add_trace(
         go.Scatter(
-            x=[selected.top], y=[top_share_body],
+            x=[x_vals[idx_t]],
+            y=[float(y_share_conv[idx_t])],
             mode="markers",
             name="top selected",
             marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),
-            hovertemplate=("CPC=%{x:.0f}"
-                           "<br>Share(본문, ≥CPC)=%{y:.2%}"
-                           "<extra></extra>"),
+            hovertemplate="CPC=%{x:.0f}<br>Share(≥CPC 근접)=%{y:.2%}<extra></extra>",
             showlegend=False,
         )
     )
 
+    # 6) 옅은 후보선(다중 표시) — 유지
+    for b in bottoms:
+        fig.add_vline(x=b, line_dash="dot",  opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
+    for t in tops:
+        fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color=TOP_COLOR,   line_width=1)
+
+    # 7) 레이아웃 — 유지(타이틀만 의미에 맞게 수정)
     fig.update_layout(
         height=380,
         margin=dict(l=20, r=20, t=30, b=20),
         xaxis_title="CPC",
-        yaxis_title="Share(본문 기준)",
+        yaxis_title="누적매출비중(conv)",
         yaxis=dict(tickformat=".0%"),
         showlegend=False,
     )
     st.plotly_chart(fig, use_container_width=True)
+
 
 # ============== Streamlit 탭 ==============
 def render_ad_analysis_tab(supabase):
@@ -691,7 +682,7 @@ def render_ad_analysis_tab(supabase):
     shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
 
-    st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색 영역(클릭>0) 중 CPC 조건 충족 키워드 합")
+    st.caption("비중 분모: 전환발생 키워드(conv) 총매출·총비용, 분자: conv 중 CPC 조건 충족 키워드 합")
     st.markdown(
         f"""
 - **CPC_cut bottom:** {round(sel_cuts.bottom, 2)}원  
