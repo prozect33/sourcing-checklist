@@ -284,16 +284,17 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
     return list(dict.fromkeys(seq))
 
 # ===== 키워드 분리/병합 =====
-def _split_keywords(text: str) -> List[str]:
-    if not text:
+def _split_keywords(text: str) -> list[str]:
+    if text is None:
         return []
-    return [t.strip() for t in text.split(",") if t.strip()]
+    parts = text.split(",")                    # 공백 포함 그대로 보존
+    return [p for p in parts if p != ""]       # 완전 빈 토큰만 제거 (공백만 있는 토큰은 보존)
 
-def _merge_keywords(current: List[str], previous: List[str]) -> List[str]:
+def _merge_keywords(current: list[str], previous: list[str]) -> list[str]:
     seen = set()
-    merged: List[str] = []
+    merged: list[str] = []
     for w in current + previous:
-        if w and w not in seen:
+        if w not in seen:                      # 공백/대소문자 포함 원문 그대로 비교
             seen.add(w)
             merged.append(w)
     return merged
