@@ -32,11 +32,14 @@ SLOPE_Q = 0.64  # high 임계 분위
 LOWBACK_DELTA = 0.24  # low_back_q = SLOPE_Q - LOWBACK_DELTA
 MIN_RUN_FRAC = 0.04  # 스파이크 방지
 
-# ====== 수동 캡 프리셋(화살표 단계) ======
-Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]  # bottom용
-TOP_PRESETS: List[float] = list(reversed(Q_PRESETS))           # top은 역배치
-DEFAULT_FLOOR_Q = 0.05
-DEFAULT_CEIL_Q = 0.05  # (중요) _init_cap_indices가 Q_PRESETS로 인덱싱하므로 그대로 두세요
+# ====== 수동 캡 프리셋(분리: bottom / top 각각) ======
+# 원하는 분포로 각각 독립적으로 설정하세요. (0~1, 오름차순 권장)
+BOTTOM_Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
+TOP_Q_PRESETS:    List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
+
+# 초기 기본값(가급적 그대로 두세요)
+DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0.05]   # 하위 q 기본
+DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0.05]      # 상위 1-q에서의 q 기본(=0.05→95% 분위)
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
@@ -95,18 +98,19 @@ def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
 
 
 def _nearest_preset_index(q: float) -> int:
-    return int(np.argmin([abs(p - q) for p in Q_PRESETS]))
+    # bottom 초기 인덱스는 bottom용 프리셋에서 가장 가까운 값으로
+    return int(np.argmin([abs(p - q) for p in BOTTOM_Q_PRESETS]))
 
 
 def _quantile_x(x: np.ndarray, q: float) -> float:
     return float(np.quantile(x, float(np.clip(q, 0.0, 1.0))))
 
 def _init_cap_indices() -> tuple[int, int]:
-    # bottom: 프리셋 기본값 유지(가까운 값)
+    # bottom: BOTTOM_Q_PRESETS에서 DEFAULT_FLOOR_Q와 가장 가까운 인덱스
     idx_floor = _nearest_preset_index(DEFAULT_FLOOR_Q)
-    # top: TOP_PRESETS의 마지막 값에서 시작(6/6)
-    idx_ceil = len(TOP_PRESETS) - 1
-    return idx_floor, idx_ceil  # (버그픽스) 의도된 반환
+    # top: TOP_Q_PRESETS의 마지막 값에서 시작(가장 타이트한 쪽)
+    idx_ceil = len(TOP_Q_PRESETS) - 1
+    return idx_floor, idx_ceil
 
 # ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
@@ -276,12 +280,12 @@ def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List
     x = conv["cpc"].to_numpy(float)
 
     bottom_vals = []
-    for q in Q_PRESETS:
+    for q in BOTTOM_Q_PRESETS:
         floor_x = _quantile_x(x, q)
         bottom_vals.append(max(float(auto_cuts.bottom), float(floor_x)))
 
     top_vals = []
-    for q in TOP_PRESETS:
+    for q in TOP_Q_PRESETS:
         ceil_x = _quantile_x(x, 1.0 - q)
         top_vals.append(min(float(auto_cuts.top), float(ceil_x)))
 
