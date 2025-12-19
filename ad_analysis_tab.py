@@ -434,62 +434,94 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
 
 # ============== Plotly 차트 (개선: 다중 선 + 강조) ==============
 def _plot_cpc_curve_plotly_multi(
-    conv: pd.DataFrame,
+    kw: pd.DataFrame,               # <-- 본문 기준 계산을 위해 kw 전체를 받음
     selected: CpcCuts,
     bottoms: List[float],
     tops: List[float],
 ) -> None:
-    # 색상 지정(Plotly 기본 팔레트 계열)
+    """그래프/툴팁을 '본문 기준'으로 표준화.
+    y(x) = (검색 & 클릭>0 & CPC<=x 매출) / (전 채널 총매출)
+    bottom: ≤cut 누적, top: ≥cut 합(= 총매출-≤cut 누적)으로 마커 표기.
+    """
     BOTTOM_COLOR = "#1f77b4"  # 파랑
     TOP_COLOR = "#d62728"     # 빨강
 
-    x = conv["cpc"].to_numpy(float)
-    y = conv["cum_rev_share"].to_numpy(float)
+    # 분모: 전 채널 총매출
+    total_rev_all = float(kw["revenue_14d"].sum())
 
+    # 분자 대상: 검색 & 클릭>0
+    kw_search = kw[kw["surface"] == SURF_SEARCH_VALUE].copy()
+    kw_click = kw_search[(kw_search["clicks"] > 0) & (kw_search["cpc"].notna())].copy()
+    if kw_click.empty or total_rev_all <= 0:
+        st.warning("그래프를 표시할 데이터가 부족합니다.")
+        return
+
+    # x축(CPC) 정렬, ≤x 누적 매출과 본문 기준 비중
+    dfc = kw_click.sort_values("cpc")[["cpc", "revenue_14d"]].copy()
+    dfc["cum_rev_le"] = dfc["revenue_14d"].cumsum()
+    dfc["y_share_body"] = dfc["cum_rev_le"] / total_rev_all
+
+    x = dfc["cpc"].to_numpy(float)
+    y = dfc["y_share_body"].to_numpy(float)
+
+    # 검색&클릭>0 총매출(≥cut 계산용)
+    rev_search_click_total = float(dfc["revenue_14d"].sum())
+
+    # ----- Plotly -----
     fig = go.Figure()
-    # 원본 곡선
+
+    # 본문 기준 곡선(≤CPC 누적 비중)
     fig.add_trace(
         go.Scatter(
-            x=x, y=y, mode="lines", name="cum_rev_share",
-            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"
+            x=x, y=y, mode="lines", name="본문 기준 누적비중(≤CPC)",
+            hovertemplate="CPC=%{x:.0f}<br>Share(본문)=%{y:.2%}<extra></extra>"
         )
     )
 
-    # ---- 후보선(옅게) ----
-    # bottom 후보 = 파랑 점선
+    # 후보선(옅게)
     for b in bottoms:
         fig.add_vline(x=b, line_dash="dot", opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
-
-    # top 후보 = 빨강 파선
     for t in tops:
         fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color=TOP_COLOR, line_width=1)
 
-    # ---- 선택선(진하게) ----
-    # bottom 선택 = 파랑 실선(강조)
+    # 선택선(진하게)
     fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color=BOTTOM_COLOR, line_width=3)
-    # top 선택 = 빨강 실선(강조)
-    fig.add_vline(x=selected.top, line_dash="solid", opacity=1.0, line_color=TOP_COLOR, line_width=3)
+    fig.add_vline(x=selected.top,    line_dash="solid", opacity=1.0, line_color=TOP_COLOR,   line_width=3)
 
-    # 선택 포인트 마커(색 매칭)
-    idx_b = int(np.argmin(np.abs(x - selected.bottom)))
-    idx_t = int(np.argmin(np.abs(x - selected.top)))
+    # 인덱스 근사치
+    import numpy as _np
+    idx_b = int(_np.searchsorted(x, selected.bottom, side="right") - 1)
+    idx_b = max(0, min(idx_b, len(x) - 1))
+    idx_t = int(_np.searchsorted(x, selected.top, side="right") - 1)
+    idx_t = max(0, min(idx_t, len(x) - 1))
+
+    # bottom 마커: ≤cut 누적(본문 기준)
+    bottom_share_body = float(dfc.iloc[idx_b]["y_share_body"])
     fig.add_trace(
         go.Scatter(
-            x=[x[idx_b]], y=[y[idx_b]],
+            x=[x[idx_b]], y=[bottom_share_body],
             mode="markers",
             name="bottom selected",
-            marker=dict(symbol="triangle-up", size=12, color=BOTTOM_COLOR),  # 파랑
-            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
+            marker=dict(symbol="triangle-up", size=12, color=BOTTOM_COLOR),
+            hovertemplate=("CPC=%{x:.0f}"
+                           "<br>Share(본문, ≤CPC)=%{y:.2%}"
+                           "<extra></extra>"),
             showlegend=False,
         )
     )
+
+    # top 마커: ≥cut 합(본문 기준) = (검색&클릭>0 총매출 − ≤cut 누적) / 전사 총매출
+    cum_le_at_top = float(dfc.iloc[idx_t]["cum_rev_le"])
+    top_share_body = (rev_search_click_total - cum_le_at_top) / total_rev_all
     fig.add_trace(
         go.Scatter(
-            x=[x[idx_t]], y=[y[idx_t]],
+            x=[x[idx_t]], y=[top_share_body],
             mode="markers",
             name="top selected",
-            marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),     # 빨강
-            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
+            marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),
+            hovertemplate=("CPC=%{x:.0f}"
+                           "<br>Share(본문, ≥CPC)=%{y:.2%}"
+                           "<extra></extra>"),
             showlegend=False,
         )
     )
@@ -498,7 +530,7 @@ def _plot_cpc_curve_plotly_multi(
         height=380,
         margin=dict(l=20, r=20, t=30, b=20),
         xaxis_title="CPC",
-        yaxis_title="누적매출비중",
+        yaxis_title="Share(본문 기준)",
         yaxis=dict(tickformat=".0%"),
         showlegend=False,
     )
@@ -641,7 +673,7 @@ def render_ad_analysis_tab(supabase):
     )
 
     # --- 차트 & 지표 ---
-    _plot_cpc_curve_plotly_multi(conv, sel_cuts, bottom_lines, top_lines)
+    _plot_cpc_curve_plotly_multi(kw, sel_cuts, bottom_lines, top_lines)
 
     shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
