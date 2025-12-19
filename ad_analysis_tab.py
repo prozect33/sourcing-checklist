@@ -705,7 +705,6 @@ def render_ad_analysis_tab(supabase):
     shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
 
-    st.caption("비중 분모: 전체 광고비·전체 매출 / 분자: [검색 영역 & 클릭>0]에서 CPC 구간 합계(≤bottom, ≥top)")
     st.markdown(
         f"""
 - **CPC_cut bottom:** {round(sel_cuts.bottom, 2)}원  
