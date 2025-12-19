@@ -283,12 +283,11 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
             seq.extend(df["keyword"].astype(str).tolist())
     return list(dict.fromkeys(seq))
 
-# ===== 키워드 병합/정규화 =====
+# ===== 키워드 분리/병합 =====
 def _split_keywords(text: str) -> List[str]:
     if not text:
         return []
-    tokens = [t.replace("\u200b", "").strip() for t in text.split(",")]
-    return [t for t in tokens if t]
+    return [t.strip() for t in text.split(",") if t.strip()]
 
 def _merge_keywords(current: List[str], previous: List[str]) -> List[str]:
     seen = set()
@@ -305,7 +304,7 @@ def _format_keywords_line_storage(words: Iterable[str]) -> str:
 # ===================== 복사 UI(내용 숨김, 제스처 기반) =====================
 def _copy_button_hidden(text: str, key: str) -> None:
     """내용은 숨기고 버튼만 노출, 클릭 제스처로 복사."""
-    safe = html.escape(text)  # XSS 최소화
+    safe = html.escape(text)
     components.html(
         f"""
         <div style="margin:6px 0;">
@@ -357,13 +356,13 @@ def _supabase_rows(res: Any) -> List[Dict]:
         return [r for r in res if isinstance(r, dict)]
     return []
 
-def _save_or_update_merged(supabase: Any, product_name: str, current_words: List[str]) -> tuple[bool, str, str]:
+def _save_or_update_merged(supabase: Any, product_name: str, current_words: List[str]) -> tuple[bool, str, str, int]:
     """
-    현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드로 '덮어쓰기' 저장.
-    returns: (ok, message, merged_line)
+    현재 키워드와 과거 동명 키워드를 병합·중복제거 후 단일 레코드로 저장/덮어쓰기.
+    returns: (ok, message, merged_line, merged_count)
     """
     if supabase is None:
-        return False, "supabase 클라이언트가 없습니다.", ""
+        return False, "supabase 클라이언트가 없습니다.", "", 0
     try:
         sel = (
             supabase.table(SUPABASE_TABLE)
@@ -377,23 +376,24 @@ def _save_or_update_merged(supabase: Any, product_name: str, current_words: List
 
         merged_words = _merge_keywords(current_words, prev_words)
         merged_line = _format_keywords_line_storage(merged_words)
+        merged_count = len(merged_words)
 
         kst = timezone(timedelta(hours=9))
         saved_at = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S%z")
-        payload = {"product_name": product_name, "saved_at": saved_at, "keywords": merged_line, "count": len(merged_words)}
+        payload = {"product_name": product_name, "saved_at": saved_at, "keywords": merged_line, "count": merged_count}
 
         if rows:
             upd = supabase.table(SUPABASE_TABLE).update(payload).eq("product_name", product_name).execute()
             if hasattr(upd, "error") and upd.error:
-                return False, str(upd.error), ""
+                return False, str(upd.error), "", 0
         else:
             ins = supabase.table(SUPABASE_TABLE).insert(payload).execute()
             if hasattr(ins, "error") and ins.error:
-                return False, str(ins.error), ""
+                return False, str(ins.error), "", 0
 
-        return True, "저장 및 병합 완료", merged_line
+        return True, "저장 및 병합 완료", merged_line, merged_count
     except Exception as e:
-        return False, f"저장/병합 실패: {e}", ""
+        return False, f"저장/병합 실패: {e}", "", 0
 
 # ===================== 4) 저장/병합/복사 =====================
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
@@ -401,40 +401,38 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any |
     if not all_words:
         return
 
-    current_words = [w for w in all_words if w]  # 저장 포맷은 ','만
-
-    # placeholder 제거
+    current_words = [w for w in all_words if w]
     product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="")
 
-    # 버튼: 저장 및 병합 복사
     do_merge_copy = st.button("저장 및 병합 복사", key="ex_union_merge_copy", disabled=(not product_name.strip()))
     if do_merge_copy:
-        ok, msg, merged_line = _save_or_update_merged(supabase, product_name.strip(), current_words)
+        ok, msg, merged_line, merged_count = _save_or_update_merged(supabase, product_name.strip(), current_words)
         if ok:
-            st.success(f"[{product_name}] {msg}")
-            # ▶ 내용 미표시: 버튼만 보여 복사
+            st.success(f"[{product_name}] {msg}({merged_count})")
             _copy_button_hidden(merged_line, key="merged_clip_hidden")
-            # 목록 캐시 갱신
-            names = st.session_state.get("ex_names_all", [])
-            if product_name not in names:
-                st.session_state["ex_names_all"] = [product_name] + names
+            # 이름+개수 캐시 갱신
+            pairs = st.session_state.get("ex_name_pairs", [])
+            names = [n for n, _ in pairs]
+            if product_name in names:
+                idx = names.index(product_name)
+                pairs[idx] = (product_name, merged_count)
+            else:
+                pairs = [(product_name, merged_count)] + pairs
+            st.session_state["ex_name_pairs"] = pairs
         else:
             st.error(msg)
 
-# ===================== 5) 저장된 제외 키워드 (상품명 목록만) =====================
-def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]:
+# ===================== 5) 저장된 제외 키워드 (상품명(개수) 목록) =====================
+def _fetch_latest_name_counts(supabase: Any, max_rows: int = 500) -> list[tuple[str, int]]:
     if supabase is None:
         return []
     try:
         q = (
             supabase.table(SUPABASE_TABLE)
-            .select("product_name,saved_at")
+            .select("product_name,keywords,saved_at")
             .order("saved_at", desc=True)
         )
-        if hasattr(q, "range"):
-            res = q.range(0, max(1, int(max_rows)) - 1).execute()
-        else:
-            res = q.limit(int(max_rows)).execute()
+        res = q.range(0, max(1, int(max_rows)) - 1).execute() if hasattr(q, "range") else q.limit(int(max_rows)).execute()
         data = getattr(res, "data", None)
         if not isinstance(data, list):
             js = getattr(res, "json", None)
@@ -442,43 +440,44 @@ def _fetch_unique_product_names(supabase: Any, max_rows: int = 500) -> List[str]
                 data = js["data"]
         if not isinstance(data, list):
             return []
-        names = [str(r.get("product_name", "")).strip() for r in data if isinstance(r, dict)]
-        names = [n for n in names if n]
-        seen, uniq = set(), []
-        for n in names:  # 최신순으로 왔으니 최초 등장만 유지
-            if n not in seen:
-                seen.add(n)
-                uniq.append(n)
-        return uniq
+        seen, pairs = set(), []
+        for r in data:
+            if not isinstance(r, dict):
+                continue
+            name = str(r.get("product_name", "")).strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            cnt = len(_split_keywords(str(r.get("keywords", "") or "")))
+            pairs.append((name, cnt))
+        return pairs
     except Exception:
         return []
 
 def _render_saved_exclusions_names(supabase: Any | None) -> None:
-    if "ex_names_all" not in st.session_state:
-        st.session_state["ex_names_all"] = _fetch_unique_product_names(supabase, max_rows=500)
+    st.markdown("### 5) 저장된 제외 키워드 (목록)")
+    if "ex_name_pairs" not in st.session_state:
+        st.session_state["ex_name_pairs"] = _fetch_latest_name_counts(supabase, max_rows=500)
     if "ex_names_page" not in st.session_state:
         st.session_state["ex_names_page"] = 0
 
-    names: List[str] = st.session_state["ex_names_all"]
-    page: int = int(st.session_state["ex_names_page"])
+    pairs: list[tuple[str, int]] = st.session_state["ex_name_pairs"]
     PAGE_SIZE = 20
 
-    max_page = 0 if not names else (len(names) - 1) // PAGE_SIZE
-    page = max(0, min(page, max_page))
+    max_page = 0 if not pairs else (len(pairs) - 1) // PAGE_SIZE
+    page = max(0, min(int(st.session_state["ex_names_page"]), max_page))
     st.session_state["ex_names_page"] = page
 
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
-    slice_names = names[start:end]
+    start, end = page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE
+    slice_pairs = pairs[start:end]
 
-    if not slice_names:
+    if not slice_pairs:
         st.info("저장된 항목이 없습니다.")
     else:
-        for name in slice_names:
-            st.markdown(f"- {name}")
+        for name, cnt in slice_pairs:
+            st.markdown(f"- {name}({cnt})")
 
-    show_prev = page > 0
-    show_next = page < max_page
+    show_prev, show_next = page > 0, page < max_page
     if show_prev or show_next:
         cprev, cnext = st.columns(2)
         with cprev:
@@ -681,7 +680,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     # 4) 저장 및 병합 복사
     _render_exclusion_union(exclusions, supabase)
 
-    # 5) 저장명 목록(상품명만)
+    # 5) 저장명 목록(상품명(개수))
     _render_saved_exclusions_names(supabase)
 
 # if __name__ == "__main__":
