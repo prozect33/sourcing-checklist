@@ -14,168 +14,70 @@ import streamlit.components.v1 as components
 import altair as alt  # kept for compatibility (unused in Plotly chart)
 import plotly.graph_objects as go
 
-# path: app/ad_analysis.py
-import io
+# path: scripts/smoke_supabase.py
+"""
+Supabase 연결/버킷/DB 스모크 테스트:
+- 환경변수:
+  SUPABASE_URL, SUPABASE_SERVICE_KEY(서버 키), AD_BUCKET_NAME(실제 버킷명)
+- 실행: python scripts/smoke_supabase.py
+"""
 import os
+import sys
 import uuid
-from typing import List, Iterable, Union
-import pandas as pd
-from datetime import datetime, timezone
+import json
+from datetime import datetime, timezone, timedelta
 
-# ── 환경 설정 ────────────────────────────────────────────────────────────────
-SUPABASE_TABLE = os.getenv("AD_TABLE_NAME", "ad_analysis")
-SUPABASE_BUCKET = os.getenv("AD_BUCKET_NAME", "ad-uploads")  # ← 실제 버킷명으로 교체
-DIAG_LIST_ONLY = False  # True로 두면 버킷 목록만 출력하고 업로드/DB는 생략
+try:
+    from supabase import create_client, Client
+except Exception:
+    print("ERROR: pip install supabase")
+    sys.exit(1)
 
-# ── 예외 ────────────────────────────────────────────────────────────────────
-class BucketNotFound(RuntimeError):
-    pass
+REQUIRED_ENVS = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY", "AD_BUCKET_NAME"]
 
-# ── 유틸 ────────────────────────────────────────────────────────────────────
-def _normalize_bucket_name(b) -> Union[str, None]:
-    """서로 다른 SDK 응답 형태를 안전하게 name만 추출."""
-    if isinstance(b, dict):
-        return b.get("name") or b.get("bucket_name")
-    return getattr(b, "name", None)
+def getenv_or_exit(name: str) -> str:
+    v = os.getenv(name)
+    if not v:
+        raise SystemExit(f"Missing env: {name}")
+    return v
 
-def _list_bucket_names(supabase) -> List[str]:
-    """현재 프로젝트의 버킷 이름 리스트(익명 키면 실패 가능)."""
-    try:
-        buckets = supabase.storage.list_buckets()  # supabase-py v2
-        return sorted([n for n in map(_normalize_bucket_name, buckets or []) if n])
-    except Exception:
-        return []  # anon 키/구버전일 수 있음 → 목록 제공 불가
+def main() -> None:
+    # 1) env 로드
+    url = getenv_or_exit("SUPABASE_URL")
+    key = getenv_or_exit("SUPABASE_SERVICE_KEY")  # why: 서명 URL/버킷 검증/insert에 권장
+    bucket_name = getenv_or_exit("AD_BUCKET_NAME")
 
-def _ensure_bucket_exists(supabase, bucket_name: str):
-    """
-    - 존재하면 storage.from_(bucket_name) 반환.
-    - 없으면: 서비스키면 생성 시도, 실패/anon키면 존재 버킷 목록 포함하여 명확히 실패.
-    """
+    # 2) 클라이언트
+    supabase: Client = create_client(url, key)
+
+    # 3) Storage: 버킷 확인 + 업로드 + 서명 URL
+    print(f"[storage] bucket = {bucket_name}")
     storage = supabase.storage
-    names = _list_bucket_names(supabase)
-    if names and bucket_name in names:
-        return storage.from_(bucket_name)
 
-    # 생성 시도(서비스 롤 키에서만 성공)
-    try:
-        storage.create_bucket(bucket_name, {"public": False})
-        return storage.from_(bucket_name)
-    except Exception:
-        hint_suffix = ""
-        if names:
-            hint_suffix = f" 현재 프로젝트 버킷들: {', '.join(names)}"
-        raise BucketNotFound(
-            f"Storage 버킷 '{bucket_name}'을(를) 찾을 수 없습니다."
-            f" 대시보드(Storage→Buckets)에서 실제 이름을 확인해 SUPABASE_BUCKET을 수정하거나,"
-            f" 서비스 키 환경에서 해당 이름으로 버킷을 생성하세요.{hint_suffix}"
-        )
+    # 존재 유무 확인(목록 조회가 막혀있을 수 있어 from_ 바로 사용)
+    bucket = storage.from_(bucket_name)
 
-def _df_to_csv_bytes(df) -> bytes:
-    buf = io.BytesIO()
-    (df if df is not None else pd.DataFrame()).to_csv(buf, index=False, encoding="utf-8-sig")
-    return buf.getvalue()
+    test_key = f"smoke/{uuid.uuid4()}/hello.txt"
+    data = b"hello, supabase\n"
+    # 헤더 값은 문자열이어야 함
+    resp = bucket.upload(test_key, data, {"content-type": "text/plain", "x-upsert": "true"})
+    # 최소 성공 판정
+    if isinstance(resp, dict) and not (resp.get("Key") or resp.get("id") or resp.get("path")):
+        raise RuntimeError(f"storage upload failed: {resp}")
+    print(f"[storage] uploaded: {test_key}")
 
-def _upload_bytes(bucket, path: str, data: bytes, content_type: str):
-    # why: supabase-py는 헤더 값 문자열 요구
-    file_options = {"content-type": content_type, "x-upsert": "true"}
-    resp = bucket.upload(path, data, file_options)
-    if hasattr(resp, "status_code") and 200 <= resp.status_code < 300:
-        return
-    if isinstance(resp, dict) and (resp.get("Key") or resp.get("id") or resp.get("path")):
-        return
-    raise RuntimeError(f"Storage 업로드 실패: {path}")
+    # 서명 URL(60분)
+    signed = bucket.create_signed_url(test_key, int(timedelta(hours=1).total_seconds()))
+    if not isinstance(signed, dict) or "signedURL" not in signed:
+        raise RuntimeError(f"signed url failed: {signed}")
+    print(f"[storage] signed url ok")
 
-# ── 메인 저장 함수 ───────────────────────────────────────────────────────────
-def _save_to_supabase(
-    supabase,
-    *,
-    upload,
-    product_name: str,
-    note: str,
-    totals: dict,
-    breakeven_roas: float,
-    cuts,
-    shares: dict,
-    aov_p50_value: float,
-    kw,               # pd.DataFrame
-    exclusions: dict, # {"a": df, "b": df, "c": df, "d": df}
-) -> str:
-    if supabase is None or not hasattr(supabase, "table") or not hasattr(supabase, "storage"):
-        raise ValueError("유효한 Supabase 클라이언트가 없습니다.")
-    if upload is None or not getattr(upload, "name", ""):
-        raise ValueError("업로드 파일이 없습니다.")
-
-    # ── 진단 모드: 버킷 목록만 표시하고 중단 ───────────────────────────────
-    if DIAG_LIST_ONLY:
-        names = _list_bucket_names(supabase)
-        raise RuntimeError(
-            "진단 모드(DIAG_LIST_ONLY=True): 업로드 중단.\n"
-            + ("프로젝트 버킷 목록: " + (", ".join(names) if names else "(목록 조회 불가: anon 키/권한 부족 가능)"))
-        )
-
-    # ── 버킷 확보 ──────────────────────────────────────────────────────────
-    storage_bucket = _ensure_bucket_exists(supabase, SUPABASE_BUCKET)
-
-    # ── 식별자/경로 ────────────────────────────────────────────────────────
+    # 4) DB: ad_analysis insert + select
     run_id = str(uuid.uuid4())
-    ts = datetime.now(timezone.utc).isoformat()
-    base_dir = f"ad_runs/{run_id}"
-
-    # ── 1) 원본 업로드 ────────────────────────────────────────────────────
-    orig_name = upload.name
-    orig_bytes = upload.getvalue() if hasattr(upload, "getvalue") else upload.read()
-    orig_path = f"{base_dir}/original/{orig_name}"
-    _upload_bytes(storage_bucket, orig_path, orig_bytes, "application/octet-stream")
-
-    # ── 2) 결과 CSV 업로드 ────────────────────────────────────────────────
-    kw_path = f"{base_dir}/exports/kw.csv"
-    _upload_bytes(storage_bucket, kw_path, _df_to_csv_bytes(kw), "text/csv")
-    for label in ("a", "b", "c", "d"):
-        df = exclusions.get(label, pd.DataFrame())
-        _upload_bytes(storage_bucket, f"{base_dir}/exports/ex_{label}.csv", _df_to_csv_bytes(df), "text/csv")
-
-    # ── 3) 메타 insert ────────────────────────────────────────────────────
+    now = datetime.now(timezone.utc).isoformat()
     meta = {
-        "run_id": run_id,
-        "created_at": ts,
-        "product_name": product_name.strip(),
-        "note": note.strip(),
-        "upload_filename": orig_name,
-        "upload_path": orig_path,
-        "totals": {
-            "total_cost": int(totals.get("total_cost", 0)),
-            "total_rev": int(totals.get("total_rev", 0)),
-            "total_orders": int(totals.get("total_orders", 0)),
-            "date_min": str(totals.get("date_min", "")),
-            "date_max": str(totals.get("date_max", "")),
-        },
-        "breakeven_roas": float(breakeven_roas),
-        "cuts": {"bottom": float(getattr(cuts, "bottom", 0.0)), "top": float(getattr(cuts, "top", 0.0))},
-        "shares": {
-            "cost_share_bottom": float(shares.get("cost_share_bottom", 0.0)),
-            "rev_share_bottom": float(shares.get("rev_share_bottom", 0.0)),
-            "cost_share_top": float(shares.get("cost_share_top", 0.0)),
-            "rev_share_top": float(shares.get("rev_share_top", 0.0)),
-            "cost_share_bottom_search": float(shares.get("cost_share_bottom_search", 0.0)),
-            "rev_share_bottom_search": float(shares.get("rev_share_bottom_search", 0.0)),
-            "cost_share_top_search": float(shares.get("cost_share_top_search", 0.0)),
-            "rev_share_top_search": float(shares.get("rev_share_top_search", 0.0)),
-        },
-        "aov_p50": float(aov_p50_value),
-        "exports": {
-            "kw_csv": kw_path,
-            "ex_a_csv": f"{base_dir}/exports/ex_a.csv",
-            "ex_b_csv": f"{base_dir}/exports/ex_b.csv",
-            "ex_c_csv": f"{base_dir}/exports/ex_c.csv",
-            "ex_d_csv": f"{base_dir}/exports/ex_d.csv",
-        },
-    }
-    res = supabase.table(SUPABASE_TABLE).insert(meta).execute()
-    if hasattr(res, "error") and res.error:
-        raise RuntimeError(f"DB 저장 실패: {res.error}")
-    if hasattr(res, "data") and res.data is None:
-        raise RuntimeError("DB 저장 실패: 빈 응답")
-    return run_id
+        "run_id": run_i
+
 
 # ====== 표준 컬럼명 ======
 DATE_COL = "날짜"
