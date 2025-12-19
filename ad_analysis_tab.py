@@ -35,7 +35,7 @@ MIN_RUN_FRAC = 0.04  # 스파이크 방지
 # ====== 수동 캡 프리셋(분리: bottom / top 각각) ======
 # 원하는 분포로 각각 독립적으로 설정하세요. (0~1, 오름차순 권장)
 BOTTOM_Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
-TOP_Q_PRESETS:    List[float] = [0, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
+TOP_Q_PRESETS:    List[float] = [0.01, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
 
 # 초기 기본값(가급적 그대로 두세요)
 DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0]   # 하위 q 기본
