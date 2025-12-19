@@ -4,12 +4,16 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Tuple
+from datetime import datetime, timezone, timedelta  # 저장일자 KST
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
+
+# ====== 설정 ======
+SUPABASE_TABLE = "exclusion_keywords"  # why: 저장 테이블명(환경에 맞게 교체 가능)
 
 # ====== 표준 컬럼명 ======
 DATE_COL = "날짜"
@@ -24,26 +28,22 @@ REV_COL = "총 전환매출액(14일)"
 REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
 
 # ====== 자동 컷 계산 파라미터 ======
-SMOOTH_DIVISOR = 70   # 왜: 과도한 노이즈 억제(데이터 길이에 비례)
-SLOPE_Q = 0.64        # 왜: ‘가파른 구간’ 임계값(경험적)
-LOWBACK_DELTA = 0.24  # 왜: 완화된 임계로 영역 확장
-MIN_RUN_FRAC = 0.04   # 왜: 짧은 스파이크 방지
+SMOOTH_DIVISOR = 70
+SLOPE_Q = 0.64
+LOWBACK_DELTA = 0.24
+MIN_RUN_FRAC = 0.04
 
 # ====== 수동 캡 프리셋 ======
 BOTTOM_Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
 TOP_Q_PRESETS:    List[float] = [0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
-
-# 초기 기본값
 DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0]
 DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0]
-
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
 def _to_date(s: pd.Series) -> pd.Series:
-    """여러 날짜 포맷(문자, 8/6자리, 엑셀 시리얼)을 수용."""
     txt = s.astype(str).str.strip()
     dt_general = pd.to_datetime(txt, errors="coerce")
     digits = txt.str.replace(r"[^0-9]", "", regex=True)
@@ -68,7 +68,6 @@ def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
     return np.convolve(ypad, kernel, mode="valid")
 
 def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
-    """기울기 임계 통과 구간 중 x-거리 기준 최장 구간 반환."""
     best_span, best_s, cur_s = 0.0, -1, -1
     for i, v in enumerate(mask):
         if v and cur_s == -1:
@@ -115,7 +114,6 @@ def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["revenue_14d"] = _to_int(df[REV_COL])
     return df
 
-
 # ============== 집계/지표 ==============
 def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     if df.empty:
@@ -143,7 +141,6 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     return kw, totals
 
-
 # ============== 컷 계산(자동) + 후보 라인 ==============
 @dataclass(frozen=True)
 class CpcCuts:
@@ -151,7 +148,6 @@ class CpcCuts:
     top: float
 
 def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
-    """누적 매출 기여 곡선 기반 자동 컷 산출."""
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
         return CpcCuts(0.0, 0.0), conv
@@ -168,7 +164,7 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
 
     x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-    idx_top = int(np.argmax(y_n - x_n))  # 왜: 가장 ‘효율 초과’ 지점
+    idx_top = int(np.argmax(y_n - x_n))
 
     smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
@@ -205,7 +201,6 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     return CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top])), conv
 
 def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List[float], List[float]]:
-    """자동 컷을 베이스로 하여 프리셋 분위로 후보선 생성(중복 제거)."""
     x = conv["cpc"].to_numpy(float)
     bottom_vals = []
     for q in BOTTOM_Q_PRESETS:
@@ -221,7 +216,6 @@ def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List
         return sorted(dict.fromkeys(rounded))
 
     return _dedup_sorted(bottom_vals), _dedup_sorted(top_vals)
-
 
 # ============== 지표/표시 ==============
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
@@ -272,20 +266,6 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
         "rev_share_top_search":     _pct(rev_ge_top,     total_rev_search),
     }
 
-def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
-    cols = [
-        "keyword","surface","active_days","impressions","clicks","cost",
-        "orders_14d","revenue_14d","ctr","cpc","roas_14d",
-    ]
-    if dff.empty:
-        st.markdown(f"#### {title} (0개)")
-        return
-    if extra:
-        cols += list(extra)
-    st.markdown(f"#### {title} ({len(dff)}개)")
-    st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200),
-                 use_container_width=True, hide_index=True)
-
 def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]:
     seq: List[str] = []
     for label in ["a", "b", "c", "d"]:
@@ -298,7 +278,7 @@ def _format_keywords_line_exact(words: Iterable[str]) -> str:
     return ",\u200b".join([w for w in words])
 
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    # 왜: Streamlit 기본 버튼으로는 클립보드 접근 제한 → custom JS 사용
+    # why: Streamlit 기본 버튼으로는 클립보드 접근 제한 → custom JS 사용
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
@@ -326,54 +306,111 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
     """
     components.html(html, height=56)
 
-def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
+# ====== Supabase 저장 ======
+def _save_exclusion_to_supabase(supabase: Any, product_name: str, keywords_line: str) -> tuple[bool, str]:
+    """why: 사용자가 확정한 제외키워드 스냅샷 영구 저장."""
+    if supabase is None:
+        return False, "supabase 클라이언트가 없습니다."
+    try:
+        kst = timezone(timedelta(hours=9))
+        saved_at = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S%z")
+        payload = {
+            "product_name": product_name.strip(),
+            "saved_at": saved_at,
+            "keywords": keywords_line,  # 그대로(콤마 포함)
+            "count": len([w for w in keywords_line.split(",") if w.strip()]),
+        }
+        # supabase-py v2 스타일 가정
+        res = supabase.table(SUPABASE_TABLE).insert(payload).execute()
+        # 실패시 오류메시지 추출 방어
+        if hasattr(res, "error") and res.error:
+            return False, str(res.error)
+        return True, "저장 완료"
+    except Exception as e:
+        return False, f"저장 실패: {e}"
+
+def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
     st.markdown("### 4) 제외 키워드 (통합 · 한바구니 · 중복 제거)")
     all_words = _gather_exclusion_keywords(exclusions)
     if not all_words:
         return
     line = _format_keywords_line_exact(all_words)
+
+    # 상품명 입력 + 저장/복사 버튼
+    product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="예: ABC-123 블루 1팩")
+    do_save_copy = st.button("저장 및 복사하기", key="ex_union_save_copy", disabled=(not product_name.strip()))
+
+    if do_save_copy:
+        ok, msg = _save_exclusion_to_supabase(supabase, product_name, line)
+        if ok:
+            st.success(f"[{product_name}] {msg}")
+            # 자동 복사 시도(브라우저 정책에 따라 차단될 수 있음)
+            components.html(
+                f"""
+                <script>
+                  const txt = {json.dumps(line)};
+                  (async () => {{
+                    try {{ await navigator.clipboard.writeText(txt); }}
+                    catch (e) {{
+                      // 무음 실패 → 아래 수동 버튼 제공
+                    }}
+                  }})();
+                </script>
+                """,
+                height=0,
+            )
+        else:
+            st.error(msg)
+
+    # 수동 복사 버튼(자동 실패 대비)
     _copy_to_clipboard_button(f"[복사하기] 총{len(all_words)}개", line, key="ex_union_copy")
 
-
 # ============== Plotly 차트 ==============
+def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
+    cols = [
+        "keyword","surface","active_days","impressions","clicks","cost",
+        "orders_14d","revenue_14d","ctr","cpc","roas_14d",
+    ]
+    if dff.empty:
+        st.markdown(f"#### {title} (0개)")
+        return
+    if extra:
+        cols += list(extra)
+    st.markdown(f"#### {title} ({len(dff)}개)")
+    st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200),
+                 use_container_width=True, hide_index=True)
+
 def _plot_cpc_curve_plotly_multi(
     kw: pd.DataFrame,
     selected: CpcCuts,
     bottoms: List[float],
     tops: List[float],
 ) -> None:
-    """누적 매출 비중 곡선 + 선택/후보 컷 시각화."""
     BOTTOM_COLOR = "#1f77b4"
     TOP_COLOR = "#d62728"
-
     conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
     if conv.empty:
         st.warning("전환 발생 키워드가 없어 그래프를 표시할 수 없습니다.")
         return
-
     conv = conv.sort_values("cpc").reset_index(drop=True)
     total_conv_rev = float(conv["revenue_14d"].sum())
     if total_conv_rev <= 0:
         st.warning("conv 총매출이 0입니다.")
         return
-
     x_vals = conv["cpc"].to_numpy(float)
     y_share_conv = (conv["revenue_14d"].cumsum().to_numpy(float) / total_conv_rev).clip(0, 1)
-
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=x_vals, y=y_share_conv, mode="lines",
         line=dict(width=2), name="누적비중(≤CPC)",
         hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
     ))
-    fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color=BOTTOM_COLOR, line_width=3)
-    fig.add_vline(x=selected.top,    line_dash="solid", opacity=1.0, line_color=TOP_COLOR,   line_width=3)
-
+    fig.add_vline(x=selected.bottom, line_dash="solid", opacity=1.0, line_color= "blue", line_width=3)
+    fig.add_vline(x=selected.top,    line_dash="solid", opacity=1.0, line_color= "red",  line_width=3)
     for b in bottoms:
-        fig.add_vline(x=b, line_dash="dot",  opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
+        fig.add_vline(x=b, line_dash="dot",  opacity=0.35, line_color="blue", line_width=1)
     for t in tops:
-        fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color=TOP_COLOR,   line_width=1)
-
+        fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color="red",  line_width=1)
     fig.update_layout(
         height=380,
         margin=dict(l=20, r=20, t=30, b=20),
@@ -384,10 +421,8 @@ def _plot_cpc_curve_plotly_multi(
     )
     st.plotly_chart(fig, use_container_width=True)
 
-
-# ============== Streamlit 탭 ==============
+# ============== 제외 로직/메인 탭 ==============
 def _aov_p50(df: pd.DataFrame) -> float:
-    """주문 발생 구간의 P50 AOV."""
     if df is None or df.empty:
         return 0.0
     rev_col = "revenue_14d"
@@ -426,14 +461,11 @@ def _compute_exclusions(
     return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
 
 def render_ad_analysis_tab(supabase: Any | None = None) -> None:
-    """광고 분석 단일 탭. 저장 기능/외부 의존성 제거. supabase 인자는 역호환용(미사용)."""
     st.subheader("광고분석 (총 14일 기준)")
 
-    # 입력
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # 실행 트리거
     if "ad_run_started" not in st.session_state:
         st.session_state["ad_run_started"] = False
     if st.button("🔍 분석하기", key="ad_run", use_container_width=True):
@@ -441,7 +473,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     if not st.session_state["ad_run_started"]:
         return
 
-    # 검증/정규화
     if up is None:
         st.error("파일을 업로드하세요.")
         return
@@ -455,7 +486,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         st.error("유효한 데이터가 없습니다.")
         return
 
-    # 집계
     kw, totals = _aggregate_kw(df)
 
     st.markdown("### 1) 기본 성과 지표")
@@ -486,7 +516,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    # 컷 & 후보
     st.markdown("### 2) CPC-누적매출 비중")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
     if conv.empty:
@@ -498,7 +527,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         st.warning("후보 선이 없습니다. 데이터 분포를 확인하세요.")
         return
 
-    # 선택 인덱스 초기화/클램프
     if "sel_bottom_idx" not in st.session_state or "sel_top_idx" not in st.session_state:
         x = conv["cpc"].to_numpy(float)
         default_bottom = max(float(auto_cuts.bottom), _quantile_x(x, DEFAULT_FLOOR_Q))
@@ -512,7 +540,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     st.session_state["sel_bottom_idx"] = _clamp(st.session_state["sel_bottom_idx"], len(bottom_lines))
     st.session_state["sel_top_idx"] = _clamp(st.session_state["sel_top_idx"], len(top_lines))
 
-    # 선택 버튼
     c1, c2 = st.columns(2)
     with c1:
         ncols = min(10, len(bottom_lines))
@@ -524,7 +551,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
                 if idx >= len(bottom_lines):
                     break
                 if cols[c].button(f"B{idx + 1}", key=f"btn_b_{idx}"):
-                    st.session_state["sel_bottom_idx"] = idx  # 왜: 명시적 선택 유지
+                    st.session_state["sel_bottom_idx"] = idx
                 idx += 1
         b_idx = st.session_state["sel_bottom_idx"]
 
@@ -544,7 +571,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
 
     sel_cuts = CpcCuts(bottom=float(bottom_lines[b_idx]), top=float(top_lines[t_idx]))
 
-    # 차트 & 지표
     _plot_cpc_curve_plotly_multi(kw, sel_cuts, bottom_lines, top_lines)
 
     shares = _search_shares_for_cuts(kw, sel_cuts)
@@ -562,7 +588,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
 """
     )
 
-    # 제외 키워드
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
     _display_table("a) CPC_cut top 이상 전환 0", exclusions["a"])
@@ -570,7 +595,8 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    _render_exclusion_union(exclusions)
+    # ✅ 변경된 4) 섹션: 상품명 입력 + 저장 및 복사
+    _render_exclusion_union(exclusions, supabase)
 
 # 사용 예:
 # if __name__ == "__main__":
