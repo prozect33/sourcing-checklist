@@ -510,21 +510,24 @@ def _plot_cpc_curve_plotly_multi(
         )
     )
 
-    # top 마커: ≥cut 합(본문 기준) = (검색&클릭>0 총매출 − ≤cut 누적) / 전사 총매출
-    cum_le_at_top = float(dfc.iloc[idx_t]["cum_rev_le"])
-    top_share_body = (rev_search_click_total - cum_le_at_top) / total_rev_all
+    # top 마커: ≥cut 합(본문 기준) = sum(revenue_14d where CPC >= cut) / 전사 총매출
+    rev_top_ge = float(dfc.loc[dfc["cpc"] >= selected.top, "revenue_14d"].sum())
+    top_share_body = rev_top_ge / total_rev_all
     fig.add_trace(
         go.Scatter(
-            x=[x[idx_t]], y=[top_share_body],
+            x=[selected.top], y=[top_share_body],  # 기준값에 정확히 찍기
             mode="markers",
             name="top selected",
             marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),
-            hovertemplate=("CPC=%{x:.0f}"
-                           "<br>Share(본문, ≥CPC)=%{y:.2%}"
-                           "<extra></extra>"),
+            hovertemplate=(
+                "CPC=%{x:.0f}"
+                "<br>Share(본문, ≥CPC)=%{y:.2%}"
+                "<extra></extra>"
+            ),
             showlegend=False,
         )
     )
+
 
     fig.update_layout(
         height=380,
