@@ -32,11 +32,11 @@ SLOPE_Q = 0.64  # high 임계 분위
 LOWBACK_DELTA = 0.24  # low_back_q = SLOPE_Q - LOWBACK_DELTA
 MIN_RUN_FRAC = 0.04  # 스파이크 방지
 
-# ====== 수동 캡 프리셋(화살표로만 이동) ======
-# 0.01, 0.05, 0.10, 0.15, ..., 0.50
-Q_PRESETS: List[float] = [0.01, 0.05] + [i / 100 for i in range(10, 51, 5)]
-DEFAULT_FLOOR_Q = 0.05  # bottom 하한 캡 기본값(프리셋 중 하나)
-DEFAULT_CEIL_Q = 0.05  # top 상한 캡 기본값(프리셋 중 하나)
+# ====== 수동 캡 프리셋(화살표 단계) ======
+Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30, 0.50]  # bottom용
+TOP_PRESETS: List[float] = list(reversed(Q_PRESETS))           # top은 역배치
+DEFAULT_FLOOR_Q = 0.05
+DEFAULT_CEIL_Q = 0.05  # (중요) _init_cap_indices가 Q_PRESETS로 인덱싱하므로 그대로 두세요
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
@@ -531,10 +531,10 @@ def render_ad_analysis_tab(supabase):
         if tl.button("◀", key="ceil_left"):
             st.session_state["q_idx_ceil_top"] = max(0, st.session_state["q_idx_ceil_top"] - 1)
         if tr.button("▶", key="ceil_right"):
-            st.session_state["q_idx_ceil_top"] = min(len(Q_PRESETS) - 1, st.session_state["q_idx_ceil_top"] + 1)
+            st.session_state["q_idx_ceil_top"] = min(len(TOP_PRESETS) - 1, st.session_state["q_idx_ceil_top"] + 1)
 
     floor_q = Q_PRESETS[st.session_state["q_idx_floor_bottom"]]
-    ceil_q = Q_PRESETS[st.session_state["q_idx_ceil_top"]]
+    ceil_q = TOP_PRESETS[st.session_state["q_idx_ceil_top"]]
     cuts = _apply_caps(auto_cuts, conv, floor_q=floor_q, ceil_q=ceil_q)
 
     # --- 차트 & 지표 ---
