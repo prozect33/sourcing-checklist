@@ -489,7 +489,7 @@ def _plot_cpc_curve_plotly_multi(
             mode="lines",
             line=dict(width=2),
             name="본문 기준 누적비중(≤CPC)",
-            line_shape="hv",  # 계단형
+            line_shape="linear",  # 계단형
             hovertemplate="CPC=%{x:.0f}<br>Share(본문)=%{y:.2%}<extra></extra>",
         )
     )
