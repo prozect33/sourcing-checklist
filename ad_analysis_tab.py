@@ -159,7 +159,7 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
 
     kw["active_days"] = kw["active_days"].fillna(0).astype(int)
     kw["ctr"] = (kw["clicks"] / kw["impressions"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
-    kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
+    kw["cpc"] = np.where(kw["clicks"] > 0, kw["cost"] / kw["clicks"], np.nan)
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     return kw, totals
 
@@ -177,7 +177,8 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
       - bottom: high-임계 최장구간을 low-임계로 backtrack한 시작점
       - top   : argmax(y_n - x_n)
     """
-    conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
+    conv = kw[(kw["orders_14d"] > 0) & (kw["clicks"] > 0) & (kw["cpc"].notna())].sort_values("cpc").copy()
+
     if conv.empty:
         return CpcCuts(0.0, 0.0), conv
 
@@ -490,6 +491,8 @@ def render_ad_analysis_tab(supabase):
     # --- 컷 & 캡 ---
     st.markdown("### 2) CPC-누적매출 비중 & 컷 (수동 캡: 화살표)")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
+    st.caption(f"AUTO 컷: bottom={auto_cuts.bottom:.0f} · top={auto_cuts.top:.0f}")
+
     if conv.empty:
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
         return
