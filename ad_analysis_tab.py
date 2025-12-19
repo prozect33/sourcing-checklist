@@ -516,29 +516,6 @@ def _plot_cpc_curve_plotly_multi(
     idx_b = int(np.argmin(np.abs(x_vals - selected.bottom)))
     idx_t = int(np.argmin(np.abs(x_vals - selected.top)))
 
-    fig.add_trace(
-        go.Scatter(
-            x=[x_vals[idx_b]],
-            y=[float(y_share_conv[idx_b])],
-            mode="markers",
-            name="bottom selected",
-            marker=dict(symbol="triangle-up", size=12, color=BOTTOM_COLOR),
-            hovertemplate="CPC=%{x:.0f}<br>Share(≤CPC)=%{y:.2%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[x_vals[idx_t]],
-            y=[float(y_share_conv[idx_t])],
-            mode="markers",
-            name="top selected",
-            marker=dict(symbol="triangle-up", size=12, color=TOP_COLOR),
-            hovertemplate="CPC=%{x:.0f}<br>Share(≥CPC 근접)=%{y:.2%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
     # 6) 옅은 후보선(다중 표시) — 유지
     for b in bottoms:
         fig.add_vline(x=b, line_dash="dot",  opacity=0.35, line_color=BOTTOM_COLOR, line_width=1)
