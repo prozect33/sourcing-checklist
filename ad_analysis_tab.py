@@ -176,6 +176,53 @@ class CpcCuts:
     bottom: float
     top: float
 
+@dataclass(frozen=True)
+class LineGroup:
+    role: str                 # 'B' | 'T'
+    value: float              # dedup된 CPC 값
+    qs: Tuple[float, ...]     # 병합된 q 목록(정렬)
+
+
+def _format_qs(qs: Iterable[float]) -> str:
+    return ",".join(f"{q:.2f}" for q in sorted(set(qs)))
+
+
+def _compute_candidates_for_groups(cpc: np.ndarray,
+                                   bottom_qs: Iterable[float],
+                                   top_qs: Iterable[float]) -> Tuple[List[Tuple[str, float, float]], List[Tuple[str, float, float]]]:
+    cpc = cpc[np.isfinite(cpc)]
+    if cpc.size == 0:
+        return [], []
+    b = [("B", float(q), float(np.quantile(cpc, float(q)))) for q in bottom_qs]
+    t = [("T", float(q), float(np.quantile(cpc, float(1.0 - q)))) for q in top_qs]
+    return b, t
+
+
+def _dedup_by_value_for_groups(items: List[Tuple[str, float, float]], eps_abs: float | None = None, eps_rel: float = 0.005) -> List[LineGroup]:
+    if not items:
+        return []
+    values = np.array([v for _, _, v in items], dtype=float)
+    vmin, vmax = float(np.nanmin(values)), float(np.nanmax(values))
+    auto_abs = max(1.0, (vmax - vmin) * eps_rel)
+    tol = float(eps_abs if eps_abs is not None else auto_abs)
+    items_sorted = sorted(items, key=lambda x: x[2])
+    groups: List[List[Tuple[str, float, float]]] = []
+    cur: List[Tuple[str, float, float]] = [items_sorted[0]]
+    for it in items_sorted[1:]:
+        if abs(it[2] - cur[-1][2]) <= tol:
+            cur.append(it)
+        else:
+            groups.append(cur)
+            cur = [it]
+    groups.append(cur)
+    merged: List[LineGroup] = []
+    for g in groups:
+        role = g[0][0]
+        value = float(np.median([v for _, _, v in g]))
+        qs = tuple(sorted([q for _, q, _ in g]))
+        merged.append(LineGroup(role=role, value=value, qs=qs))
+    return merged
+
 
 def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     """
@@ -395,37 +442,69 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
 
 
+# ============== 버튼 ==============
+
+def _render_line_buttons(role: str, groups: List[LineGroup], state_key: str) -> int | None:
+    if not groups:
+        st.info(f"{role}: 표시할 선이 없습니다.")
+        return None
+    st.write(f"**{role} 기준선 ({len(groups)}개)**")
+    cols = st.columns(min(6, len(groups)))
+    active = st.session_state.get(state_key, None)
+    new_active = active
+    for i, g in enumerate(groups):
+        label = f"{i+1} | q={_format_qs(g.qs)} @ {g.value:.0f}"
+        if cols[i % len(cols)].button(label, key=f"btn_{role}_{i}"):
+            new_active = i
+    st.session_state[state_key] = new_active
+    return new_active
 # ============== Plotly 차트 ==============
-def _plot_cpc_curve_plotly(conv: pd.DataFrame, cuts: CpcCuts) -> None:
+
+def _plot_cpc_curve_plotly(conv: pd.DataFrame,
+                           bottom_groups: List[LineGroup],
+                           top_groups: List[LineGroup],
+                           active_bottom_idx: int | None,
+                           active_top_idx: int | None) -> None:
     x = conv["cpc"].to_numpy(float)
     y = conv["cum_rev_share"].to_numpy(float)
 
-    idx_b = int(np.argmin(np.abs(x - cuts.bottom)))
-    idx_t = int(np.argmin(np.abs(x - cuts.top)))
-
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name="cum_rev_share", hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"))
-    fig.add_vline(x=cuts.bottom, line_dash="dot")
-    fig.add_vline(x=cuts.top, line_dash="dash")
+    fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name="cum_rev_share",
+                             hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"))
 
-    fig.add_trace(
-        go.Scatter(
-            x=[x[idx_b], x[idx_t]],
-            y=[y[idx_b], y[idx_t]],
-            mode="markers",
-            name="cuts",
-            marker=dict(symbol="triangle-up", size=12),
-            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
-        )
-    )
-    fig.update_layout(
-        height=380,
-        margin=dict(l=20, r=20, t=30, b=20),
-        xaxis_title="CPC",
-        yaxis_title="누적매출비중",
-        yaxis=dict(tickformat=".0%"),
-        showlegend=False,
-    )
+    # all lines faint
+    for i, g in enumerate(bottom_groups):
+        fig.add_vline(x=g.value, line_dash="dot", opacity=0.35,
+                      annotation_text=f"B[{i+1}] q={_format_qs(g.qs)}",
+                      annotation_position="top left")
+    for i, g in enumerate(top_groups):
+        fig.add_vline(x=g.value, line_dash="dash", opacity=0.35,
+                      annotation_text=f"T[{i+1}] q={_format_qs(g.qs)}",
+                      annotation_position="top right")
+
+    # highlight selected
+    markers_x, markers_y = [], []
+    if active_bottom_idx is not None and 0 <= active_bottom_idx < len(bottom_groups):
+        gb = bottom_groups[active_bottom_idx]
+        fig.add_vline(x=gb.value, line_width=3, line_dash="dot",
+                      annotation_text=f"★ B[{active_bottom_idx+1}]", annotation_position="bottom left")
+        idx_b = int(np.argmin(np.abs(x - gb.value)))
+        markers_x.append(x[idx_b]); markers_y.append(y[idx_b])
+    if active_top_idx is not None and 0 <= active_top_idx < len(top_groups):
+        gt = top_groups[active_top_idx]
+        fig.add_vline(x=gt.value, line_width=3, line_dash="dash",
+                      annotation_text=f"★ T[{active_top_idx+1}]", annotation_position="bottom right")
+        idx_t = int(np.argmin(np.abs(x - gt.value)))
+        markers_x.append(x[idx_t]); markers_y.append(y[idx_t])
+
+    if markers_x:
+        fig.add_trace(go.Scatter(x=markers_x, y=markers_y, mode="markers",
+                                 name="cuts", marker=dict(symbol="triangle-up", size=12),
+                                 hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"))
+
+    fig.update_layout(height=380, margin=dict(l=20, r=20, t=30, b=20),
+                      xaxis_title="CPC", yaxis_title="누적매출비중", yaxis=dict(tickformat=".0%"), showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -531,15 +610,26 @@ def render_ad_analysis_tab(supabase):
         tl, _, tr = st.columns([1, 2, 1])
         if tl.button("◀", key="ceil_left"):
             st.session_state["q_idx_ceil_top"] = max(0, st.session_state["q_idx_ceil_top"] - 1)
-        if tr.button("▶", key="ceil_right"):
-            st.session_state["q_idx_ceil_top"] = min(len(TOP_PRESETS) - 1, st.session_state["q_idx_ceil_top"] + 1)
+        
+    # --- 기준선 그룹 계산(중복 제거) ---
+    cpc_vec = conv["cpc"].to_numpy(float)
+    b_items, t_items = _compute_candidates_for_groups(cpc_vec, Q_PRESETS, TOP_PRESETS)
+    # 허용 오차: 절대 1원 + 상대 0.5% 기본
+    bottom_groups = _dedup_by_value_for_groups(b_items, eps_abs=1.0, eps_rel=0.005)
+    top_groups = _dedup_by_value_for_groups(t_items, eps_abs=1.0, eps_rel=0.005)
 
-    floor_q = Q_PRESETS[st.session_state["q_idx_floor_bottom"]]
-    ceil_q = TOP_PRESETS[st.session_state["q_idx_ceil_top"]]
-    cuts = _apply_caps(auto_cuts, conv, floor_q=floor_q, ceil_q=ceil_q)
+    # --- 버튼 자동 생성(역할별) ---
+    b_idx = _render_line_buttons("Bottom", bottom_groups, "active_bottom_idx")
+    t_idx = _render_line_buttons("Top", top_groups, "active_top_idx")
+
+    # --- 선택값으로 컷 구성(선택 없으면 auto 유지) ---
+    sel_bottom = bottom_groups[b_idx].value if b_idx is not None and bottom_groups else auto_cuts.bottom
+    sel_top = top_groups[t_idx].value if t_idx is not None and top_groups else auto_cuts.top
+    cuts = CpcCuts(bottom=float(sel_bottom), top=float(sel_top))
 
     # --- 차트 & 지표 ---
-    _plot_cpc_curve_plotly(conv, cuts)
+    _plot_cpc_curve_plotly(conv, bottom_groups, top_groups, b_idx, t_idx)
+
 
     shares = _search_shares_for_cuts(kw, cuts)
     aov50 = _aov_p50(conv)
