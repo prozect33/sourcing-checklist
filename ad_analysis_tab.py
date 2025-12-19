@@ -431,16 +431,36 @@ def _plot_cpc_curve_plotly(conv: pd.DataFrame, cuts: CpcCuts) -> None:
 # ============== Streamlit 탭 ==============
 def render_ad_analysis_tab(supabase):
     st.subheader("광고분석 (총 14일 기준)")
+
+    # --- 입력 위젯 ---
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    run = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
-    if not run:
+    # --- [핵심 수정①] 분석 세션 상태 (버튼의 일회성 회피) ---
+    if "ad_run_started" not in st.session_state:
+        st.session_state["ad_run_started"] = False
+
+    run_clicked = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
+    if run_clicked:
+        # why: rerun 때 버튼값은 False로 떨어짐 → 세션 플래그로만 판정
+        st.session_state["ad_run_started"] = True
+
+    # (선택) 전체 초기화
+    reset_clicked = st.button("⛔ 분석 초기화", key="ad_full_reset", use_container_width=True)
+    if reset_clicked:
+        st.session_state["ad_run_started"] = False
+        for k in ("q_idx_floor_bottom", "q_idx_ceil_top"):
+            st.session_state.pop(k, None)
+        return  # 전체 리셋 후 종료
+
+    # --- [핵심 수정②] 조기 종료 게이트를 세션 플래그로 ---
+    if not st.session_state["ad_run_started"]:
         return
+
+    # --- 검증 ---
     if up is None:
         st.error("파일을 업로드하세요.")
         return
-
     try:
         df_raw = _load_df(up)
         df = _normalize(df_raw)
@@ -451,6 +471,7 @@ def render_ad_analysis_tab(supabase):
         st.error("유효한 데이터가 없습니다.")
         return
 
+    # --- 집계 ---
     kw, totals = _aggregate_kw(df)
 
     st.markdown("### 1) 기본 성과 지표")
@@ -460,7 +481,9 @@ def render_ad_analysis_tab(supabase):
     total_orders = totals["total_orders"]
 
     def _row(name: str, sub: pd.DataFrame) -> Dict[str, float | int | str]:
-        c, r, o = int(sub["cost"].sum()), int(sub["revenue_14d"].sum()), int(sub["orders_14d"].sum())
+        c = int(sub["cost"].sum())
+        r = int(sub["revenue_14d"].sum())
+        o = int(sub["orders_14d"].sum())
         return {
             "영역": name,
             "광고비": c,
@@ -479,19 +502,20 @@ def render_ad_analysis_tab(supabase):
     ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
+    # --- 컷 & 캡 ---
     st.markdown("### 2) CPC-누적매출 비중 & 컷 (수동 캡: 화살표)")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
     if conv.empty:
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
         return
 
-    # 세션 초기화(최초 1회)
+    # --- [핵심 수정③] q 단계 인덱스 최초 1회만 초기화 ---
     if "q_idx_floor_bottom" not in st.session_state or "q_idx_ceil_top" not in st.session_state:
         idx_floor, idx_ceil = _init_cap_indices()
         st.session_state["q_idx_floor_bottom"] = idx_floor
         st.session_state["q_idx_ceil_top"] = idx_ceil
 
-    # 화살표 UI (q 숫자 비노출: 단계만 표시)
+    # 소프트 리셋: q 단계만
     c1, c2, c3 = st.columns([3, 3, 2])
     with c3:
         if st.button("↻ 리셋", key="cap_reset"):
@@ -499,6 +523,7 @@ def render_ad_analysis_tab(supabase):
             st.session_state["q_idx_floor_bottom"] = idx_floor
             st.session_state["q_idx_ceil_top"] = idx_ceil
 
+    # --- 화살표 컨트롤 (세션 인덱스 증감만 수행) ---
     left, right = st.columns(2)
     with left:
         st.caption(f"**Bottom floor** • 단계 {st.session_state['q_idx_floor_bottom'] + 1}/{len(Q_PRESETS)}")
@@ -520,6 +545,7 @@ def render_ad_analysis_tab(supabase):
     ceil_q = Q_PRESETS[st.session_state["q_idx_ceil_top"]]
     cuts = _apply_caps(auto_cuts, conv, floor_q=floor_q, ceil_q=ceil_q)
 
+    # --- 차트 & 지표 ---
     _plot_cpc_curve_plotly(conv, cuts)
 
     shares = _search_shares_for_cuts(kw, cuts)
@@ -538,6 +564,7 @@ def render_ad_analysis_tab(supabase):
 """
     )
 
+    # --- 제외 키워드 ---
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, cuts, aov50, float(breakeven_roas))
     _display_table("a) CPC_cut top 이상 전환 0", exclusions["a"])
@@ -547,6 +574,7 @@ def render_ad_analysis_tab(supabase):
 
     _render_exclusion_union(exclusions)
 
+    # --- 저장 (선택) ---
     with st.expander("💾 저장 (선택)", expanded=False):
         c1, c2 = st.columns([2, 3])
         with c1:
@@ -560,20 +588,18 @@ def render_ad_analysis_tab(supabase):
             if "_save_to_supabase" not in globals():
                 st.error("이 파일에 _save_to_supabase()가 없습니다. 기존 프로젝트 구현을 유지하거나 함수 정의를 추가해야 합니다.")
                 return
-
-            try:
-                _save_to_supabase(
-                    supabase,
-                    upload=up,
-                    product_name=product_name,
-                    note=note,
-                    totals=totals,
-                    breakeven_roas=float(breakeven_roas),
-                    cuts=cuts,
-                    shares=shares,
-                    aov_p50_value=aov50,
-                    kw=kw,
-                    exclusions=exclusions,
-                )
+            _save_to_supabase(
+                supabase,
+                upload=up,
+                product_name=product_name,
+                note=note,
+                totals=totals,
+                breakeven_roas=float(breakeven_roas),
+                cuts=cuts,
+                shares=shares,
+                aov_p50_value=aov50,
+                kw=kw,
+                exclusions=exclusions,
+            )
             except Exception as e:
                 st.error(f"저장 실패: {e}")
