@@ -32,11 +32,11 @@ SLOPE_Q = 0.64  # high 임계 분위
 LOWBACK_DELTA = 0.24  # low_back_q = SLOPE_Q - LOWBACK_DELTA
 MIN_RUN_FRAC = 0.04  # 스파이크 방지
 
-# ====== 수동 캡 프리셋(화살표 단계) — Bottom 오름차순, Top 역배치(내림차순) ======
-BOTTOM_QS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
-TOP_QS:    List[float] = [0.95, 0.90, 0.85, 0.80, 0.70, 0.50]  # ▶ 누를수록 (1 - q) 증가 → 컷 오른쪽 이동
-DEFAULT_FLOOR_Q = 0.05
-DEFAULT_CEIL_Q = 0.50
+# ====== 수동 캡 프리셋(화살표로만 이동) ======
+# 0.01, 0.05, 0.10, 0.15, ..., 0.50
+Q_PRESETS: List[float] = [0.01, 0.05] + [i / 100 for i in range(10, 51, 5)]
+DEFAULT_FLOOR_Q = 0.05  # bottom 하한 캡 기본값(프리셋 중 하나)
+DEFAULT_CEIL_Q = 0.05  # top 상한 캡 기본값(프리셋 중 하나)
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
@@ -94,13 +94,18 @@ def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
     return best_s, e
 
 
+def _nearest_preset_index(q: float) -> int:
+    return int(np.argmin([abs(p - q) for p in Q_PRESETS]))
+
+
 def _quantile_x(x: np.ndarray, q: float) -> float:
     return float(np.quantile(x, float(np.clip(q, 0.0, 1.0))))
 
 
 def _init_cap_indices() -> tuple[int, int]:
-    # 시작: Bottom 0.05 / Top 0.95(내부에서 1 - q 사용 시 top 컷은 0.50 근처부터 보임)
-    return 0, 0
+    idx_floor = _nearest_preset_index(DEFAULT_FLOOR_Q)
+    idx_ceil = _nearest_preset_index(DEFAULT_CEIL_Q)
+    return idx_floor, idx_ceil
 
 
 # ============== 데이터 적재/정규화 ==============
@@ -159,7 +164,7 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
 
     kw["active_days"] = kw["active_days"].fillna(0).astype(int)
     kw["ctr"] = (kw["clicks"] / kw["impressions"]).replace([np.inf, -np.inf], 0).fillna(0).round(6)
-    kw["cpc"] = np.where(kw["clicks"] > 0, kw["cost"] / kw["clicks"], np.nan)
+    kw["cpc"] = (kw["cost"] / kw["clicks"]).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     return kw, totals
 
@@ -176,9 +181,9 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     자동 컷(원본 로직 유지):
       - bottom: high-임계 최장구간을 low-임계로 backtrack한 시작점
       - top   : argmax(y_n - x_n)
+    주의: 여기서는 FLOOR 캡을 적용하지 않음(수동 캡이 별도로 들어감).
     """
-    conv = kw[(kw["orders_14d"] > 0) & (kw["clicks"] > 0) & (kw["cpc"].notna())].sort_values("cpc").copy()
-
+    conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
         return CpcCuts(0.0, 0.0), conv
 
@@ -431,15 +436,16 @@ def render_ad_analysis_tab(supabase):
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # --- 분석 세션 상태 (버튼의 일회성 회피) ---
+    # --- [핵심 수정①] 분석 세션 상태 (버튼의 일회성 회피) ---
     if "ad_run_started" not in st.session_state:
         st.session_state["ad_run_started"] = False
 
     run_clicked = st.button("🔍 분석하기", key="ad_run", use_container_width=True)
     if run_clicked:
+        # why: rerun 때 버튼값은 False로 떨어짐 → 세션 플래그로만 판정
         st.session_state["ad_run_started"] = True
 
-    # --- 게이트 ---
+    # --- [핵심 수정②] 조기 종료 게이트를 세션 플래그로 ---
     if not st.session_state["ad_run_started"]:
         return
 
@@ -491,13 +497,11 @@ def render_ad_analysis_tab(supabase):
     # --- 컷 & 캡 ---
     st.markdown("### 2) CPC-누적매출 비중 & 컷 (수동 캡: 화살표)")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
-    st.caption(f"AUTO 컷: bottom={auto_cuts.bottom:.0f} · top={auto_cuts.top:.0f}")
-
     if conv.empty:
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
         return
 
-    # q 단계 인덱스 최초 1회만 초기화
+    # --- [핵심 수정③] q 단계 인덱스 최초 1회만 초기화 ---
     if "q_idx_floor_bottom" not in st.session_state or "q_idx_ceil_top" not in st.session_state:
         idx_floor, idx_ceil = _init_cap_indices()
         st.session_state["q_idx_floor_bottom"] = idx_floor
@@ -511,29 +515,26 @@ def render_ad_analysis_tab(supabase):
             st.session_state["q_idx_floor_bottom"] = idx_floor
             st.session_state["q_idx_ceil_top"] = idx_ceil
 
-    # --- 화살표 컨트롤 (세션 인덱스 증감) ---
+    # --- 화살표 컨트롤 (세션 인덱스 증감만 수행) ---
     left, right = st.columns(2)
     with left:
-        st.caption(f"**Bottom floor** • 단계 {st.session_state['q_idx_floor_bottom'] + 1}/{len(BOTTOM_QS)}")
+        st.caption(f"**Bottom floor** • 단계 {st.session_state['q_idx_floor_bottom'] + 1}/{len(Q_PRESETS)}")
         bl, _, br = st.columns([1, 2, 1])
         if bl.button("◀", key="floor_left"):
             st.session_state["q_idx_floor_bottom"] = max(0, st.session_state["q_idx_floor_bottom"] - 1)
         if br.button("▶", key="floor_right"):
-            st.session_state["q_idx_floor_bottom"] = min(len(BOTTOM_QS) - 1, st.session_state["q_idx_floor_bottom"] + 1)
+            st.session_state["q_idx_floor_bottom"] = min(len(Q_PRESETS) - 1, st.session_state["q_idx_floor_bottom"] + 1)
 
     with right:
-        st.caption(f"**Top ceiling** • 단계 {st.session_state['q_idx_ceil_top'] + 1}/{len(TOP_QS)}")
+        st.caption(f"**Top ceiling** • 단계 {st.session_state['q_idx_ceil_top'] + 1}/{len(Q_PRESETS)}")
         tl, _, tr = st.columns([1, 2, 1])
         if tl.button("◀", key="ceil_left"):
             st.session_state["q_idx_ceil_top"] = max(0, st.session_state["q_idx_ceil_top"] - 1)
         if tr.button("▶", key="ceil_right"):
-            st.session_state["q_idx_ceil_top"] = min(len(TOP_QS) - 1, st.session_state["q_idx_ceil_top"] + 1)
+            st.session_state["q_idx_ceil_top"] = min(len(Q_PRESETS) - 1, st.session_state["q_idx_ceil_top"] + 1)
 
-    # 실제 q값 선택
-    floor_q = BOTTOM_QS[st.session_state["q_idx_floor_bottom"]]
-    ceil_q  = TOP_QS[st.session_state["q_idx_ceil_top"]]
-
-    # 컷 적용
+    floor_q = Q_PRESETS[st.session_state["q_idx_floor_bottom"]]
+    ceil_q = Q_PRESETS[st.session_state["q_idx_ceil_top"]]
     cuts = _apply_caps(auto_cuts, conv, floor_q=floor_q, ceil_q=ceil_q)
 
     # --- 차트 & 지표 ---
@@ -590,6 +591,5 @@ def render_ad_analysis_tab(supabase):
                     kw=kw,
                     exclusions=exclusions,
                 )
-                st.success("저장 완료")
             except Exception as e:
                 st.error(f"저장 실패: {e}")
