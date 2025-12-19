@@ -104,10 +104,9 @@ def _quantile_x(x: np.ndarray, q: float) -> float:
 def _init_cap_indices() -> tuple[int, int]:
     # bottom: 프리셋 기본값 유지(가까운 값)
     idx_floor = _nearest_preset_index(DEFAULT_FLOOR_Q)
-
-    # top: 6/6에서 시작 → 'top 선택에 쓰는 리스트'의 마지막 인덱스
-    # TOP_PRESETS를 쓰고 있다면:
+    # top: TOP_PRESETS의 마지막 값에서 시작(6/6)
     idx_ceil = len(TOP_PRESETS) - 1
+    return idx_floor, idx_ceil  # (버그픽스) 의도된 반환
 
 # ============== 데이터 적재/정규화 ==============
 def _load_df(upload) -> pd.DataFrame:
@@ -175,53 +174,6 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
 class CpcCuts:
     bottom: float
     top: float
-
-@dataclass(frozen=True)
-class LineGroup:
-    role: str                 # 'B' | 'T'
-    value: float              # dedup된 CPC 값
-    qs: Tuple[float, ...]     # 병합된 q 목록(정렬)
-
-
-def _format_qs(qs: Iterable[float]) -> str:
-    return ",".join(f"{q:.2f}" for q in sorted(set(qs)))
-
-
-def _compute_candidates_for_groups(cpc: np.ndarray,
-                                   bottom_qs: Iterable[float],
-                                   top_qs: Iterable[float]) -> Tuple[List[Tuple[str, float, float]], List[Tuple[str, float, float]]]:
-    cpc = cpc[np.isfinite(cpc)]
-    if cpc.size == 0:
-        return [], []
-    b = [("B", float(q), float(np.quantile(cpc, float(q)))) for q in bottom_qs]
-    t = [("T", float(q), float(np.quantile(cpc, float(1.0 - q)))) for q in top_qs]
-    return b, t
-
-
-def _dedup_by_value_for_groups(items: List[Tuple[str, float, float]], eps_abs: float | None = None, eps_rel: float = 0.005) -> List[LineGroup]:
-    if not items:
-        return []
-    values = np.array([v for _, _, v in items], dtype=float)
-    vmin, vmax = float(np.nanmin(values)), float(np.nanmax(values))
-    auto_abs = max(1.0, (vmax - vmin) * eps_rel)
-    tol = float(eps_abs if eps_abs is not None else auto_abs)
-    items_sorted = sorted(items, key=lambda x: x[2])
-    groups: List[List[Tuple[str, float, float]]] = []
-    cur: List[Tuple[str, float, float]] = [items_sorted[0]]
-    for it in items_sorted[1:]:
-        if abs(it[2] - cur[-1][2]) <= tol:
-            cur.append(it)
-        else:
-            groups.append(cur)
-            cur = [it]
-    groups.append(cur)
-    merged: List[LineGroup] = []
-    for g in groups:
-        role = g[0][0]
-        value = float(np.median([v for _, _, v in g]))
-        qs = tuple(sorted([q for _, q, _ in g]))
-        merged.append(LineGroup(role=role, value=value, qs=qs))
-    return merged
 
 
 def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
@@ -312,6 +264,40 @@ def _apply_caps(auto_cuts: CpcCuts, conv: pd.DataFrame, floor_q: float, ceil_q: 
         st.warning("top ≤ bottom 이 되어 top을 최댓값으로 완화했습니다. (CEIL 단계를 오른쪽으로 옮겨보세요)")
 
     return CpcCuts(bottom=bottom, top=top)
+
+
+# ====== (신규) 후보 선 생성/중복 제거 ======
+def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List[float], List[float]]:
+    """
+    why: 화살표 대신 모든 q단계 선을 미리 생성해 보여주기 위함.
+    - 각 q에 대해 _apply_caps를 거친 bottom/top 값을 산출
+    - 소수 2자리로 반올림 후 set으로 중복 제거, 정렬
+    """
+    x = conv["cpc"].to_numpy(float)
+
+    bottom_vals = []
+    for q in Q_PRESETS:
+        floor_x = _quantile_x(x, q)
+        bottom_vals.append(max(float(auto_cuts.bottom), float(floor_x)))
+
+    top_vals = []
+    for q in TOP_PRESETS:
+        ceil_x = _quantile_x(x, 1.0 - q)
+        top_vals.append(min(float(auto_cuts.top), float(ceil_x)))
+
+    # 중복 제거(소수 2자리 기준) 및 정렬
+    def _dedup_sorted(vals: List[float]) -> List[float]:
+        rounded = [round(v, 2) for v in vals]
+        uniq = sorted(dict.fromkeys(rounded))
+        return uniq
+
+    return _dedup_sorted(bottom_vals), _dedup_sorted(top_vals)
+
+
+def _nearest_index(values: List[float], target: float) -> int:
+    if not values:
+        return 0
+    return int(np.argmin([abs(v - target) for v in values]))
 
 
 # ============== 지표/표시 ==============
@@ -442,69 +428,57 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame]) -> None:
     _copy_to_clipboard_button(f"[복사하기] 총{total}개", line, key="ex_union_copy")
 
 
-# ============== 버튼 ==============
-
-def _render_line_buttons(role: str, groups: List[LineGroup], state_key: str) -> int | None:
-    if not groups:
-        st.info(f"{role}: 표시할 선이 없습니다.")
-        return None
-    st.write(f"**{role} 기준선 ({len(groups)}개)**")
-    cols = st.columns(min(6, len(groups)))
-    active = st.session_state.get(state_key, None)
-    new_active = active
-    for i, g in enumerate(groups):
-        label = f"{i+1} | q={_format_qs(g.qs)} @ {g.value:.0f}"
-        if cols[i % len(cols)].button(label, key=f"btn_{role}_{i}"):
-            new_active = i
-    st.session_state[state_key] = new_active
-    return new_active
-# ============== Plotly 차트 ==============
-
-def _plot_cpc_curve_plotly(conv: pd.DataFrame,
-                           bottom_groups: List[LineGroup],
-                           top_groups: List[LineGroup],
-                           active_bottom_idx: int | None,
-                           active_top_idx: int | None) -> None:
+# ============== Plotly 차트 (개선: 다중 선 + 강조) ==============
+def _plot_cpc_curve_plotly_multi(
+    conv: pd.DataFrame,
+    selected: CpcCuts,
+    bottoms: List[float],
+    tops: List[float],
+) -> None:
     x = conv["cpc"].to_numpy(float)
     y = conv["cum_rev_share"].to_numpy(float)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name="cum_rev_share",
-                             hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"))
+    fig.add_trace(
+        go.Scatter(
+            x=x, y=y, mode="lines", name="cum_rev_share",
+            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"
+        )
+    )
 
-    # all lines faint
-    for i, g in enumerate(bottom_groups):
-        fig.add_vline(x=g.value, line_dash="dot", opacity=0.35,
-                      annotation_text=f"B[{i+1}] q={_format_qs(g.qs)}",
-                      annotation_position="top left")
-    for i, g in enumerate(top_groups):
-        fig.add_vline(x=g.value, line_dash="dash", opacity=0.35,
-                      annotation_text=f"T[{i+1}] q={_format_qs(g.qs)}",
-                      annotation_position="top right")
+    # 보조선(모든 후보)
+    for b in bottoms:
+        fig.add_vline(x=b, line_dash="dot", opacity=0.35)
+    for t in tops:
+        fig.add_vline(x=t, line_dash="dash", opacity=0.35)
 
-    # highlight selected
-    markers_x, markers_y = [], []
-    if active_bottom_idx is not None and 0 <= active_bottom_idx < len(bottom_groups):
-        gb = bottom_groups[active_bottom_idx]
-        fig.add_vline(x=gb.value, line_width=3, line_dash="dot",
-                      annotation_text=f"★ B[{active_bottom_idx+1}]", annotation_position="bottom left")
-        idx_b = int(np.argmin(np.abs(x - gb.value)))
-        markers_x.append(x[idx_b]); markers_y.append(y[idx_b])
-    if active_top_idx is not None and 0 <= active_top_idx < len(top_groups):
-        gt = top_groups[active_top_idx]
-        fig.add_vline(x=gt.value, line_width=3, line_dash="dash",
-                      annotation_text=f"★ T[{active_top_idx+1}]", annotation_position="bottom right")
-        idx_t = int(np.argmin(np.abs(x - gt.value)))
-        markers_x.append(x[idx_t]); markers_y.append(y[idx_t])
+    # 선택 강조
+    # why: 선택 확인을 쉽게 하기 위해 더 진하게 + 마커
+    fig.add_vline(x=selected.bottom, line_dash="dot")
+    fig.add_vline(x=selected.top, line_dash="dash")
 
-    if markers_x:
-        fig.add_trace(go.Scatter(x=markers_x, y=markers_y, mode="markers",
-                                 name="cuts", marker=dict(symbol="triangle-up", size=12),
-                                 hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>"))
+    # 선택 포인트 마커
+    idx_b = int(np.argmin(np.abs(x - selected.bottom)))
+    idx_t = int(np.argmin(np.abs(x - selected.top)))
+    fig.add_trace(
+        go.Scatter(
+            x=[x[idx_b], x[idx_t]],
+            y=[y[idx_b], y[idx_t]],
+            mode="markers",
+            name="selected",
+            marker=dict(symbol="triangle-up", size=12),
+            hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
+        )
+    )
 
-    fig.update_layout(height=380, margin=dict(l=20, r=20, t=30, b=20),
-                      xaxis_title="CPC", yaxis_title="누적매출비중", yaxis=dict(tickformat=".0%"), showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(
+        height=380,
+        margin=dict(l=20, r=20, t=30, b=20),
+        xaxis_title="CPC",
+        yaxis_title="누적매출비중",
+        yaxis=dict(tickformat=".0%"),
+        showlegend=False,
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -516,7 +490,7 @@ def render_ad_analysis_tab(supabase):
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # --- [핵심 수정①] 분석 세션 상태 (버튼의 일회성 회피) ---
+    # --- 분석 세션 상태 (버튼의 일회성 회피) ---
     if "ad_run_started" not in st.session_state:
         st.session_state["ad_run_started"] = False
 
@@ -525,7 +499,7 @@ def render_ad_analysis_tab(supabase):
         # why: rerun 때 버튼값은 False로 떨어짐 → 세션 플래그로만 판정
         st.session_state["ad_run_started"] = True
 
-    # --- [핵심 수정②] 조기 종료 게이트를 세션 플래그로 ---
+    # --- 조기 종료 게이트를 세션 플래그로 ---
     if not st.session_state["ad_run_started"]:
         return
 
@@ -575,73 +549,79 @@ def render_ad_analysis_tab(supabase):
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # --- 컷 & 캡 ---
-    st.markdown("### 2) CPC-누적매출 비중 & 컷 (수동 캡: 화살표)")
+    st.markdown("### 2) CPC-누적매출 비중 & 컷 (모든 q선 미리보기 + 자동 버튼 선택)")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
     if conv.empty:
         st.caption("전환 발생 키워드가 없어 컷은 0으로 처리됩니다.")
         return
 
-    # --- [핵심 수정③] q 단계 인덱스 최초 1회만 초기화 ---
-    if "q_idx_floor_bottom" not in st.session_state or "q_idx_ceil_top" not in st.session_state:
-        idx_floor, idx_ceil = _init_cap_indices()
-        st.session_state["q_idx_floor_bottom"] = idx_floor
-        st.session_state["q_idx_ceil_top"] = idx_ceil
+    # 후보 선 생성(중복 제거)
+    bottom_lines, top_lines = _build_candidate_lines(conv, auto_cuts)
 
-    # 소프트 리셋: q 단계만
-    c1, c2, c3 = st.columns([3, 3, 2])
-    with c3:
-        if st.button("↻ 리셋", key="cap_reset"):
-            idx_floor, idx_ceil = _init_cap_indices()
-            st.session_state["q_idx_floor_bottom"] = idx_floor
-            st.session_state["q_idx_ceil_top"] = idx_ceil
+    # 최초 진입 시 선택 인덱스 초기화(기존 기본 q에 가장 가까운 값)
+    if "sel_bottom_idx" not in st.session_state or "sel_top_idx" not in st.session_state:
+        x = conv["cpc"].to_numpy(float)
+        # 기본 q로 계산된 실제 값
+        default_bottom = max(float(auto_cuts.bottom), _quantile_x(x, DEFAULT_FLOOR_Q))
+        default_top = min(float(auto_cuts.top), _quantile_x(x, 1.0 - DEFAULT_CEIL_Q))
+        st.session_state["sel_bottom_idx"] = _nearest_index(bottom_lines, round(default_bottom, 2))
+        st.session_state["sel_top_idx"] = _nearest_index(top_lines, round(default_top, 2))
 
-    # --- 화살표 컨트롤 (세션 인덱스 증감만 수행) ---
-    left, right = st.columns(2)
-    with left:
-        st.caption(f"**Bottom floor** • 단계 {st.session_state['q_idx_floor_bottom'] + 1}/{len(Q_PRESETS)}")
-        bl, _, br = st.columns([1, 2, 1])
-        if bl.button("◀", key="floor_left"):
-            st.session_state["q_idx_floor_bottom"] = max(0, st.session_state["q_idx_floor_bottom"] - 1)
-        if br.button("▶", key="floor_right"):
-            st.session_state["q_idx_floor_bottom"] = min(len(Q_PRESETS) - 1, st.session_state["q_idx_floor_bottom"] + 1)
+    # 자동 버튼 생성(선 개수만큼)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.caption(f"**Bottom floor** • {len(bottom_lines)}개 후보")
+        # 버튼들을 격자로 자동 배치
+        ncols = min(10, len(bottom_lines))
+        idx = 0
+        rows = (len(bottom_lines) + ncols - 1) // ncols
+        for _ in range(rows):
+            cols = st.columns(ncols)
+            for c in range(ncols):
+                if idx >= len(bottom_lines):
+                    break
+                label = f"B{idx + 1}"
+                if cols[c].button(label, key=f"btn_b_{idx}"):
+                    st.session_state["sel_bottom_idx"] = idx  # why: 선택 유지
+                idx += 1
+        st.caption(f"선택: B{st.session_state['sel_bottom_idx'] + 1} · {bottom_lines[st.session_state['sel_bottom_idx']]:.2f}원")
 
-    with right:
-        st.caption(f"**Top ceiling** • 단계 {st.session_state['q_idx_ceil_top'] + 1}/{len(Q_PRESETS)}")
-        tl, _, tr = st.columns([1, 2, 1])
-        if tl.button("◀", key="ceil_left"):
-            st.session_state["q_idx_ceil_top"] = max(0, st.session_state["q_idx_ceil_top"] - 1)
-        
-    # --- 기준선 그룹 계산(중복 제거) ---
-    cpc_vec = conv["cpc"].to_numpy(float)
-    b_items, t_items = _compute_candidates_for_groups(cpc_vec, Q_PRESETS, TOP_PRESETS)
-    # 허용 오차: 절대 1원 + 상대 0.5% 기본
-    bottom_groups = _dedup_by_value_for_groups(b_items, eps_abs=1.0, eps_rel=0.005)
-    top_groups = _dedup_by_value_for_groups(t_items, eps_abs=1.0, eps_rel=0.005)
+    with c2:
+        st.caption(f"**Top ceiling** • {len(top_lines)}개 후보")
+        ncols = min(10, len(top_lines))
+        idx = 0
+        rows = (len(top_lines) + ncols - 1) // ncols
+        for _ in range(rows):
+            cols = st.columns(ncols)
+            for c in range(ncols):
+                if idx >= len(top_lines):
+                    break
+                label = f"T{idx + 1}"
+                if cols[c].button(label, key=f"btn_t_{idx}"):
+                    st.session_state["sel_top_idx"] = idx
+                idx += 1
+        st.caption(f"선택: T{st.session_state['sel_top_idx'] + 1} · {top_lines[st.session_state['sel_top_idx']]:.2f}원")
 
-    # --- 버튼 자동 생성(역할별) ---
-    b_idx = _render_line_buttons("Bottom", bottom_groups, "active_bottom_idx")
-    t_idx = _render_line_buttons("Top", top_groups, "active_top_idx")
-
-    # --- 선택값으로 컷 구성(선택 없으면 auto 유지) ---
-    sel_bottom = bottom_groups[b_idx].value if b_idx is not None and bottom_groups else auto_cuts.bottom
-    sel_top = top_groups[t_idx].value if t_idx is not None and top_groups else auto_cuts.top
-    cuts = CpcCuts(bottom=float(sel_bottom), top=float(sel_top))
+    # 선택값 확정
+    sel_cuts = CpcCuts(
+        bottom=float(bottom_lines[st.session_state["sel_bottom_idx"]]),
+        top=float(top_lines[st.session_state["sel_top_idx"]]),
+    )
 
     # --- 차트 & 지표 ---
-    _plot_cpc_curve_plotly(conv, bottom_groups, top_groups, b_idx, t_idx)
+    _plot_cpc_curve_plotly_multi(conv, sel_cuts, bottom_lines, top_lines)
 
-
-    shares = _search_shares_for_cuts(kw, cuts)
+    shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
 
     st.caption("비중 분모: 전체 채널(검색+비검색), 분자: 검색 영역(클릭>0) 중 CPC 조건 충족 키워드 합")
     st.markdown(
         f"""
-- **CPC_cut bottom:** {round(cuts.bottom, 2)}원  
+- **CPC_cut bottom:** {round(sel_cuts.bottom, 2)}원  
   · 검색 광고 매출 비중 {shares['rev_share_bottom']}%  
   · 검색 광고 광고비 비중 {shares['cost_share_bottom']}%
 
-- **CPC_cut top:** {round(cuts.top, 2)}원  
+- **CPC_cut top:** {round(sel_cuts.top, 2)}원  
   · 검색 광고 매출 비중 {shares['rev_share_top']}%  
   · 검색 광고 광고비 비중 {shares['cost_share_top']}%
 """
@@ -649,7 +629,7 @@ def render_ad_analysis_tab(supabase):
 
     # --- 제외 키워드 ---
     st.markdown("### 3) 제외 키워드")
-    exclusions = _compute_exclusions(kw, cuts, aov50, float(breakeven_roas))
+    exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
     _display_table("a) CPC_cut top 이상 전환 0", exclusions["a"])
     _display_table("b) CPC_cut bottom 이하 전환 0", exclusions["b"])
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
@@ -676,7 +656,7 @@ def render_ad_analysis_tab(supabase):
                     note=note,
                     totals=totals,
                     breakeven_roas=float(breakeven_roas),
-                    cuts=cuts,
+                    cuts=sel_cuts,
                     shares=shares,
                     aov_p50_value=aov50,
                     kw=kw,
