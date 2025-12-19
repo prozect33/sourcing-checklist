@@ -13,10 +13,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ===================== 설정/상수 =====================
-# why: 새 테이블 사용 시 이 값만 바꾸면 됨
 SUPABASE_TABLE = "exclusion_keywords"
 
-# 표준 컬럼명(업로드 원본)
 DATE_COL = "날짜"
 KW_COL = "키워드"
 SURF_COL = "광고 노출 지면"
@@ -28,25 +26,21 @@ ORD_COL = "총 주문수(14일)"
 REV_COL = "총 전환매출액(14일)"
 REQUIRED_COLS = [DATE_COL, KW_COL, SURF_COL, IMP_COL, CLK_COL, COST_COL, ORD_COL, REV_COL]
 
-# 자동 컷 계산 파라미터(경험치)
 SMOOTH_DIVISOR = 70
 SLOPE_Q = 0.64
 LOWBACK_DELTA = 0.24
 MIN_RUN_FRAC = 0.04
 
-# 수동 캡 프리셋
 BOTTOM_Q_PRESETS: List[float] = [0.05, 0.10, 0.15, 0.20, 0.30]
 TOP_Q_PRESETS:    List[float] = [0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
 DEFAULT_FLOOR_Q = BOTTOM_Q_PRESETS[0]
 DEFAULT_CEIL_Q  = TOP_Q_PRESETS[0]
-
 
 # ===================== 유틸 =====================
 def _to_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").fillna(0).round(0).astype(int)
 
 def _to_date(s: pd.Series) -> pd.Series:
-    """why: 다양한 입력 날짜 포맷 허용(문자/8자리/6자리/엑셀 시리얼)"""
     txt = s.astype(str).str.strip()
     dt_general = pd.to_datetime(txt, errors="coerce")
     digits = txt.str.replace(r"[^0-9]", "", regex=True)
@@ -71,7 +65,6 @@ def _moving_average(y: np.ndarray, window: int) -> np.ndarray:
     return np.convolve(ypad, kernel, mode="valid")
 
 def _longest_true_run_by_x(mask: np.ndarray, x: np.ndarray) -> tuple[int, int]:
-    """why: ‘가파른 구간’에서 충분한 길이 확보"""
     best_span, best_s, cur_s = 0.0, -1, -1
     for i, v in enumerate(mask):
         if v and cur_s == -1:
@@ -118,7 +111,6 @@ def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["revenue_14d"] = _to_int(df[REV_COL])
     return df
 
-
 # ===================== 집계/지표 =====================
 def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     if df.empty:
@@ -146,7 +138,6 @@ def _aggregate_kw(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     kw["roas_14d"] = (kw["revenue_14d"] / kw["cost"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
     return kw, totals
 
-
 # ===================== 컷 계산 =====================
 @dataclass(frozen=True)
 class CpcCuts:
@@ -157,27 +148,22 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
     conv = kw[kw["orders_14d"] > 0].sort_values("cpc").copy()
     if conv.empty:
         return CpcCuts(0.0, 0.0), conv
-
     total_conv_rev = float(conv["revenue_14d"].sum())
     conv["cum_rev"] = conv["revenue_14d"].cumsum()
     conv["cum_rev_share"] = (conv["cum_rev"] / (total_conv_rev if total_conv_rev > 0 else 1.0)).clip(0, 1)
-
-    x = conv["cpc"].to_numpy(dtype=float)
-    y = conv["cum_rev_share"].to_numpy(dtype=float)
+    x = conv["cpc"].to_numpy(float)
+    y = conv["cum_rev_share"].to_numpy(float)
     n = len(x)
     if n < 5:
         return CpcCuts(bottom=float(x[0]), top=float(x[-1])), conv
-
     x_n = (x - x.min()) / (x.max() - x.min() + 1e-12)
     y_n = (y - y.min()) / (y.max() - y.min() + 1e-12)
-    idx_top = int(np.argmax(y_n - x_n))  # why: 효율 초과 지점
-
+    idx_top = int(np.argmax(y_n - x_n))
     smooth_win = max(7, int(round(n / SMOOTH_DIVISOR)))
     if smooth_win % 2 == 0:
         smooth_win += 1
     y_s = _moving_average(y, smooth_win)
     slope = np.gradient(y_s, x)
-
     pos = slope[slope > 0]
     if pos.size == 0 or not np.any(np.isfinite(pos)):
         idx_bottom = 0
@@ -203,7 +189,6 @@ def _compute_auto_cpc_cuts(kw: pd.DataFrame) -> Tuple[CpcCuts, pd.DataFrame]:
             if (e - s + 1) < min_run:
                 e = min(n - 1, s + min_run - 1)
             idx_bottom = int(s)
-
     return CpcCuts(bottom=float(x[idx_bottom]), top=float(x[idx_top])), conv
 
 def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List[float], List[float]]:
@@ -216,30 +201,24 @@ def _build_candidate_lines(conv: pd.DataFrame, auto_cuts: CpcCuts) -> tuple[List
     for q in TOP_Q_PRESETS:
         ceil_x = _quantile_x(x, 1.0 - q)
         top_vals.append(min(float(auto_cuts.top), float(ceil_x)))
-
     def _dedup_sorted(vals: List[float]) -> List[float]:
         rounded = [round(v, 2) for v in vals]
         return sorted(dict.fromkeys(rounded))
-
     return _dedup_sorted(bottom_vals), _dedup_sorted(top_vals)
-
 
 # ===================== 지표/표시 =====================
 def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]:
     total_cost_all = float(kw["cost"].sum())
     total_rev_all = float(kw["revenue_14d"].sum())
-
     kw_search_all = kw[kw["surface"] == SURF_SEARCH_VALUE]
     total_cost_search = float(kw_search_all["cost"].sum())
     total_rev_search = float(kw_search_all["revenue_14d"].sum())
-
     if (total_cost_all <= 0 and total_rev_all <= 0) or kw_search_all.empty:
         return {k: 0.0 for k in [
             "cost_share_bottom","rev_share_bottom","cost_share_top","rev_share_top",
             "cost_share_bottom_search","rev_share_bottom_search",
             "cost_share_top_search","rev_share_top_search"
         ]}
-
     base = kw[(kw["surface"] == SURF_SEARCH_VALUE) & (kw["clicks"] > 0)].copy()
     if base.empty:
         return {k: 0.0 for k in [
@@ -247,21 +226,16 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
             "cost_share_bottom_search","rev_share_bottom_search",
             "cost_share_top_search","rev_share_top_search"
         ]}
-
     if "cpc" not in base.columns or base["cpc"].isna().any():
         base["cpc"] = base["cost"] / base["clicks"]
-
     m_le_bottom = base["cpc"] <= float(cuts.bottom)
     m_ge_top    = base["cpc"] >= float(cuts.top)
-
     cost_le_bottom = float(base.loc[m_le_bottom, "cost"].sum())
     rev_le_bottom  = float(base.loc[m_le_bottom, "revenue_14d"].sum())
     cost_ge_top    = float(base.loc[m_ge_top,    "cost"].sum())
     rev_ge_top     = float(base.loc[m_ge_top,    "revenue_14d"].sum())
-
     def _pct(num: float, den: float) -> float:
         return round(_safe_div(num, den, 0.0) * 100, 2)
-
     return {
         "cost_share_bottom": _pct(cost_le_bottom, total_cost_all),
         "rev_share_bottom":  _pct(rev_le_bottom,  total_rev_all),
@@ -274,10 +248,7 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
     }
 
 def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = None) -> None:
-    cols = [
-        "keyword","surface","active_days","impressions","clicks","cost",
-        "orders_14d","revenue_14d","ctr","cpc","roas_14d",
-    ]
+    cols = ["keyword","surface","active_days","impressions","clicks","cost","orders_14d","revenue_14d","ctr","cpc","roas_14d"]
     if dff.empty:
         st.markdown(f"#### {title} (0개)")
         return
@@ -298,10 +269,8 @@ def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]
 def _format_keywords_line_exact(words: Iterable[str]) -> str:
     return ",\u200b".join([w for w in words])
 
-
 # ===================== 클립보드/JS =====================
 def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
-    # why: Streamlit 기본 버튼은 클립보드 권한 제약 → JS 직접 호출 + 폴백
     payload = json.dumps(text)
     html = f"""
     <div style="display:flex;align-items:center;gap:8px;">
@@ -329,10 +298,8 @@ def _copy_to_clipboard_button(label: str, text: str, key: str) -> None:
     """
     components.html(html, height=56)
 
-
 # ===================== Supabase I/O =====================
 def _supabase_rows(res: Any) -> List[Dict]:
-    """why: v1/v2 응답 형태를 list[dict]로 표준화"""
     data = getattr(res, "data", None)
     if isinstance(data, list):
         return [r for r in data if isinstance(r, dict)]
@@ -349,7 +316,6 @@ def _supabase_rows(res: Any) -> List[Dict]:
     return []
 
 def _save_exclusion_to_supabase(supabase: Any, product_name: str, keywords_line: str) -> tuple[bool, str]:
-    """why: 확정 제외 키워드 스냅샷 저장"""
     if supabase is None:
         return False, "supabase 클라이언트가 없습니다."
     try:
@@ -368,23 +334,31 @@ def _save_exclusion_to_supabase(supabase: Any, product_name: str, keywords_line:
     except Exception as e:
         return False, f"저장 실패: {e}"
 
-def _fetch_saved_exclusions(supabase: Any, product_name: str | None, limit: int = 20) -> Tuple[bool, str, List[Dict]]:
-    """why: 저장 이력 조회(anon 키 사용시 RLS select 필요)"""
+def _fetch_saved_exclusions_page(supabase: Any, offset: int, limit: int) -> Tuple[bool, str, List[Dict]]:
+    """목록형: 전체에서 최신순 페이지네이션. anon 키면 RLS select 필요."""
     if supabase is None:
         return False, "supabase 클라이언트가 없습니다.", []
     try:
-        q = supabase.table(SUPABASE_TABLE).select("id,product_name,saved_at,keywords,count")
-        if product_name and product_name.strip():
-            q = q.eq("product_name", product_name.strip())
-        q = q.order("saved_at", desc=True).limit(int(limit))
-        res = q.execute()
+        # PostgREST range: 0-indexed inclusive. v2 SDK는 .range 사용.
+        q = (
+            supabase.table(SUPABASE_TABLE)
+            .select("id,product_name,saved_at,keywords,count")
+            .order("saved_at", desc=True)
+        )
+        # SDK v2 호환: .range(start, end)
+        start = max(0, int(offset))
+        end = start + max(1, int(limit)) - 1
+        if hasattr(q, "range"):
+            res = q.range(start, end).execute()
+        else:
+            # v1 호환: limit/offset
+            res = q.limit(int(limit)).offset(int(offset)).execute()
         if hasattr(res, "error") and res.error:
             return False, str(res.error), []
         rows = _supabase_rows(res)
         return True, "ok", rows
     except Exception as e:
         return False, f"조회 실패: {e}", []
-
 
 # ===================== UI: 4) 저장/복사 =====================
 def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
@@ -393,86 +367,98 @@ def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any |
     if not all_words:
         return
     line = _format_keywords_line_exact(all_words)
-
     product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="예: ABC-123 블루 1팩")
     do_save_copy = st.button("저장 및 복사하기", key="ex_union_save_copy", disabled=(not product_name.strip()))
-
     if do_save_copy:
         ok, msg = _save_exclusion_to_supabase(supabase, product_name, line)
         if ok:
             st.success(f"[{product_name}] {msg}")
-            # why: 자동 복사는 브라우저 정책에 따라 실패 가능 → 시도 후 아래 수동 버튼 유지
             components.html(
                 f"""
                 <script>
                   const txt = {json.dumps(line)};
-                  (async () => {{
-                    try {{ await navigator.clipboard.writeText(txt); }} catch (e) {{}}
-                  }})();
+                  (async () => {{ try {{ await navigator.clipboard.writeText(txt); }} catch (e) {{}} }})();
                 </script>
                 """,
                 height=0,
             )
         else:
             st.error(msg)
-
-    # 수동 복사 버튼(총 개수 포함)
     _copy_to_clipboard_button(f"[복사하기] 총{len(all_words)}개", line, key="ex_union_copy")
 
+# ===================== UI: 5) 저장된 제외 키워드 (목록형) =====================
+def _render_saved_exclusions_list(supabase: Any | None) -> None:
+    st.markdown("### 5) 저장된 제외 키워드 (목록)")
+    # 상태 초기화
+    if "ex_list_page" not in st.session_state:
+        st.session_state["ex_list_page"] = 0
+    if "ex_list_page_size" not in st.session_state:
+        st.session_state["ex_list_page_size"] = 20
 
-# ===================== UI: 5) 저장된 키워드 불러오기 =====================
-def _render_saved_exclusions_loader(supabase: Any | None) -> None:
-    st.markdown("### 5) 저장된 제외 키워드 불러오기")
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        pn = st.text_input("상품명(필터, 비워두면 전체)", key="ex_load_prod", placeholder="예: ABC-123 블루 1팩")
-    with col2:
-        limit = st.number_input("최신 N건", min_value=1, max_value=200, value=20, step=1, key="ex_load_limit")
-    with col3:
-        do_fetch = st.button("불러오기", key="ex_load_btn", use_container_width=True)
+    c1, c2, c3 = st.columns([1,1,6])
+    with c1:
+        page_size = st.selectbox("페이지 크기", options=[10, 20, 50], index=[10,20,50].index(st.session_state["ex_list_page_size"]), key="ex_list_size_sel")
+        st.session_state["ex_list_page_size"] = int(page_size)
+    with c2:
+        # 새로고침(페이지 유지)
+        refresh = st.button("새로고침", key="ex_list_refresh", use_container_width=True)
+    with c3:
+        st.caption("최신 저장 순으로 표시됩니다.")
 
-    if not do_fetch:
-        return
+    # 페이지 오프셋 계산
+    page = int(st.session_state["ex_list_page"])
+    limit = int(st.session_state["ex_list_page_size"])
+    offset = page * limit
 
-    ok, msg, rows = _fetch_saved_exclusions(supabase, pn, int(limit))
+    ok, msg, rows = _fetch_saved_exclusions_page(supabase, offset=offset, limit=limit)
     if not ok:
         st.error(msg)
         return
+
     if not rows:
-        st.info("조회 결과가 없습니다.")
+        if page == 0:
+            st.info("저장된 항목이 없습니다.")
+        else:
+            st.info("더 이상 항목이 없습니다.")
+        # 이전 페이지 버튼만 노출
+        prev_dis = page <= 0
+        cprev, cnext = st.columns(2)
+        with cprev:
+            if st.button("이전", disabled=prev_dis, key=f"ex_list_prev_empty", use_container_width=True):
+                st.session_state["ex_list_page"] = max(0, page - 1)
+        with cnext:
+            st.button("다음", disabled=True, key=f"ex_list_next_empty", use_container_width=True)
         return
 
-    try:
-        df = pd.DataFrame.from_records(rows)  # why: list[dict]만 허용
-    except Exception as e:
-        st.error(f"표시 변환 실패: {e}")
-        st.json(rows[:3])
-        return
+    # 목록 렌더(행형 카드)
+    for i, row in enumerate(rows):
+        product = row.get("product_name", "") or ""
+        saved_at = row.get("saved_at", "") or ""
+        count = row.get("count", 0) or 0
+        kws = row.get("keywords", "") or ""
+        cc1, cc2 = st.columns([6,2])
+        with cc1:
+            st.markdown(f"**{product}** · {saved_at} · {count}개")
+            st.code(kws, language="text")
+        with cc2:
+            _copy_to_clipboard_button("복사", kws, key=f"ex_list_copy_{page}_{i}")
 
-    view_cols_pref = ["product_name", "saved_at", "count", "keywords"]
-    view_cols = [c for c in view_cols_pref if c in df.columns]
-    if not view_cols:
-        st.json(df.head(5).to_dict(orient="records"))
-        return
-
-    st.dataframe(df[view_cols], use_container_width=True, hide_index=True)
-
-    st.caption("행별 복사")
-    for i, row in enumerate(rows[:50]):
-        p = row.get("product_name", "") or ""
-        t = row.get("saved_at", "") or ""
-        c = row.get("count", 0) or 0
-        label = f"[복사] {p} · {t} · {c}개"
-        _copy_to_clipboard_button(label, row.get("keywords", "") or "", key=f"ex_copy_{i}")
-
+    # 페이지 네비게이션
+    cprev, cnext = st.columns(2)
+    with cprev:
+        prev_dis = page <= 0
+        if st.button("이전", disabled=prev_dis, key=f"ex_list_prev_{page}", use_container_width=True):
+            st.session_state["ex_list_page"] = max(0, page - 1)
+            st.experimental_rerun()
+    with cnext:
+        # next 가능성 판단: 현재 rows 수가 limit와 같으면 다음 페이지 시도 가능
+        next_dis = len(rows) < limit
+        if st.button("다음", disabled=next_dis, key=f"ex_list_next_{page}", use_container_width=True):
+            st.session_state["ex_list_page"] = page + 1
+            st.experimental_rerun()
 
 # ===================== 차트 =====================
-def _plot_cpc_curve_plotly_multi(
-    kw: pd.DataFrame,
-    selected: CpcCuts,
-    bottoms: List[float],
-    tops: List[float],
-) -> None:
+def _plot_cpc_curve_plotly_multi(kw: pd.DataFrame, selected: CpcCuts, bottoms: List[float], tops: List[float]) -> None:
     conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
     if conv.empty:
         st.warning("전환 발생 키워드가 없어 그래프를 표시할 수 없습니다.")
@@ -482,10 +468,8 @@ def _plot_cpc_curve_plotly_multi(
     if total_conv_rev <= 0:
         st.warning("conv 총매출이 0입니다.")
         return
-
     x_vals = conv["cpc"].to_numpy(float)
     y_share_conv = (conv["revenue_14d"].cumsum().to_numpy(float) / total_conv_rev).clip(0, 1)
-
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=x_vals, y=y_share_conv, mode="lines", line=dict(width=2),
@@ -497,13 +481,10 @@ def _plot_cpc_curve_plotly_multi(
         fig.add_vline(x=b, line_dash="dot",  opacity=0.35, line_color="blue", line_width=1)
     for t in tops:
         fig.add_vline(x=t, line_dash="dash", opacity=0.35, line_color="red",  line_width=1)
-    fig.update_layout(
-        height=380, margin=dict(l=20, r=20, t=30, b=20),
-        xaxis_title="CPC", yaxis_title="누적매출비중(conv)",
-        yaxis=dict(tickformat=".0%"), showlegend=False,
-    )
+    fig.update_layout(height=380, margin=dict(l=20, r=20, t=30, b=20),
+                      xaxis_title="CPC", yaxis_title="누적매출비중(conv)",
+                      yaxis=dict(tickformat=".0%"), showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
-
 
 # ===================== 제외 로직/엔트리 =====================
 def _aov_p50(df: pd.DataFrame) -> float:
@@ -518,13 +499,11 @@ def _aov_p50(df: pd.DataFrame) -> float:
     if not mask.any():
         return 0.0
     aov = (s_rev[mask] / s_orders[mask]).replace([np.inf, -np.inf], np.nan).dropna()
-    if aov.empty:
+    if aov.empty():
         return 0.0
     return float(np.median(aov))
 
-def _compute_exclusions(
-    kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, breakeven_roas: float
-) -> Dict[str, pd.DataFrame]:
+def _compute_exclusions(kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, breakeven_roas: float) -> Dict[str, pd.DataFrame]:
     ex_a = kw[(kw["orders_14d"] == 0) & (kw["cpc"] >= cuts.top)].copy()
     ex_b = kw[(kw["orders_14d"] == 0) & (kw["cpc"] <= cuts.bottom) & (kw["clicks"] >= 1)].copy()
     cpc_global_p50 = float(kw.loc[kw["clicks"] > 0, "cpc"].quantile(0.5)) if (kw["clicks"] > 0).any() else 0.0
@@ -532,26 +511,18 @@ def _compute_exclusions(
     ex_c["next_click_cost"] = np.where(ex_c["cpc"] > 0, ex_c["cpc"], cpc_global_p50)
     ex_c["cost_after_1click"] = ex_c["cost"] + ex_c["next_click_cost"]
     ex_c["roas_if_1_order"] = (
-        (aov_p50_value / ex_c["cost_after_1click"] * 100)
-        .replace([np.inf, -np.inf], 0)
-        .fillna(0)
-        .round(2)
-        if aov_p50_value > 0
-        else 0.0
+        (aov_p50_value / ex_c["cost_after_1click"] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
+        if aov_p50_value > 0 else 0.0
     )
     ex_c = ex_c[ex_c["roas_if_1_order"] <= float(breakeven_roas)].copy()
     ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
     return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
 
 def render_ad_analysis_tab(supabase: Any | None = None) -> None:
-    """광고 분석 메인 탭(저장/불러오기 포함). supabase 인자는 역호환용(미사용 가능)."""
     st.subheader("광고분석 (총 14일 기준)")
-
-    # 입력
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
 
-    # 실행 트리거(중복 실행 방지)
     if "ad_run_started" not in st.session_state:
         st.session_state["ad_run_started"] = False
     if st.button("🔍 분석하기", key="ad_run", use_container_width=True):
@@ -559,7 +530,6 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     if not st.session_state["ad_run_started"]:
         return
 
-    # 검증/정규화
     if up is None:
         st.error("파일을 업로드하세요.")
         return
@@ -573,32 +543,22 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         st.error("유효한 데이터가 없습니다.")
         return
 
-    # 집계
     kw, totals = _aggregate_kw(df)
 
-    # 1) 기본 성과 지표
     st.markdown("### 1) 기본 성과 지표")
     st.caption(f"기간: {totals['date_min']} ~ {totals['date_max']}")
     total_cost = totals["total_cost"]; total_rev = totals["total_rev"]; total_orders = totals["total_orders"]
 
     def _row(name: str, sub: pd.DataFrame) -> Dict[str, float | int | str]:
         c = int(sub["cost"].sum()); r = int(sub["revenue_14d"].sum()); o = int(sub["orders_14d"].sum())
-        return {
-            "영역": name,
-            "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
-            "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
-            "주문": o, "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
-            "ROAS": round(_safe_div(r, c) * 100, 2),
-        }
+        return {"영역": name, "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
+                "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
+                "주문": o, "주문비율(%)": round(_safe_div(o, total_orders) * 100, 2),
+                "ROAS": round(_safe_div(r, c) * 100, 2)}
 
-    rows = [
-        _row("전체", df),
-        _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]),
-        _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE]),
-    ]
+    rows = [_row("전체", df), _row("검색", df[df["surface"] == SURF_SEARCH_VALUE]), _row("비검색", df[df["surface"] != SURF_SEARCH_VALUE])]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    # 2) CPC-누적매출 비중 + 컷
     st.markdown("### 2) CPC-누적매출 비중")
     auto_cuts, conv = _compute_auto_cpc_cuts(kw)
     if conv.empty:
@@ -617,9 +577,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         st.session_state["sel_bottom_idx"] = int(np.argmin([abs(v - round(default_bottom, 2)) for v in bottom_lines]))
         st.session_state["sel_top_idx"] = int(np.argmin([abs(v - round(default_top, 2)) for v in top_lines]))
 
-    def _clamp(i: int, n: int) -> int:
-        return 0 if n <= 0 else int(max(0, min(i, n - 1)))
-
+    def _clamp(i: int, n: int) -> int: return 0 if n <= 0 else int(max(0, min(i, n - 1)))
     st.session_state["sel_bottom_idx"] = _clamp(st.session_state["sel_bottom_idx"], len(bottom_lines))
     st.session_state["sel_top_idx"] = _clamp(st.session_state["sel_top_idx"], len(top_lines))
 
@@ -631,8 +589,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
             cols = st.columns(ncols)
             for c in range(ncols):
                 if idx >= len(bottom_lines): break
-                if cols[c].button(f"B{idx + 1}", key=f"btn_b_{idx}"):
-                    st.session_state["sel_bottom_idx"] = idx
+                if cols[c].button(f"B{idx + 1}", key=f"btn_b_{idx}"): st.session_state["sel_bottom_idx"] = idx
                 idx += 1
         b_idx = st.session_state["sel_bottom_idx"]
     with c2:
@@ -642,8 +599,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
             cols = st.columns(ncols)
             for c in range(ncols):
                 if idx >= len(top_lines): break
-                if cols[c].button(f"T{idx + 1}", key=f"btn_t_{idx}"):
-                    st.session_state["sel_top_idx"] = idx
+                if cols[c].button(f"T{idx + 1}", key=f"btn_t_{idx}"): st.session_state["sel_top_idx"] = idx
                 idx += 1
         t_idx = st.session_state["sel_top_idx"]
 
@@ -652,20 +608,17 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
 
     shares = _search_shares_for_cuts(kw, sel_cuts)
     aov50 = _aov_p50(conv)
-
     st.markdown(
         f"""
 - **CPC_cut bottom:** {sel_cuts.bottom:.2f}원  
-  · 전체 매출비중 {shares['rev_share_bottom']:.2f}% / 검색 매출비중 {shares['rev_share_bottom_search']:.2f}%  
+  · 전체 매출비중 {shares['rev_share_bottom']:.2f}% / 검색 매출비중 {shares['rev_share_bottom_search']:.2f}%
   · 전체 광고비비중 {shares['cost_share_bottom']:.2f}% / 검색 광고비비중 {shares['cost_share_bottom_search']:.2f}%
 
 - **CPC_cut top:** {sel_cuts.top:.2f}원  
-  · 전체 매출비중 {shares['rev_share_top']:.2f}% / 검색 매출비중 {shares['rev_share_top_search']:.2f}%  
+  · 전체 매출비중 {shares['rev_share_top']:.2f}% / 검색 매출비중 {shares['rev_share_top_search']:.2f}%
   · 전체 광고비비중 {shares['cost_share_top']:.2f}% / 검색 광고비비중 {shares['cost_share_top_search']:.2f}%
-"""
-    )
+""")
 
-    # 3) 제외 키워드
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
     _display_table("a) CPC_cut top 이상 전환 0", exclusions["a"])
@@ -673,12 +626,8 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    # 4) 저장 및 복사
-    _render_exclusion_union(exclusions, supabase)
+    _render_exclusion_union(exclusions, supabase)         # 4)
+    _render_saved_exclusions_list(supabase)               # 5) 목록형
 
-    # 5) 저장된 키워드 불러오기
-    _render_saved_exclusions_loader(supabase)
-
-# 사용 예:
 # if __name__ == "__main__":
 #     render_ad_analysis_tab(None)
