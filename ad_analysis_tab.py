@@ -411,7 +411,7 @@ def _render_saved_exclusions_names(supabase: Any | None) -> None:
                 st.experimental_rerun()
 
 # ===================== 차트(수동 컷만) =====================
-def _plot_cpc_curve_plotly_manual(kw: pd.DataFrame, selected: CpcCuts) -> None:
+conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna()) & (kw["surface"] == SURF_SEARCH_VALUE)].copy()
     conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
     if conv.empty:
         st.warning("전환 발생 키워드가 없어 그래프를 표시할 수 없습니다.")
