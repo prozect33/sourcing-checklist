@@ -476,7 +476,7 @@ def _compute_exclusions(kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, b
 
 # ===================== 메인 탭 =====================
 def render_ad_analysis_tab(supabase: Any | None = None) -> None:
-    st.subheader("광고분석 (총 14일 기준)")
+    st.subheader("광고분석")
 
     up = st.file_uploader("로우데이터 업로드 (xlsx/csv)", type=["xlsx", "csv"], key="ad_up")
     breakeven_roas = st.number_input("손익분기 ROAS", min_value=0.0, value=0.0, step=10.0, key="ad_be")
