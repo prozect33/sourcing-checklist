@@ -411,16 +411,19 @@ def _render_saved_exclusions_names(supabase: Any | None) -> None:
                 st.experimental_rerun()
 
 # ===================== 차트(수동 컷만) =====================
-conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna()) & (kw["surface"] == SURF_SEARCH_VALUE)].copy()
-    conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna())].copy()
+def _plot_cpc_curve_plotly_manual(kw: pd.DataFrame, selected: CpcCuts) -> None:
+    # 검색 영역만 누적에 포함
+    conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna()) & (kw["surface"] == SURF_SEARCH_VALUE)].copy()
     if conv.empty:
         st.warning("전환 발생 키워드가 없어 그래프를 표시할 수 없습니다.")
         return
+
     conv = conv.sort_values("cpc").reset_index(drop=True)
     total_conv_rev = float(conv["revenue_14d"].sum())
     if total_conv_rev <= 0:
         st.warning("conv 총매출이 0입니다.")
         return
+
     x_vals = conv["cpc"].to_numpy(float)
     y_share_conv = (conv["revenue_14d"].cumsum().to_numpy(float) / total_conv_rev).clip(0, 1)
 
@@ -429,13 +432,18 @@ conv = kw[(kw["orders_14d"] > 0) & (kw["cpc"].notna()) & (kw["surface"] == SURF_
         x=x_vals, y=y_share_conv, mode="lines", line=dict(width=2),
         name="누적비중(≤CPC)", hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
     ))
-    # 사용자가 입력한 두 개의 기준선만 표시(툴팁은 기본 유지)
+    # 사용자가 입력한 두 개의 기준선만 표시
     fig.add_vline(x=float(selected.bottom), line_dash="dash", opacity=1.0, line_color="blue", line_width=3)
     fig.add_vline(x=float(selected.top),    line_dash="dash", opacity=1.0, line_color="red",  line_width=3)
 
-    fig.update_layout(height=380, margin=dict(l=20, r=20, t=30, b=20),
-                      xaxis_title="CPC", yaxis_title="누적매출비중(conv)",
-                      yaxis=dict(tickformat=".0%"), showlegend=False)
+    fig.update_layout(
+        height=380,
+        margin=dict(l=20, r=20, t=30, b=20),
+        xaxis_title="CPC",
+        yaxis_title="누적매출비중(conv)",
+        yaxis=dict(tickformat=".0%"),
+        showlegend=False
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 # ===================== AOV, 제외 계산 =====================
