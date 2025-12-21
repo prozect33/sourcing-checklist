@@ -154,23 +154,24 @@ def _search_shares_for_cuts(kw: pd.DataFrame, cuts: CpcCuts) -> Dict[str, float]
         ]}
 
     base = kw[(kw["surface"] == SURF_SEARCH_VALUE) & (kw["clicks"] > 0)].copy()
-    if base.empty:
-        return {k: 0.0 for k in [
-            "cost_share_bottom","rev_share_bottom","cost_share_top","rev_share_top",
-            "cost_share_bottom_search","rev_share_bottom_search",
-            "cost_share_top_search","rev_share_top_search"
-        ]}
 
     if "cpc" not in base.columns or base["cpc"].isna().any():
         base["cpc"] = base["cost"] / base["clicks"]
 
-    m_le_bottom = base["cpc"] <= float(cuts.bottom)
-    m_ge_top    = base["cpc"] >= float(cuts.top)
+    # ===== bottom : 정방향 누적 =====
+    base_asc = base.sort_values("cpc", ascending=True)
+    m_bottom = base_asc["cpc"] <= float(cuts.bottom)
 
-    cost_le_bottom = float(base.loc[m_le_bottom, "cost"].sum())
-    rev_le_bottom  = float(base.loc[m_le_bottom, "revenue_14d"].sum())
-    cost_ge_top    = float(base.loc[m_ge_top,    "cost"].sum())
-    rev_ge_top     = float(base.loc[m_ge_top,    "revenue_14d"].sum())
+    cost_le_bottom = float(base_asc.loc[m_bottom, "cost"].sum())
+    rev_le_bottom  = float(base_asc.loc[m_bottom, "revenue_14d"].sum())
+
+    # ===== top : 역방향 누적 =====
+    base_desc = base.sort_values("cpc", ascending=False)
+    m_top = base_desc["cpc"] >= float(cuts.top)
+
+    cost_ge_top = float(base_desc.loc[m_top, "cost"].sum())
+    rev_ge_top  = float(base_desc.loc[m_top, "revenue_14d"].sum())
+
 
     def _pct(num: float, den: float) -> float:
         return round(_safe_div(num, den, 0.0) * 100, 2)
