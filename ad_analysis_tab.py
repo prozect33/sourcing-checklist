@@ -430,8 +430,8 @@ def _plot_cpc_curve_plotly_manual(kw: pd.DataFrame, selected: CpcCuts) -> None:
         name="누적비중(≤CPC)", hovertemplate="CPC=%{x:.0f}<br>Share=%{y:.2%}<extra></extra>",
     ))
     # 사용자가 입력한 두 개의 기준선만 표시(툴팁은 기본 유지)
-    fig.add_vline(x=float(selected.bottom), line_dash="solid", opacity=1.0, line_color="blue", line_width=3)
-    fig.add_vline(x=float(selected.top),    line_dash="solid", opacity=1.0, line_color="red",  line_width=3)
+    fig.add_vline(x=float(selected.bottom), line_dash="dash", opacity=1.0, line_color="blue", line_width=3)
+    fig.add_vline(x=float(selected.top),    line_dash="dash", opacity=1.0, line_color="red",  line_width=3)
 
     fig.update_layout(height=380, margin=dict(l=20, r=20, t=30, b=20),
                       xaxis_title="CPC", yaxis_title="누적매출비중(conv)",
