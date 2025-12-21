@@ -542,6 +542,12 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     x = conv["cpc"].to_numpy(float)
     cpc_min, cpc_max = float(np.nanmin(x)), float(np.nanmax(x))
 
+    # (추가) 기존 세션값을 min/max로 클램프하여 number_input에 전달할 안전 기본값 생성
+    val_bottom = float(st.session_state.get("manual_bottom", cpc_min))
+    val_top    = float(st.session_state.get("manual_top", cpc_max))
+    val_bottom = max(cpc_min, min(val_bottom, cpc_max))
+    val_top    = max(cpc_min, min(val_top,    cpc_max))
+
     # 초기값 기억
     if "manual_bottom" not in st.session_state:
         st.session_state["manual_bottom"] = float(cpc_min)
@@ -554,7 +560,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
             "CPC cut bottom",
             min_value=float(cpc_min),
             max_value=float(cpc_max),
-            value=float(st.session_state["manual_bottom"]),
+            value=float(val_bottom),
             step=10.0,
             help="그래프 툴팁(CPC) 보고 수동 입력"
         )
@@ -563,7 +569,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
             "CPC cut top",
             min_value=float(cpc_min),
             max_value=float(cpc_max),
-            value=float(st.session_state["manual_top"]),
+            value=float(val_top),
             step=10.0,
             help="그래프 툴팁(CPC) 보고 수동 입력"
         )
