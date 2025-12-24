@@ -704,19 +704,20 @@ def main():
         
                 st.markdown("---")
                 st.markdown("#### 광고 판매 (HTML 자동기입)")
+
                 # 저장 연결(네 기존 저장 로직으로 바꿔도 됨)
                 def _save_into_app(row: dict) -> None:
                     """
-                    row 예시키:
+                    row 예시:
                       date, product_name, campaign_name,
                       total_sales_qty, total_revenue, coupon_unit,
                       ad_sales_qty, ad_revenue, ad_cost
                     """
-                    # 예시: supabase RPC로 저장 (네 로직에 맞게 교체)
+                    # 예: Supabase 저장에 연결하려면 아래처럼:
                     # supabase.rpc("upsert_daily_sales", {"p_data": row}).execute()
                     pass
 
-                # HTML 업로드 → '운영 중' 캠페인만 자동 폼 생성
+                # HTML/CSV/XLSX 업로드 → '운영 중' 캠페인만 자동 폼 생성
                 render_ads_autofill_section(on_save=_save_into_app)
             
                 st.markdown("---")
