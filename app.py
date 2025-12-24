@@ -5,7 +5,6 @@ import pandas as pd
 import datetime
 import uuid
 from ad_analysis_tab import render_ad_analysis_tab
-from ads_autofill import render_ads_autofill_section
 from supabase import create_client, Client
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
@@ -693,7 +692,7 @@ def main():
                         st.info("선택된 상품의 상세 정보가 없습니다.")
 
                         
-                report_date = st.date_input("날짜 선택", datetime.date.today() - datetime.timedelta(days=1))
+                report_date = st.date_input("날짜 선택", datetime.date.today())
                 st.markdown("---")
         
                 st.markdown("#### 전체 판매")
@@ -703,22 +702,11 @@ def main():
                 st.number_input("개당 쿠폰가 (원)", step=100, key="coupon_unit")
         
                 st.markdown("---")
-                st.markdown("#### 광고 판매 (HTML 자동기입)")
-
-                # 저장 연결(네 기존 저장 로직으로 바꿔도 됨)
-                def _save_into_app(row: dict) -> None:
-                    """
-                    row 예시:
-                      date, product_name, campaign_name,
-                      total_sales_qty, total_revenue, coupon_unit,
-                      ad_sales_qty, ad_revenue, ad_cost
-                    """
-                    # 예: Supabase 저장에 연결하려면 아래처럼:
-                    # supabase.rpc("upsert_daily_sales", {"p_data": row}).execute()
-                    pass
-
-                # HTML/CSV/XLSX 업로드 → '운영 중' 캠페인만 자동 폼 생성
-                render_ads_autofill_section(on_save=_save_into_app)
+                st.markdown("#### 광고 판매")
+                # 입력 필드: key를 통해 st.session_state에 값을 저장
+                st.number_input("광고 전환 판매 수량", step=1, key="ad_sales_qty")
+                st.number_input("광고 매출액", step=1000, key="ad_revenue")
+                st.number_input("광고비용", step=1000, key="ad_cost")
             
                 st.markdown("---")
                 st.markdown("#### 자연 판매 (자동 계산)")
