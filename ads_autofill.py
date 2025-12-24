@@ -1,4 +1,4 @@
-# ads_autofill.py
+
 from __future__ import annotations
 
 import io
@@ -9,8 +9,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 import streamlit as st
+from bs4 import BeautifulSoup
 
-# --------- 공통 유틸 ---------
 def _normalize_label(s: str) -> str:
     s = unicodedata.normalize("NFKC", str(s)).strip().lower()
     s = re.sub(r"\s+", "", s)
@@ -20,12 +20,7 @@ def _normalize_label(s: str) -> str:
 def _contains_all(label: str, keywords: List[str]) -> bool:
     return all(k in label for k in keywords)
 
-def _guess_column(
-    df: pd.DataFrame,
-    *,
-    must_all: Optional[List[str]] = None,
-    any_of: Optional[List[str]] = None,
-) -> Optional[str]:
+def _guess_column(df: pd.DataFrame, *, must_all: Optional[List[str]] = None, any_of: Optional[List[str]] = None) -> Optional[str]:
     labels = {c: _normalize_label(c) for c in df.columns}
     if must_all:
         for c, n in labels.items():
@@ -39,46 +34,31 @@ def _guess_column(
     return None
 
 def _to_number(x) -> Optional[float]:
-    if x is None:
-        return None
+    if x is None: return None
     s = re.sub(r"[^\d\.\-]", "", str(x).strip())
-    if s in ("", "-", ".", "-."):
-        return None
-    try:
-        return float(s)
-    except Exception:
-        return None
+    if s in ("", "-", ".", "-."): return None
+    try: return float(s)
+    except Exception: return None
 
 def _yesterday() -> date:
     return date.today() - timedelta(days=1)
 
-# --------- HTML 테이블 읽기(무의존성) ---------
 def _read_tables_from_html(raw: bytes) -> List[pd.DataFrame]:
-    """
-    1) 전체 HTML에서 바로 read_html 시도
-    2) 실패/빈 결과면 정규식으로 <table>...</table>만 분리해 개별 read_html
-    """
     text = raw.decode("utf-8", errors="ignore")
-
-    # 1) 통으로 시도
     try:
         dfs = pd.read_html(text)
-        if isinstance(dfs, list) and dfs:
-            return dfs
+        if dfs: return dfs
     except Exception:
         pass
-
-    # 2) 개별 <table> 추출 후 시도 (bs4 없이 정규식 사용)
-    tables = re.findall(r"<table[\s\S]*?</table>", text, flags=re.IGNORECASE)
-    out: List[pd.DataFrame] = []
-    for t in tables:
+    soup = BeautifulSoup(text, "html.parser")
+    dfs: List[pd.DataFrame] = []
+    for t in soup.find_all("table"):
         try:
-            out.extend(pd.read_html(t))
+            dfs.extend(pd.read_html(str(t)))
         except Exception:
             continue
-    return out
+    return dfs
 
-# --------- 가장 적합한 테이블 선택 ---------
 def _find_best_table(dfs: List[pd.DataFrame]) -> Optional[pd.DataFrame]:
     def score_df(df: pd.DataFrame) -> Tuple[int, int]:
         cols = [_normalize_label(c) for c in df.columns]
@@ -94,13 +74,10 @@ def _find_best_table(dfs: List[pd.DataFrame]) -> Optional[pd.DataFrame]:
         strict, hits = 0, 0
         for keys, w in req_all:
             ok = any(_contains_all(c, keys) for c in cols)
-            if ok:
-                strict += 1
-                hits += w
+            if ok: strict += 1; hits += w
         for keys, w in req_any:
             ok = any(all(k in c for k in keys) or any(k in c for k in keys) for c in cols)
-            if ok:
-                hits += w
+            if ok: hits += w
         return strict, hits
 
     best, best_key = None, (-1, -1)
@@ -110,19 +87,16 @@ def _find_best_table(dfs: List[pd.DataFrame]) -> Optional[pd.DataFrame]:
             best, best_key = df, sc
     return best
 
-# --------- 필요한 열 뽑고 '운영'만 필터 ---------
 def _extract_campaign_rows(df: pd.DataFrame) -> pd.DataFrame:
-    status_col   = _guess_column(df, must_all=["상태"])
+    status_col = _guess_column(df, must_all=["상태"])
     campaign_col = _guess_column(df, must_all=["캠페인", "이름"])
-    ad_cost_col  = _guess_column(df, any_of=["집행", "광고비", "adcost", "cost"])
-    ad_rev_col   = _guess_column(df, any_of=["광고전환매출", "광고매출", "adgmv", "전환매출"])
-    ad_qty_col   = _guess_column(df, any_of=["광고전환판매수", "전환판매수", "전환수량", "conversionqty"])
-
+    ad_cost_col = _guess_column(df, any_of=["집행", "광고비", "adcost", "cost"])
+    ad_rev_col  = _guess_column(df, any_of=["광고전환매출", "광고매출", "adgmv", "전환매출"])
+    ad_qty_col  = _guess_column(df, any_of=["광고전환판매수", "전환판매수", "전환수량", "conversionqty"])
     if not status_col or not campaign_col:
         raise ValueError("필수 열(상태, 캠페인 이름)을 찾지 못했습니다.")
 
     work_df = df[df[status_col].astype(str).str.contains("운영", na=False)].copy()
-
     out = pd.DataFrame({
         "status": work_df[status_col].astype(str),
         "campaign_name": work_df[campaign_col].astype(str),
@@ -137,7 +111,6 @@ def _extract_campaign_rows(df: pd.DataFrame) -> pd.DataFrame:
     out["row_id"] = out.index + 1
     return out
 
-# --------- 섹션 렌더 ---------
 def render_ads_autofill_section(
     key_prefix: str = "ads_autofill",
     on_save: Optional[Callable[[Dict], None]] = None,
@@ -183,8 +156,7 @@ def render_ads_autofill_section(
     selection: Dict[int, bool] = {}
 
     def _fmt(v):
-        if v is None or (isinstance(v, float) and pd.isna(v)): 
-            return ""
+        if v is None or (isinstance(v, float) and pd.isna(v)): return ""
         try:
             f = float(v)
             return str(int(f)) if f.is_integer() else str(f)
@@ -233,7 +205,7 @@ def render_ads_autofill_section(
         count = 0
         for _, r in rows_df.iterrows():
             rid = int(r["row_id"])
-            if not selection.get(rid):
+            if not selection.get(rid): 
                 continue
             base_name = st.session_state.get(f"base_{rid}", "")
             alias     = st.session_state.get(f"alias_{rid}", "") or base_name
