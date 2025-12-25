@@ -3,3 +3,4 @@ pandas
 supabase
 openpyxl
 plotly>=5.18
+beautifulsoup4==4.12.3
