@@ -886,12 +886,26 @@ def main():
                     st.session_state.setdefault(f"{prefix}_total_revenue", 0)
                     st.session_state.setdefault(f"{prefix}_coupon_unit", 0)
 
-                    # (자동채움) 광고 3개만 1회 주입(사용자 수정 유지)
+                    # (자동채움) 광고 3개 주입:
+                    # - HTML/캠페인 바뀌면 다시 주입
+                    # - 또는 현재 값이 0/없으면 다시 주입 (세션 꼬임 복구)
                     sig = (uploaded_html.name, uploaded_html.size, camp.campaign_name)
-                    if st.session_state.get(f"{prefix}_autofill_sig") != sig:
-                        st.session_state[f"{prefix}_ad_sales_qty"] = int(camp.ad_sales_qty)
-                        st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue)
-                        st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost)
+
+                    cur_qty = st.session_state.get(f"{prefix}_ad_sales_qty")
+                    cur_rev = st.session_state.get(f"{prefix}_ad_revenue")
+                    cur_cost = st.session_state.get(f"{prefix}_ad_cost")
+
+                    need_refill = (
+                        st.session_state.get(f"{prefix}_autofill_sig") != sig
+                        or cur_qty in (None, 0)
+                        or cur_rev in (None, 0)
+                        or cur_cost in (None, 0)
+                    )
+
+                    if need_refill:
+                        st.session_state[f"{prefix}_ad_sales_qty"] = int(camp.ad_sales_qty or 0)
+                        st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
+                        st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
                         st.session_state[f"{prefix}_autofill_sig"] = sig
 
                     with st.container(border=True):
