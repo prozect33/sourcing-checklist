@@ -5,7 +5,7 @@ import pandas as pd
 import datetime
 import uuid
 import re
-from bs4 import BeautifulSoup
+from html.parser import HTMLParser
 from ad_analysis_tab import render_ad_analysis_tab
 from supabase import create_client, Client
 
@@ -197,35 +197,110 @@ def _parse_won_like(text: str) -> int:
 
 
 def _parse_react_table(html_text: str):
-    soup = BeautifulSoup(html_text, "html.parser")
+    """
+    bs4 없이 react-table(div.rt-*)에서 헤더/행을 추출한다.
+    - headers: div.rt-th 텍스트
+    - rows: div.rt-tr 내부의 div.rt-td[role="gridcell"] 텍스트
+    """
 
-    thead = soup.select_one("div.rt-thead") or soup.select_one("div.rt-thead.-header")
-    if not thead:
-        raise ValueError("react-table header(div.rt-thead) not found")
+    class _RTParser(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.headers = []
+            self.rows = []
 
-    headers = [_norm_ws(h.get_text(" ", strip=True)) for h in thead.select("div.rt-th")]
+            self._stack = []  # markers: "row" | "hcell" | "dcell" | None
+            self._in_cell = None  # "h" | "d" | None
+            self._buf = []
+            self._current_row = []
+
+        @staticmethod
+        def _get_attr(attrs, name):
+            for k, v in attrs:
+                if k == name:
+                    return v
+            return None
+
+        def handle_starttag(self, tag, attrs):
+            if tag != "div":
+                self._stack.append(None)
+                return
+
+            cls = self._get_attr(attrs, "class") or ""
+            role = self._get_attr(attrs, "role") or ""
+
+            classes = set(cls.split())
+
+            # row start
+            if "rt-tr" in classes:
+                self._stack.append("row")
+                self._current_row = []
+                return
+
+            # header cell
+            if "rt-th" in classes:
+                self._stack.append("hcell")
+                self._in_cell = "h"
+                self._buf = []
+                return
+
+            # data cell
+            if "rt-td" in classes and role == "gridcell":
+                self._stack.append("dcell")
+                self._in_cell = "d"
+                self._buf = []
+                return
+
+            self._stack.append(None)
+
+        def handle_data(self, data):
+            if self._in_cell is not None:
+                self._buf.append(data)
+
+        def handle_endtag(self, tag):
+            if not self._stack:
+                return
+            marker = self._stack.pop()
+
+            if marker == "hcell":
+                text = _norm_ws("".join(self._buf))
+                self.headers.append(text)
+                self._in_cell = None
+                self._buf = []
+                return
+
+            if marker == "dcell":
+                text = _norm_ws("".join(self._buf))
+                self._current_row.append(text)
+                self._in_cell = None
+                self._buf = []
+                return
+
+            if marker == "row":
+                if self._current_row:
+                    self.rows.append(self._current_row)
+                self._current_row = []
+                return
+
+    p = _RTParser()
+    p.feed(html_text)
+    p.close()
+
+    headers = [h for h in p.headers if h]  # 빈 헤더 제거
+
     if not headers:
-        raise ValueError("No headers found under div.rt-thead div.rt-th")
+        raise ValueError("No headers found (rt-th)")
 
+    # rows 길이 정렬
     rows = []
-    for rg in soup.select("div.rt-tr-group"):
-        tr = rg.select_one("div.rt-tr")
-        if not tr:
-            continue
-        cells = tr.select('div.rt-td[role="gridcell"]')
-        if not cells:
-            continue
-        values = [_norm_ws(c.get_text(" ", strip=True)) for c in cells]
-
-        if len(values) > len(headers):
-            values = values[: len(headers)]
-        elif len(values) < len(headers):
-            values = values + [""] * (len(headers) - len(values))
-
-        rows.append(values)
+    for r in p.rows:
+        if len(r) > len(headers):
+            r = r[: len(headers)]
+        elif len(r) < len(headers):
+            r = r + [""] * (len(headers) - len(r))
+        rows.append(r)
 
     return headers, rows
-
 
 def parse_running_campaigns(html_text: str):
     headers, rows = _parse_react_table(html_text)
