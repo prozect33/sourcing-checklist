@@ -868,7 +868,7 @@ def main():
                     st.markdown("### 자동 입력 폼 (캠페인 수만큼 생성)")
                     st.caption("광고 3개 값만 HTML로 자동 채우고, 나머지는 직접 입력 후 아래 '전체 저장'을 누르세요.")
 
-                    # (공통 날짜) 기본값: 어제
+                    # (공통 날짜) 기본값: 어제, 달력 선택 가능, 모든 캠페인에 공통 적용
                     if "auto_report_date" not in st.session_state:
                         st.session_state["auto_report_date"] = _yesterday_date()
 
@@ -876,153 +876,181 @@ def main():
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
-                        ...
 
-                    # (초기값) 날짜는 어제
-                    if f"{prefix}_report_date" not in st.session_state:
-                        st.session_state[f"{prefix}_report_date"] = _yesterday_date()
+                        if f"{prefix}_report_date" not in st.session_state:
+                            st.session_state[f"{prefix}_report_date"] = _yesterday_date()
 
-                    # (초기값) 기입 상품명 = 캠페인 이름
-                    if f"{prefix}_product_name_input" not in st.session_state:
-                        st.session_state[f"{prefix}_product_name_input"] = camp.campaign_name
+                        if f"{prefix}_product_name_input" not in st.session_state:
+                            st.session_state[f"{prefix}_product_name_input"] = camp.campaign_name
 
-                    # (초기값) 공란 시작(=사용자 입력)
-                    st.session_state.setdefault(f"{prefix}_total_sales_qty", 0)
-                    st.session_state.setdefault(f"{prefix}_total_revenue", 0)
-                    st.session_state.setdefault(f"{prefix}_coupon_unit", 0)
+                        st.session_state.setdefault(f"{prefix}_total_sales_qty", 0)
+                        st.session_state.setdefault(f"{prefix}_total_revenue", 0)
+                        st.session_state.setdefault(f"{prefix}_coupon_unit", 0)
 
-                    # (자동채움) 광고 3개 주입:
-                    # - HTML/캠페인 바뀌면 다시 주입
-                    # - 또는 현재 값이 0/없으면 다시 주입 (세션 꼬임 복구)
-                    sig = (uploaded_html.name, uploaded_html.size, camp.campaign_name)
+                        sig = (uploaded_html.name, uploaded_html.size, camp.campaign_name)
 
-                    cur_qty = st.session_state.get(f"{prefix}_ad_sales_qty")
-                    cur_rev = st.session_state.get(f"{prefix}_ad_revenue")
-                    cur_cost = st.session_state.get(f"{prefix}_ad_cost")
+                        cur_qty = st.session_state.get(f"{prefix}_ad_sales_qty")
+                        cur_rev = st.session_state.get(f"{prefix}_ad_revenue")
+                        cur_cost = st.session_state.get(f"{prefix}_ad_cost")
 
-                    need_refill = (
-                        st.session_state.get(f"{prefix}_autofill_sig") != sig
-                        or cur_qty in (None, 0)
-                        or cur_rev in (None, 0)
-                        or cur_cost in (None, 0)
-                    )
-
-                    if need_refill:
-                        st.session_state[f"{prefix}_ad_sales_qty"] = int(camp.ad_sales_qty or 0)
-                        st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
-                        st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
-                        st.session_state[f"{prefix}_autofill_sig"] = sig
-
-                    with st.container(border=True):
-                        st.markdown(f"#### {i}. {camp.campaign_name}")
-
-                        st.text_input("기입 상품명", key=f"{prefix}_product_name_input")
-                        st.date_input("날짜 선택", key=f"{prefix}_report_date")
-
-                        st.markdown("#### 전체 판매")
-                        st.number_input("전체 판매 수량", min_value=0, step=1, format="%d", key=f"{prefix}_total_sales_qty")
-                        st.number_input("전체 매출액", min_value=0, step=1000, format="%d", key=f"{prefix}_total_revenue")
-                        st.number_input("개당 쿠폰가 (원)", min_value=0, step=100, format="%d", key=f"{prefix}_coupon_unit")
-
-                        st.markdown("#### 광고 판매 (HTML 자동채움)")
-                        st.number_input("광고 전환 판매 수량", min_value=0, step=1, format="%d", key=f"{prefix}_ad_sales_qty")
-                        st.number_input("광고 매출액", min_value=0, step=1000, format="%d", key=f"{prefix}_ad_revenue")
-                        st.number_input("광고비용", min_value=0, step=1000, format="%d", key=f"{prefix}_ad_cost")
-
-                        st.markdown("#### 자연 판매 (자동 계산)")
-                        total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
-                        display_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
-                        ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
-                        ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
-                        coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
-
-                        coupon_total = coupon_unit * total_sales_qty
-                        actual_revenue = max(display_revenue - coupon_total, 0)
-
-                        ad_coupon_total = coupon_unit * ad_sales_qty
-                        ad_revenue_after_coupon = max(ad_revenue_input - ad_coupon_total, 0)
-
-                        organic_sales_qty_calc = int(max(total_sales_qty - ad_sales_qty, 0))
-                        organic_revenue_calc = int(max(actual_revenue - ad_revenue_after_coupon, 0))
-
-                        # ✅ 항상 int로 고정해서 세션에 넣기 (소수점 제거 핵심)
-                        st.session_state[f"{prefix}_organic_qty_view"] = organic_sales_qty_calc
-                        st.session_state[f"{prefix}_organic_rev_view"] = organic_revenue_calc
-
-                        st.number_input(
-                            "자연 판매 수량",
-                            min_value=0,
-                            step=1,
-                            format="%d",
-                            disabled=True,
-                            key=f"{prefix}_organic_qty_view",
-                        )
-                        st.number_input(
-                            "자연 판매 매출액",
-                            min_value=0,
-                            step=1000,
-                            format="%d",
-                            disabled=True,
-                            key=f"{prefix}_organic_rev_view",
+                        need_refill = (
+                            st.session_state.get(f"{prefix}_autofill_sig") != sig
+                            or cur_qty in (None, 0)
+                            or cur_rev in (None, 0)
+                            or cur_cost in (None, 0)
                         )
 
-                st.markdown("---")
+                        if need_refill:
+                            st.session_state[f"{prefix}_ad_sales_qty"] = int(camp.ad_sales_qty or 0)
+                            st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
+                            st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
+                            st.session_state[f"{prefix}_autofill_sig"] = sig
 
-                if st.button("전체 저장 (N건 일괄)", key="auto_save_all"):
-                    errors = []
-                    payloads = []
+                        with st.container(border=True):
+                            st.markdown(f"#### {i}. {camp.campaign_name}")
 
-                    for i, camp in enumerate(parsed_campaigns, start=1):
-                        prefix = f"auto_{i}"
+                            st.text_input("기입 상품명", key=f"{prefix}_product_name_input")
+                            st.date_input("날짜 선택", key=f"{prefix}_report_date")
 
-                        product_name = (st.session_state.get(f"{prefix}_product_name_input") or "").strip()
-                        report_date = st.session_state.get(f"{prefix}_report_date")
-                        total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
-                        total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
-                        coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
+                            st.markdown("#### 전체 판매")
+                            st.number_input(
+                                "전체 판매 수량",
+                                min_value=0,
+                                step=1,
+                                format="%d",
+                                key=f"{prefix}_total_sales_qty",
+                            )
+                            st.number_input(
+                                "전체 매출액",
+                                min_value=0,
+                                step=1000,
+                                format="%d",
+                                key=f"{prefix}_total_revenue",
+                            )
+                            st.number_input(
+                                "개당 쿠폰가 (원)",
+                                min_value=0,
+                                step=100,
+                                format="%d",
+                                key=f"{prefix}_coupon_unit",
+                            )
 
-                        ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
-                        ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
-                        ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
+                            st.markdown("#### 광고 판매 (HTML 자동채움)")
+                            st.number_input(
+                                "광고 전환 판매 수량",
+                                min_value=0,
+                                step=1,
+                                format="%d",
+                                key=f"{prefix}_ad_sales_qty",
+                            )
+                            st.number_input(
+                                "광고 매출액",
+                                min_value=0,
+                                step=1000,
+                                format="%d",
+                                key=f"{prefix}_ad_revenue",
+                            )
+                            st.number_input(
+                                "광고비용",
+                                min_value=0,
+                                step=1000,
+                                format="%d",
+                                key=f"{prefix}_ad_cost",
+                            )
 
-                        if not product_name:
-                            errors.append(f"[{i}] 기입 상품명이 비어있음")
-                            continue
-                        if total_sales_qty <= 0 or total_revenue <= 0:
-                            errors.append(f"[{i}] 전체 판매 수량/매출액 입력 필요")
-                            continue
+                            st.markdown("#### 자연 판매 (자동 계산)")
+                            total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
+                            display_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
+                            ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
+                            ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
+                            coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
 
-                        # products 테이블에서 상품정보 조회 (기존 로직 유지)
-                        response = supabase.table("products").select("*").eq("product_name", product_name).execute()
-                        if not response.data:
-                            errors.append(f"[{i}] products에 '{product_name}' 없음 (상품 정보 입력 탭에서 먼저 저장)")
-                            continue
+                            coupon_total = coupon_unit * total_sales_qty
+                            actual_revenue = max(display_revenue - coupon_total, 0)
 
-                        product_data = response.data[0]
-                        daily_profit, daily_roi, data_to_save = _compute_daily(
-                            product_data=product_data,
-                            report_date=report_date,
-                            product_name=product_name,
-                            total_sales_qty=total_sales_qty,
-                            total_revenue=total_revenue,
-                            coupon_unit=coupon_unit,
-                            ad_sales_qty=ad_sales_qty,
-                            ad_revenue_input=ad_revenue_input,
-                            ad_cost=ad_cost,
-                        )
-                        payloads.append((i, report_date, daily_profit, daily_roi, data_to_save))
+                            ad_coupon_total = coupon_unit * ad_sales_qty
+                            ad_revenue_after_coupon = max(ad_revenue_input - ad_coupon_total, 0)
 
-                    if errors:
-                        st.error("저장 실패: 아래 항목 확인")
-                        for e in errors:
-                            st.write(f"- {e}")
-                    else:
-                        try:
-                            for i, report_date, daily_profit, daily_roi, data_to_save in payloads:
-                                supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
-                            st.success(f"{len(payloads)}건 저장 완료 ✅")
-                        except Exception as e:
-                            st.error(f"저장 중 오류: {e}")
+                            organic_sales_qty_calc = int(max(total_sales_qty - ad_sales_qty, 0))
+                            organic_revenue_calc = int(max(actual_revenue - ad_revenue_after_coupon, 0))
+
+                            st.session_state[f"{prefix}_organic_qty_view"] = organic_sales_qty_calc
+                            st.session_state[f"{prefix}_organic_rev_view"] = organic_revenue_calc
+
+                            st.number_input(
+                                "자연 판매 수량",
+                                min_value=0,
+                                step=1,
+                                format="%d",
+                                disabled=True,
+                                key=f"{prefix}_organic_qty_view",
+                            )
+                            st.number_input(
+                                "자연 판매 매출액",
+                                min_value=0,
+                                step=1000,
+                                format="%d",
+                                disabled=True,
+                                key=f"{prefix}_organic_rev_view",
+                            )
+
+                    st.markdown("---")
+
+                    if st.button("전체 저장 (N건 일괄)", key="auto_save_all"):
+                        errors = []
+                        payloads = []
+
+                        for i, camp in enumerate(parsed_campaigns, start=1):
+                            prefix = f"auto_{i}"
+
+                            product_name = (st.session_state.get(f"{prefix}_product_name_input") or "").strip()
+                            report_date = st.session_state.get(f"{prefix}_report_date")
+                            total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
+                            total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
+                            coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
+
+                            ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
+                            ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
+                            ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
+
+                            if not product_name:
+                                errors.append(f"[{i}] 기입 상품명이 비어있음")
+                                continue
+                            if total_sales_qty <= 0 or total_revenue <= 0:
+                                errors.append(f"[{i}] 전체 판매 수량/매출액 입력 필요")
+                                continue
+
+                            response = supabase.table("products").select("*").eq("product_name", product_name).execute()
+                            if not response.data:
+                                errors.append(f"[{i}] products에 '{product_name}' 없음 (상품 정보 입력 탭에서 먼저 저장)")
+                                continue
+
+                            product_data = response.data[0]
+                            daily_profit, daily_roi, data_to_save = _compute_daily(
+                                product_data=product_data,
+                                report_date=report_date,
+                                product_name=product_name,
+                                total_sales_qty=total_sales_qty,
+                                total_revenue=total_revenue,
+                                coupon_unit=coupon_unit,
+                                ad_sales_qty=ad_sales_qty,
+                                ad_revenue_input=ad_revenue_input,
+                                ad_cost=ad_cost,
+                            )
+                            payloads.append((i, report_date, daily_profit, daily_roi, data_to_save))
+
+                        if errors:
+                            st.error("저장 실패: 아래 항목 확인")
+                            for e in errors:
+                                st.write(f"- {e}")
+                        else:
+                            try:
+                                for i, report_date, daily_profit, daily_roi, data_to_save in payloads:
+                                    supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
+                                st.success(f"{len(payloads)}건 저장 완료 ✅")
+                            except Exception as e:
+                                st.error(f"저장 중 오류: {e}")
+
 
             else:
                 # -------------------------
