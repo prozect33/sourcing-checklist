@@ -869,7 +869,12 @@ def main():
 
                 st.markdown("### 자동 입력 폼 (캠페인 수만큼 생성)")
                 st.caption("광고 3개 값만 HTML로 자동 채우고, 나머지는 직접 입력 후 아래 '전체 저장'을 누르세요.")
+              
+                # (공통 날짜) 기본값: 어제, 달력 선택 가능, 모든 캠페인에 공통 적용
+                if "auto_report_date" not in st.session_state:
+                    st.session_state["auto_report_date"] = _yesterday_date()
 
+                st.date_input("날짜 선택 (전체 공통)", key="auto_report_date")
                 for i, camp in enumerate(parsed_campaigns, start=1):
                     prefix = f"auto_{i}"
 
