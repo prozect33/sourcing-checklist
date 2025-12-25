@@ -923,15 +923,29 @@ def main():
                         ad_coupon_total = coupon_unit * ad_sales_qty
                         ad_revenue_after_coupon = max(ad_revenue_input - ad_coupon_total, 0)
 
-                        organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
-                        organic_revenue_calc = max(actual_revenue - ad_revenue_after_coupon, 0)
+                        organic_sales_qty_calc = int(max(total_sales_qty - ad_sales_qty, 0))
+                        organic_revenue_calc = int(max(actual_revenue - ad_revenue_after_coupon, 0))
 
-                        # ✅ 매 리런마다 계산값을 세션에 강제 반영 (표시값 갱신 핵심)
+                        # ✅ 항상 int로 고정해서 세션에 넣기 (소수점 제거 핵심)
                         st.session_state[f"{prefix}_organic_qty_view"] = organic_sales_qty_calc
                         st.session_state[f"{prefix}_organic_rev_view"] = organic_revenue_calc
 
-                        st.number_input("자연 판매 수량", min_value=0, step=1, format="%d", disabled=True, key=f"{prefix}_organic_qty_view")
-                        st.number_input("자연 판매 매출액", min_value=0, step=1000, format="%d", disabled=True, key=f"{prefix}_organic_rev_view")
+                        st.number_input(
+                            "자연 판매 수량",
+                            min_value=0,
+                            step=1,
+                            format="%d",
+                            disabled=True,
+                            key=f"{prefix}_organic_qty_view",
+                        )
+                        st.number_input(
+                            "자연 판매 매출액",
+                            min_value=0,
+                            step=1000,
+                            format="%d",
+                            disabled=True,
+                            key=f"{prefix}_organic_rev_view",
+                        )
 
                 st.markdown("---")
 
