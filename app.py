@@ -901,14 +901,14 @@ def main():
                         st.date_input("날짜 선택", key=f"{prefix}_report_date")
 
                         st.markdown("#### 전체 판매")
-                        st.number_input("전체 판매 수량", step=1, key=f"{prefix}_total_sales_qty")
-                        st.number_input("전체 매출액", step=1000, key=f"{prefix}_total_revenue")
-                        st.number_input("개당 쿠폰가 (원)", step=100, key=f"{prefix}_coupon_unit")
+                        st.number_input("전체 판매 수량", min_value=0, step=1, format="%d", key=f"{prefix}_total_sales_qty")
+                        st.number_input("전체 매출액", min_value=0, step=1000, format="%d", key=f"{prefix}_total_revenue")
+                        st.number_input("개당 쿠폰가 (원)", min_value=0, step=100, format="%d", key=f"{prefix}_coupon_unit")
 
                         st.markdown("#### 광고 판매 (HTML 자동채움)")
-                        st.number_input("광고 전환 판매 수량", step=1, key=f"{prefix}_ad_sales_qty")
-                        st.number_input("광고 매출액", step=1000, key=f"{prefix}_ad_revenue")
-                        st.number_input("광고비용", step=1000, key=f"{prefix}_ad_cost")
+                        st.number_input("광고 전환 판매 수량", min_value=0, step=1, format="%d", key=f"{prefix}_ad_sales_qty")
+                        st.number_input("광고 매출액", min_value=0, step=1000, format="%d", key=f"{prefix}_ad_revenue")
+                        st.number_input("광고비용", min_value=0, step=1000, format="%d", key=f"{prefix}_ad_cost")
 
                         st.markdown("#### 자연 판매 (자동 계산)")
                         total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
@@ -930,8 +930,8 @@ def main():
                         st.session_state[f"{prefix}_organic_qty_view"] = organic_sales_qty_calc
                         st.session_state[f"{prefix}_organic_rev_view"] = organic_revenue_calc
 
-                        st.number_input("자연 판매 수량", disabled=True, key=f"{prefix}_organic_qty_view")
-                        st.number_input("자연 판매 매출액", disabled=True, key=f"{prefix}_organic_rev_view")
+                        st.number_input("자연 판매 수량", min_value=0, step=1, format="%d", disabled=True, key=f"{prefix}_organic_qty_view")
+                        st.number_input("자연 판매 매출액", min_value=0, step=1000, format="%d", disabled=True, key=f"{prefix}_organic_rev_view")
 
                 st.markdown("---")
 
