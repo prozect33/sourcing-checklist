@@ -864,8 +864,7 @@ def main():
             if uploaded_html is not None:
                 if not parsed_campaigns:
                     st.info("HTML 업로드하면 자동 입력됩니다. 업로드가 없거나 캠페인 0개면 아래 수동으로 입력하세요.")
-                else:
-                    # 기존 자동 입력 폼 로직 그대로 유지
+                # 기존 자동 입력 폼 로직 그대로 유지
                 st.markdown("### 자동 입력 폼 (캠페인 수만큼 생성)")
                 st.caption("광고 3개 값만 HTML로 자동 채우고, 나머지는 직접 입력 후 아래 '전체 저장'을 누르세요.")
               
