@@ -926,18 +926,12 @@ def main():
                         organic_sales_qty_calc = max(total_sales_qty - ad_sales_qty, 0)
                         organic_revenue_calc = max(actual_revenue - ad_revenue_after_coupon, 0)
 
-                        st.number_input(
-                            "자연 판매 수량",
-                            value=organic_sales_qty_calc,
-                            disabled=True,
-                            key=f"{prefix}_organic_qty_view",
-                        )
-                        st.number_input(
-                            "자연 판매 매출액",
-                            value=organic_revenue_calc,
-                            disabled=True,
-                            key=f"{prefix}_organic_rev_view",
-                        )
+                        # ✅ 매 리런마다 계산값을 세션에 강제 반영 (표시값 갱신 핵심)
+                        st.session_state[f"{prefix}_organic_qty_view"] = organic_sales_qty_calc
+                        st.session_state[f"{prefix}_organic_rev_view"] = organic_revenue_calc
+
+                        st.number_input("자연 판매 수량", disabled=True, key=f"{prefix}_organic_qty_view")
+                        st.number_input("자연 판매 매출액", disabled=True, key=f"{prefix}_organic_rev_view")
 
                 st.markdown("---")
 
