@@ -874,14 +874,36 @@ def main():
 
                     st.date_input("날짜 선택 (전체 공통)", key="auto_report_date")
 
+                    # ✅ [추가] Supabase 상품명 목록 1회 로드 (for-loop 밖)
+                    saved_products = []
+                    try:
+                        resp = supabase.table("products").select("product_name").order("product_name").execute()
+                        if resp.data:
+                            saved_products = [r["product_name"] for r in resp.data if r.get("product_name")]
+                    except Exception as e:
+                        st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
+                        saved_products = []
+
+                    PRODUCT_PICKER_OPTIONS = ["직접 입력"] + saved_products
+
+                    def _sync_product_picker_to_input(prefix: str) -> None:
+                        picked = st.session_state.get(f"{prefix}_product_picker")
+                        if picked and picked != "직접 입력":
+                            st.session_state[f"{prefix}_product_name_input"] = picked
+
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
 
                         if f"{prefix}_report_date" not in st.session_state:
                             st.session_state[f"{prefix}_report_date"] = _yesterday_date()
 
+                        # ✅ [변경] 업로드 파일에서 상품명 자동 주입 제거
                         if f"{prefix}_product_name_input" not in st.session_state:
-                            st.session_state[f"{prefix}_product_name_input"] = camp.campaign_name
+                            st.session_state[f"{prefix}_product_name_input"] = ""
+
+                        # ✅ [추가] 상품명 picker 기본값
+                        if f"{prefix}_product_picker" not in st.session_state:
+                            st.session_state[f"{prefix}_product_picker"] = "직접 입력"
 
                         st.session_state.setdefault(f"{prefix}_total_sales_qty", 0)
                         st.session_state.setdefault(f"{prefix}_total_revenue", 0)
@@ -909,10 +931,28 @@ def main():
                         with st.container(border=True):
                             st.markdown(f"#### {i}. {camp.campaign_name}")
 
-                            st.text_input("기입 상품명", key=f"{prefix}_product_name_input")
+                            # ✅ [추가] 목록 펼치기(=Supabase 상품명 선택)
+                            st.selectbox(
+                                "상품명 목록 펼치기 (Supabase)",
+                                PRODUCT_PICKER_OPTIONS,
+                                key=f"{prefix}_product_picker",
+                                on_change=_sync_product_picker_to_input,
+                                args=(prefix,),
+                            )
+
+                            # ✅ [변경] 직접 입력 / 목록 선택 시 입력 잠금
+                            picker_val = st.session_state.get(f"{prefix}_product_picker", "직접 입력")
+                            st.text_input(
+                                "기입 상품명",
+                                key=f"{prefix}_product_name_input",
+                                placeholder="여기에 상품명을 직접 입력하거나, 위에서 선택하세요",
+                                disabled=(picker_val != "직접 입력"),
+                            )
+
                             st.date_input("날짜 선택", key=f"{prefix}_report_date")
 
                             st.markdown("#### 전체 판매")
+
                             st.number_input(
                                 "전체 판매 수량",
                                 min_value=0,
