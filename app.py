@@ -8,6 +8,7 @@ import re
 from html.parser import HTMLParser
 from ad_analysis_tab import render_ad_analysis_tab
 from supabase import create_client, Client
+from typing import Dict, List, Tuple
 
 st.set_page_config(page_title="간단 마진 계산기", layout="wide")
 
@@ -63,8 +64,54 @@ try:
     SUPABASE_URL, SUPABASE_KEY = load_supabase_credentials()
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
-    st.error(f"Supabase 클라이언트 초기화 중 오류가 방생했습니다: {e}")
+    st.error(f"Supabase 클라이언트 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
+
+def _fetch_all_rows(table: str, select: str, *, batch_size: int = 1000) -> List[dict]:
+    rows: List[dict] = []
+    start = 0
+    while True:
+        q = supabase.table(table).select(select)
+        try:
+            resp = q.range(start, start + batch_size - 1).execute()
+        except Exception:
+            resp = q.execute()
+
+        data = resp.data or []
+        rows.extend(data)
+
+        if len(data) < batch_size:
+            break
+        start += batch_size
+    return rows
+
+
+@st.cache_data(ttl=300)
+def load_product_qty_sales_map() -> Tuple[List[str], Dict[str, Tuple[int, int]]]:
+    products = _fetch_all_rows("products", "product_name,quantity")
+    total_qty_map: Dict[str, int] = {}
+    for r in products:
+        name = r.get("product_name")
+        if name:
+            total_qty_map[name] = int(r.get("quantity") or 0)
+
+    sales = _fetch_all_rows("daily_sales", "product_name,daily_sales_qty")
+    sold_qty_map: Dict[str, int] = {}
+    for r in sales:
+        name = r.get("product_name")
+        if name:
+            sold_qty_map[name] = sold_qty_map.get(name, 0) + int(r.get("daily_sales_qty") or 0)
+
+    names = sorted(set(total_qty_map) | set(sold_qty_map))
+    stats: Dict[str, Tuple[int, int]] = {n: (total_qty_map.get(n, 0), sold_qty_map.get(n, 0)) for n in names}
+    return names, stats
+
+
+def format_product_option(option: str, stats: Dict[str, Tuple[int, int]]) -> str:
+    if option in ("(선택 안 함)", "상품을 선택해주세요", "새로운 상품 입력") or not option:
+        return option
+    total, sold = stats.get(option, (0, 0))
+    return f"{option} ({total:,}/{sold:,})"
 
 def load_config_from_supabase():
     data = supabase.table("settings").select("*").execute().data
@@ -720,7 +767,7 @@ def main():
                     "저장된 상품 선택 또는 새로 입력",
                     product_list,
                     key="product_loader",
-                    on_change=lambda: load_product_data(st.session_state.product_loader)
+                    on_change=lambda: load_product_data(st.session_state.product_loader),
                 )
 
                 st.text_input(
@@ -886,17 +933,14 @@ def main():
 
                     st.date_input("날짜 선택 (전체 공통)", key="auto_report_date")
 
-                    # ✅ [추가] Supabase 상품명 목록 1회 로드 (for-loop 밖)
-                    saved_products = []
+                    # ✅ [변경] 상품명 + (전체/판매) 라벨용 데이터 1회 로드 (for-loop 밖)
                     try:
-                        resp = supabase.table("products").select("product_name").order("product_name").execute()
-                        if resp.data:
-                            saved_products = [r["product_name"] for r in resp.data if r.get("product_name")]
+                        product_names, product_stats = load_product_qty_sales_map()
                     except Exception as e:
-                        st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
-                        saved_products = []
+                        st.error(f"상품/판매수량 집계 로드 실패: {e}")
+                        product_names, product_stats = [], {}
 
-                    PRODUCT_PICKER_OPTIONS = ["(선택 안 함)"] + saved_products
+                    PRODUCT_PICKER_OPTIONS = ["(선택 안 함)"] + product_names
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
@@ -938,6 +982,7 @@ def main():
                                 "",
                                 PRODUCT_PICKER_OPTIONS,
                                 key=f"{prefix}_product_picker",
+                                format_func=lambda x: format_product_option(x, product_stats),
                                 label_visibility="collapsed",
                             )
 
@@ -1158,16 +1203,20 @@ def main():
                 # -------------------------
                 # 수동 모드: 원본 tab3 로직 그대로 (변경 없음)
                 # -------------------------
-                product_list = ["상품을 선택해주세요"]
                 try:
-                    response = supabase.table("products").select("product_name").order("product_name").execute()
-                    if response.data:
-                        saved_products = [item['product_name'] for item in response.data]
-                        product_list.extend(saved_products)
+                    product_names, product_stats = load_product_qty_sales_map()
                 except Exception as e:
-                    st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
+                    st.error(f"상품/판매수량 집계 로드 실패: {e}")
+                    product_names, product_stats = [], {}
 
-                selected_product_name = st.selectbox("상품 선택", product_list, key="product_select_daily")
+                product_list = ["상품을 선택해주세요"] + product_names
+
+                selected_product_name = st.selectbox(
+                    "상품 선택",
+                    product_list,
+                    key="product_select_daily",
+                    format_func=lambda x: format_product_option(x, product_stats),
+                )
 
                 product_data = {}
                 if selected_product_name and selected_product_name != "상품을 선택해주세요":
