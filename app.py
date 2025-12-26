@@ -1026,7 +1026,77 @@ def main():
                                 key=f"{prefix}_organic_rev_view",
                             )
 
-                    st.markdown("---")
+                            # =========================
+                            # ✅ [추가] 일일 순이익금 + 상세내역(자동모드에서도 표시)
+                            # =========================
+                            picked = (st.session_state.get(f"{prefix}_product_picker") or "").strip()
+                            product_name = "" if picked in ("", "(선택 안 함)") else picked
+
+                            total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
+                            total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
+                            coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
+
+                            ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
+                            ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
+                            ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
+
+                            if product_name and total_sales_qty > 0 and total_revenue > 0:
+                                resp_prod = supabase.table("products").select("*").eq("product_name", product_name).execute()
+                                if resp_prod.data:
+                                    product_data = resp_prod.data[0]
+
+                                    daily_profit, _, _ = _compute_daily(
+                                        product_data=product_data,
+                                        report_date=st.session_state.get(f"{prefix}_report_date"),
+                                        product_name=product_name,
+                                        total_sales_qty=total_sales_qty,
+                                        total_revenue=total_revenue,
+                                        coupon_unit=coupon_unit,
+                                        ad_sales_qty=ad_sales_qty,
+                                        ad_revenue_input=ad_revenue_input,
+                                        ad_cost=ad_cost,
+                                    )
+
+                                    vat = 1.1
+                                    coupon_total = coupon_unit * total_sales_qty
+                                    current_total_revenue = int(max(total_revenue - coupon_total, 0))
+
+                                    quantity_val = int(product_data.get("quantity", 1) or 1)
+                                    quantity_for_calc = quantity_val if quantity_val > 0 else 1
+
+                                    unit_purchase_cost = (product_data.get("purchase_cost", 0) or 0) / quantity_for_calc
+                                    unit_logistics = (product_data.get("logistics_cost", 0) or 0) / quantity_for_calc
+                                    unit_customs = (product_data.get("customs_duty", 0) or 0) / quantity_for_calc
+                                    unit_etc = (product_data.get("etc_cost", 0) or 0) / quantity_for_calc
+                                    fee_rate_db = float(product_data.get("fee", 0.0) or 0.0)
+                                    inout_shipping_cost = int(product_data.get("inout_shipping_cost", 0) or 0)
+
+                                    fee_cost = won(current_total_revenue * fee_rate_db / 100 * vat)
+                                    purchase_cost_total = won(unit_purchase_cost * total_sales_qty)
+                                    inout_shipping_cost_total = won(inout_shipping_cost * total_sales_qty * vat)
+                                    logistics_cost_total = won(unit_logistics * total_sales_qty)
+                                    customs_cost_total = won(unit_customs * total_sales_qty)
+                                    etc_cost_total = won(unit_etc * total_sales_qty)
+                                    ad_cost_total = won(ad_cost * vat)
+
+                                    st.markdown("#### 일일 순이익금")
+                                    st.metric(label="", value=f"{daily_profit:,}원")
+                                    st.markdown(
+                                        f"""
+                                        <small>
+                                        - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
+                                        - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
+                                        - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
+                                        - 물류비: {format_number(logistics_cost_total)}원<br>
+                                        - 관세: {format_number(customs_cost_total)}원<br>
+                                        - 기타 비용: {format_number(etc_cost_total)}원<br>
+                                        - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
+                                        </small>
+                                        """,
+                                        unsafe_allow_html=True,
+                                    )
+
+                            st.markdown("---")
 
                     if st.button("전체 저장 (N건 일괄)", key="auto_save_all"):
                         errors = []
