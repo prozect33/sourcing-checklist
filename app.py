@@ -777,7 +777,32 @@ def main():
             
                     # --- 일일 순이익금 출력 ---
                     st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
+                    # ✅ [복구] 일일 순이익 계산 내역(상세)
+                    # (원본 65746에 있던 상세 출력 UI를 최신에 다시 추가)
+                    vat = 1.1
 
+                    fee_cost = won(current_total_revenue * fee_rate_db / 100 * vat)
+                    purchase_cost_total = won(unit_purchase_cost * current_total_sales_qty)
+                    inout_shipping_cost_total = won(product_data.get("inout_shipping_cost", 0) * current_total_sales_qty * vat)
+                    logistics_cost_total = won(unit_logistics * current_total_sales_qty)
+                    customs_cost_total = won(unit_customs * current_total_sales_qty)
+                    etc_cost_total = won(unit_etc * current_total_sales_qty)
+                    ad_cost_total = won(current_ad_cost * vat)
+
+                    st.markdown(
+                        f"""
+                        <small>
+                          - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
+                          - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
+                          - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
+                          - 물류비: {format_number(logistics_cost_total)}원<br>
+                          - 관세: {format_number(customs_cost_total)}원<br>
+                          - 기타 비용: {format_number(etc_cost_total)}원<br>
+                          - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
+                        </small>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
                     # --- 일일 순이익 계산 내역 ---
                     if selected_product_name != "상품을 선택해주세요" and product_data:
