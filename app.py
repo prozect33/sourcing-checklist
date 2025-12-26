@@ -20,41 +20,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-def render_daily_profit_breakdown(
-    *,
-    current_total_revenue: int,
-    fee_rate_db: float,
-    unit_purchase_cost: float,
-    inout_shipping_cost: int,
-    unit_logistics: float,
-    unit_customs: float,
-    unit_etc: float,
-    sales_qty: int,
-    ad_cost: int,
-):
-    vat = 1.1
-    fee_cost = won(current_total_revenue * fee_rate_db / 100 * vat)
-    purchase_cost_total = won(unit_purchase_cost * sales_qty)
-    inout_shipping_cost_total = won(inout_shipping_cost * sales_qty * vat)
-    logistics_cost_total = won(unit_logistics * sales_qty)
-    customs_cost_total = won(unit_customs * sales_qty)
-    etc_cost_total = won(unit_etc * sales_qty)
-    ad_cost_total = won(ad_cost * vat)
-
-    st.caption(
-        "\n".join(
-            [
-                f"- 판매 수수료 (VAT 포함): {format_number(fee_cost)}원",
-                f"- 상품 매입원가: {format_number(purchase_cost_total)}원",
-                f"- 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원",
-                f"- 물류비: {format_number(logistics_cost_total)}원",
-                f"- 관세: {format_number(customs_cost_total)}원",
-                f"- 기타 비용: {format_number(etc_cost_total)}원",
-                f"- 광고비 (VAT 포함): {format_number(ad_cost_total)}원",
-            ]
-        )
-    )
-
 def format_number(val):
     if val is None:
         return ""
