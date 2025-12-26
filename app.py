@@ -1029,15 +1029,8 @@ def main():
                             # =========================
                             # ✅ [추가] 일일 순이익금 + 상세내역(자동모드에서도 표시)
                             # =========================
-                            # ✅ 일일 순이익금 + 상세내역(자동모드에서도 표시)
-                            #  - 안 뜨는 경우 원인 안내도 같이 출력
-                            #  - 수동과 폰트 맞춤: "#### 제목" + st.metric(label="")
-                            # =========================
                             picked = (st.session_state.get(f"{prefix}_product_picker") or "").strip()
-                            if picked in ("", "(선택 안 함)", "(상품을 선택해주세요)", "상품을 선택해주세요"):
-                                product_name = ""
-                            else:
-                                product_name = picked
+                            product_name = "" if picked in ("", "(선택 안 함)") else picked
 
                             total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
                             total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
@@ -1047,21 +1040,9 @@ def main():
                             ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
                             ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
 
-                            if not product_name:
-                                st.info("상품을 선택하면 아래에 '일일 순이익금' 상세가 표시됩니다.")
-                            elif total_sales_qty <= 0 or total_revenue <= 0:
-                                st.info("전체 판매 수량/매출액을 입력하면 아래에 '일일 순이익금' 상세가 표시됩니다.")
-                            else:
-                                resp_prod = (
-                                    supabase.table("products")
-                                    .select("*")
-                                    .eq("product_name", product_name)
-                                    .execute()
-                                )
-
-                                if not resp_prod.data:
-                                    st.warning(f"products 테이블에 '{product_name}' 상품 정보가 없어서 순이익 계산을 못합니다. (상품 정보 입력 탭에서 먼저 저장)")
-                                else:
+                            if product_name and total_sales_qty > 0 and total_revenue > 0:
+                                resp_prod = supabase.table("products").select("*").eq("product_name", product_name).execute()
+                                if resp_prod.data:
                                     product_data = resp_prod.data[0]
 
                                     daily_profit, _, _ = _compute_daily(
@@ -1098,10 +1079,7 @@ def main():
                                     etc_cost_total = won(unit_etc * total_sales_qty)
                                     ad_cost_total = won(ad_cost * vat)
 
-                                    # ✅ 수동과 폰트 맞춤
-                                    st.markdown("#### 일일 순이익금")
-                                    st.metric(label="", value=f"{daily_profit:,}원")
-
+                                    st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
                                     st.markdown(
                                         f"""
                                         <small>
@@ -1115,7 +1093,7 @@ def main():
                                         </small>
                                         """,
                                         unsafe_allow_html=True,
-                                   )
+                                    )
 
                             st.markdown("---")
 
