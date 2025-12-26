@@ -1079,18 +1079,17 @@ def main():
                                     etc_cost_total = won(unit_etc * total_sales_qty)
                                     ad_cost_total = won(ad_cost * vat)
 
-                                    st.markdown("#### 일일 순이익금")
-                                    st.metric(label="", value=f"{daily_profit:,}원")
+                                    st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
                                     st.markdown(
                                         f"""
                                         <small>
-                                        - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
-                                        - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
-                                        - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
-                                        - 물류비: {format_number(logistics_cost_total)}원<br>
-                                        - 관세: {format_number(customs_cost_total)}원<br>
-                                        - 기타 비용: {format_number(etc_cost_total)}원<br>
-                                        - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
+                                          - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
+                                          - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
+                                          - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
+                                          - 물류비: {format_number(logistics_cost_total)}원<br>
+                                          - 관세: {format_number(customs_cost_total)}원<br>
+                                          - 기타 비용: {format_number(etc_cost_total)}원<br>
+                                          - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
                                         </small>
                                         """,
                                         unsafe_allow_html=True,
