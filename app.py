@@ -886,20 +886,11 @@ def main():
 
                     PRODUCT_PICKER_OPTIONS = ["(선택 안 함)"] + saved_products
 
-                    def _sync_product_picker_to_input(prefix: str) -> None:
-                        picked = st.session_state.get(f"{prefix}_product_picker") or ""
-                        if picked and picked != "(선택 안 함)":
-                            st.session_state[f"{prefix}_product_name_input"] = picked
-
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
 
                         if f"{prefix}_report_date" not in st.session_state:
                             st.session_state[f"{prefix}_report_date"] = _yesterday_date()
-
-                        # ✅ [변경] 업로드 파일에서 상품명 자동 주입 제거
-                        if f"{prefix}_product_name_input" not in st.session_state:
-                            st.session_state[f"{prefix}_product_name_input"] = ""
 
                         # ✅ [변경] 상품명 picker 기본값
                         if f"{prefix}_product_picker" not in st.session_state:
@@ -931,20 +922,11 @@ def main():
                         with st.container(border=True):
                             st.markdown(f"#### {i}. {camp.campaign_name}")
 
-                            # ✅ 상품명 입력칸은 1개만 (직접 타이핑)
-                            st.text_input(
-                                "상품명",
-                                key=f"{prefix}_product_name_input",
-                                placeholder="직접 입력하거나 아래 목록에서 선택",
-                            )
-
-                            # ✅ 펼치기 없이 바로 드롭다운(한 번만 클릭하면 목록 뜸)
                             st.selectbox(
-                                " ",  # 화면에 안 보이게 할 라벨(공백)
+                                "",
                                 PRODUCT_PICKER_OPTIONS,
                                 key=f"{prefix}_product_picker",
-                                on_change=_sync_product_picker_to_input,
-                                args=(prefix,),
+                                label_visibility="collapsed",
                             )
 
                             st.date_input("날짜 선택", key=f"{prefix}_report_date")
@@ -1041,7 +1023,8 @@ def main():
                         for i, camp in enumerate(parsed_campaigns, start=1):
                             prefix = f"auto_{i}"
 
-                            product_name = (st.session_state.get(f"{prefix}_product_name_input") or "").strip()
+                            picked = (st.session_state.get(f"{prefix}_product_picker") or "").strip()
+                            product_name = "" if picked in ("", "(선택 안 함)") else picked
                             report_date = st.session_state.get(f"{prefix}_report_date")
                             total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
                             total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
@@ -1052,7 +1035,7 @@ def main():
                             ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
 
                             if not product_name:
-                                errors.append(f"[{i}] 상품명이 비어있음")
+                                errors.append(f"[{i}] 상품명을 선택해주세요")
                                 continue
                             if total_sales_qty <= 0 or total_revenue <= 0:
                                 errors.append(f"[{i}] 전체 판매 수량/매출액 입력 필요")
