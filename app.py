@@ -940,6 +940,7 @@ def main():
 
                             # ✅ 펼치기 없이 바로 드롭다운(한 번만 클릭하면 목록 뜸)
                             st.selectbox(
+                                "등록된 상품명에서 선택(선택 시 위 상품명 칸에 자동 입력)",
                                 PRODUCT_PICKER_OPTIONS,
                                 key=f"{prefix}_product_picker",
                                 on_change=_sync_product_picker_to_input,
