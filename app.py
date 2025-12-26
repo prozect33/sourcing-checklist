@@ -884,11 +884,11 @@ def main():
                         st.error(f"상품 목록을 불러오는 중 오류가 발생했습니다: {e}")
                         saved_products = []
 
-                    PRODUCT_PICKER_OPTIONS = ["직접 입력"] + saved_products
+                    PRODUCT_PICKER_OPTIONS = ["(선택 안 함)"] + saved_products
 
                     def _sync_product_picker_to_input(prefix: str) -> None:
-                        picked = st.session_state.get(f"{prefix}_product_picker")
-                        if picked and picked != "직접 입력":
+                        picked = st.session_state.get(f"{prefix}_product_picker") or ""
+                        if picked and picked != "(선택 안 함)":
                             st.session_state[f"{prefix}_product_name_input"] = picked
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
@@ -901,9 +901,9 @@ def main():
                         if f"{prefix}_product_name_input" not in st.session_state:
                             st.session_state[f"{prefix}_product_name_input"] = ""
 
-                        # ✅ [추가] 상품명 picker 기본값
+                        # ✅ [변경] 상품명 picker 기본값
                         if f"{prefix}_product_picker" not in st.session_state:
-                            st.session_state[f"{prefix}_product_picker"] = "직접 입력"
+                            st.session_state[f"{prefix}_product_picker"] = "(선택 안 함)"
 
                         st.session_state.setdefault(f"{prefix}_total_sales_qty", 0)
                         st.session_state.setdefault(f"{prefix}_total_revenue", 0)
@@ -931,23 +931,22 @@ def main():
                         with st.container(border=True):
                             st.markdown(f"#### {i}. {camp.campaign_name}")
 
-                            # ✅ [추가] 목록 펼치기(=Supabase 상품명 선택)
-                            st.selectbox(
-                                "상품명 목록 펼치기 (Supabase)",
-                                PRODUCT_PICKER_OPTIONS,
-                                key=f"{prefix}_product_picker",
-                                on_change=_sync_product_picker_to_input,
-                                args=(prefix,),
+                            # ✅ 상품명 입력칸은 1개만 (직접 타이핑)
+                            st.text_input(
+                                "상품명",
+                                key=f"{prefix}_product_name_input",
+                                placeholder="직접 입력하거나 아래 목록에서 선택",
                             )
 
-                            # ✅ [변경] 직접 입력 / 목록 선택 시 입력 잠금
-                            picker_val = st.session_state.get(f"{prefix}_product_picker", "직접 입력")
-                            st.text_input(
-                                "기입 상품명",
-                                key=f"{prefix}_product_name_input",
-                                placeholder="여기에 상품명을 직접 입력하거나, 위에서 선택하세요",
-                                disabled=(picker_val != "직접 입력"),
-                            )
+                            # ✅ 목록 펼치기에서 고르면 위 '상품명' 1칸에 값이 꽂힘
+                            with st.expander("목록 펼치기 (Supabase 등록 상품)", expanded=False):
+                                st.selectbox(
+                                    "등록된 상품 선택",
+                                    PRODUCT_PICKER_OPTIONS,
+                                    key=f"{prefix}_product_picker",
+                                    on_change=_sync_product_picker_to_input,
+                                    args=(prefix,),
+                                )
 
                             st.date_input("날짜 선택", key=f"{prefix}_report_date")
 
@@ -1054,7 +1053,7 @@ def main():
                             ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
 
                             if not product_name:
-                                errors.append(f"[{i}] 기입 상품명이 비어있음")
+                                errors.append(f"[{i}] 상품명이 비어있음")
                                 continue
                             if total_sales_qty <= 0 or total_revenue <= 0:
                                 errors.append(f"[{i}] 전체 판매 수량/매출액 입력 필요")
