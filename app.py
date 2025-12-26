@@ -938,15 +938,14 @@ def main():
                                 placeholder="직접 입력하거나 아래 목록에서 선택",
                             )
 
-                            # ✅ 목록 펼치기에서 고르면 위 '상품명' 1칸에 값이 꽂힘
-                            with st.expander("목록 펼치기 (Supabase 등록 상품)", expanded=False):
-                                st.selectbox(
-                                    "등록된 상품 선택",
-                                    PRODUCT_PICKER_OPTIONS,
-                                    key=f"{prefix}_product_picker",
-                                    on_change=_sync_product_picker_to_input,
-                                    args=(prefix,),
-                                )
+                            # ✅ 펼치기 없이 바로 드롭다운(한 번만 클릭하면 목록 뜸)
+                            st.selectbox(
+                                "등록된 상품명에서 선택(선택 시 위 상품명 칸에 자동 입력)",
+                                PRODUCT_PICKER_OPTIONS,
+                                key=f"{prefix}_product_picker",
+                                on_change=_sync_product_picker_to_input,
+                                args=(prefix,),
+                            )
 
                             st.date_input("날짜 선택", key=f"{prefix}_report_date")
 
