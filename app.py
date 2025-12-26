@@ -189,6 +189,17 @@ class ParsedCampaign:
 def _norm_ws(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip())
 
+# ✅ 여기에 붙여넣기 (전역, 들여쓰기 0칸)
+def _strip_edit_delete_suffix(text: str) -> str:
+    s = _norm_ws(text)
+    while True:
+        before = s
+        for suffix in ("수정", "삭제"):
+            if s.endswith(suffix):
+                s = s[: -len(suffix)].strip()
+        if s == before:
+            break
+    return s.strip()
 
 def _parse_won_like(text: str) -> int:
     t = _norm_ws(text)
@@ -323,7 +334,8 @@ def parse_running_campaigns(html_text: str):
         if "운영 중" not in status:
             continue
 
-        name = _norm_ws(r[i_name]).replace("수정 삭제", "").strip()
+        name = _strip_edit_delete_suffix(r[i_name])
+
         if not name:
             continue
 
