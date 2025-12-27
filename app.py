@@ -924,16 +924,17 @@ def main():
                 if not parsed_campaigns:
                     st.info("HTML 업로드하면 자동 입력됩니다. 업로드가 없거나 캠페인 0개면 아래 수동으로 입력하세요.")
                 else:
+                    # ... (생략) parsed_campaigns 생성 이후 ...
                     st.markdown("### 자동 입력 폼 (캠페인 수만큼 생성)")
                     st.caption("광고 3개 값만 HTML로 자동 채우고, 나머지는 직접 입력 후 아래 '전체 저장'을 누르세요.")
 
-                    # (공통 날짜) 기본값: 어제, 달력 선택 가능, 모든 캠페인에 공통 적용
+                    # (공통 날짜) 기본값: 어제
                     if "auto_report_date" not in st.session_state:
                         st.session_state["auto_report_date"] = _yesterday_date()
 
                     st.date_input("날짜 선택 (전체 공통)", key="auto_report_date")
 
-                    # ✅ [변경] 상품명 + (전체/판매) 라벨용 데이터 1회 로드 (for-loop 밖)
+                    # ✅ 상품명 + (전체/판매) 라벨용 데이터 1회 로드 (for-loop 밖)
                     try:
                         product_names, product_stats = load_product_qty_sales_map()
                     except Exception as e:
@@ -945,10 +946,6 @@ def main():
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
 
-                        if f"{prefix}_report_date" not in st.session_state:
-                            st.session_state[f"{prefix}_report_date"] = _yesterday_date()
-
-                        # ✅ [변경] 상품명 picker 기본값
                         if f"{prefix}_product_picker" not in st.session_state:
                             st.session_state[f"{prefix}_product_picker"] = "(선택 안 함)"
 
@@ -986,7 +983,8 @@ def main():
                                 label_visibility="collapsed",
                             )
 
-                            st.date_input("날짜 선택", key=f"{prefix}_report_date")
+                            # ✅ 개별 달력 제거, 공통 달력 날짜만 적용
+                            st.caption(f"📅 적용 날짜: {st.session_state['auto_report_date']}")
 
                             st.markdown("#### 전체 판매")
 
@@ -1071,28 +1069,29 @@ def main():
                                 key=f"{prefix}_organic_rev_view",
                             )
 
-                            # =========================
-                            # ✅ [추가] 일일 순이익금 + 상세내역(자동모드에서도 표시)
-                            # =========================
+                            # ✅ 일일 순이익 계산도 공통 날짜 사용
                             picked = (st.session_state.get(f"{prefix}_product_picker") or "").strip()
                             product_name = "" if picked in ("", "(선택 안 함)") else picked
 
                             total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
                             total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
                             coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
-
                             ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
                             ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
                             ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
 
                             if product_name and total_sales_qty > 0 and total_revenue > 0:
-                                resp_prod = supabase.table("products").select("*").eq("product_name", product_name).execute()
+                                resp_prod = (
+                                    supabase.table("products")
+                                    .select("*")
+                                    .eq("product_name", product_name)
+                                    .execute()
+                                )
                                 if resp_prod.data:
                                     product_data = resp_prod.data[0]
-
                                     daily_profit, _, _ = _compute_daily(
                                         product_data=product_data,
-                                        report_date=st.session_state.get(f"{prefix}_report_date"),
+                                        report_date=st.session_state["auto_report_date"],
                                         product_name=product_name,
                                         total_sales_qty=total_sales_qty,
                                         total_revenue=total_revenue,
@@ -1101,47 +1100,11 @@ def main():
                                         ad_revenue_input=ad_revenue_input,
                                         ad_cost=ad_cost,
                                     )
-
-                                    vat = 1.1
-                                    coupon_total = coupon_unit * total_sales_qty
-                                    current_total_revenue = int(max(total_revenue - coupon_total, 0))
-
-                                    quantity_val = int(product_data.get("quantity", 1) or 1)
-                                    quantity_for_calc = quantity_val if quantity_val > 0 else 1
-
-                                    unit_purchase_cost = (product_data.get("purchase_cost", 0) or 0) / quantity_for_calc
-                                    unit_logistics = (product_data.get("logistics_cost", 0) or 0) / quantity_for_calc
-                                    unit_customs = (product_data.get("customs_duty", 0) or 0) / quantity_for_calc
-                                    unit_etc = (product_data.get("etc_cost", 0) or 0) / quantity_for_calc
-                                    fee_rate_db = float(product_data.get("fee", 0.0) or 0.0)
-                                    inout_shipping_cost = int(product_data.get("inout_shipping_cost", 0) or 0)
-
-                                    fee_cost = won(current_total_revenue * fee_rate_db / 100 * vat)
-                                    purchase_cost_total = won(unit_purchase_cost * total_sales_qty)
-                                    inout_shipping_cost_total = won(inout_shipping_cost * total_sales_qty * vat)
-                                    logistics_cost_total = won(unit_logistics * total_sales_qty)
-                                    customs_cost_total = won(unit_customs * total_sales_qty)
-                                    etc_cost_total = won(unit_etc * total_sales_qty)
-                                    ad_cost_total = won(ad_cost * vat)
-
                                     st.metric(label="일일 순이익금", value=f"{daily_profit:,}원")
-                                    st.markdown(
-                                        f"""
-                                        <small>
-                                          - 판매 수수료 (VAT 포함): {format_number(fee_cost)}원<br>
-                                          - 상품 매입원가: {format_number(purchase_cost_total)}원<br>
-                                          - 입출고/배송비 (VAT 포함): {format_number(inout_shipping_cost_total)}원<br>
-                                          - 물류비: {format_number(logistics_cost_total)}원<br>
-                                          - 관세: {format_number(customs_cost_total)}원<br>
-                                          - 기타 비용: {format_number(etc_cost_total)}원<br>
-                                          - 광고비 (VAT 포함): {format_number(ad_cost_total)}원
-                                        </small>
-                                        """,
-                                        unsafe_allow_html=True,
-                                    )
 
                             st.markdown("---")
 
+                    # ✅ 전체 저장도 공통 날짜 사용
                     if st.button("전체 저장 (N건 일괄)", key="auto_save_all"):
                         errors = []
                         payloads = []
@@ -1151,11 +1114,11 @@ def main():
 
                             picked = (st.session_state.get(f"{prefix}_product_picker") or "").strip()
                             product_name = "" if picked in ("", "(선택 안 함)") else picked
-                            report_date = st.session_state.get(f"{prefix}_report_date")
+
+                            report_date = st.session_state["auto_report_date"]  # ✅ 공통 날짜
                             total_sales_qty = int(st.session_state.get(f"{prefix}_total_sales_qty", 0))
                             total_revenue = int(st.session_state.get(f"{prefix}_total_revenue", 0))
                             coupon_unit = int(st.session_state.get(f"{prefix}_coupon_unit", 0))
-
                             ad_sales_qty = int(st.session_state.get(f"{prefix}_ad_sales_qty", 0))
                             ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
                             ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
@@ -1167,15 +1130,22 @@ def main():
                                 errors.append(f"[{i}] 전체 판매 수량/매출액 입력 필요")
                                 continue
 
-                            response = supabase.table("products").select("*").eq("product_name", product_name).execute()
+                            response = (
+                                supabase.table("products")
+                                .select("*")
+                                .eq("product_name", product_name)
+                                .execute()
+                            )
                             if not response.data:
-                                errors.append(f"[{i}] products에 '{product_name}' 없음 (상품 정보 입력 탭에서 먼저 저장)")
+                                errors.append(
+                                    f"[{i}] products에 '{product_name}' 없음 (상품 정보 입력 탭에서 먼저 저장)"
+                                )
                                 continue
 
                             product_data = response.data[0]
                             daily_profit, daily_roi, data_to_save = _compute_daily(
                                 product_data=product_data,
-                                report_date=report_date,
+                                report_date=report_date,  # ✅ 공통 날짜
                                 product_name=product_name,
                                 total_sales_qty=total_sales_qty,
                                 total_revenue=total_revenue,
@@ -1192,12 +1162,11 @@ def main():
                                 st.write(f"- {e}")
                         else:
                             try:
-                                for i, report_date, daily_profit, daily_roi, data_to_save in payloads:
+                                for _, _, _, _, data_to_save in payloads:
                                     supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
                                 st.success(f"{len(payloads)}건 저장 완료 ✅")
                             except Exception as e:
                                 st.error(f"저장 중 오류: {e}")
-
 
             else:
                 # -------------------------
