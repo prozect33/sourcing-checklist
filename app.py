@@ -729,7 +729,7 @@ def main():
         st.session_state.show_product_info = False
 
     # 원본 파일의 코드를 4개의 탭으로 분리했습니다.
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석", \"소싱\"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석", "소싱"])
 
     with tab6:
         render_sourcing_tab()
