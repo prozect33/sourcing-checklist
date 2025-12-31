@@ -578,6 +578,7 @@ def _coupang_rank_crawl(keyword: str, top_n: int = 10) -> pd.DataFrame:
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
 
     driver = None
     try:
@@ -587,13 +588,13 @@ def _coupang_rank_crawl(keyword: str, top_n: int = 10) -> pd.DataFrame:
         driver.get(target_url)
 
         # 페이지 로딩 + 스크롤(동적 컨텐츠 로드 유도) - 성공분 로직 유지
-        time.sleep(5)
+        time.sleep(10)
         driver.execute_script("window.scrollTo(0, 500);")
-        time.sleep(2)
+        time.sleep(10)
         driver.execute_script("window.scrollTo(0, 1000);")
-        time.sleep(2)
+        time.sleep(10)
         driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(2)
+        time.sleep(10)
 
         wait = WebDriverWait(driver, 20)
         try:
@@ -602,7 +603,7 @@ def _coupang_rank_crawl(keyword: str, top_n: int = 10) -> pd.DataFrame:
             try:
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='ProductUnit']")))
             except Exception:
-                time.sleep(3)
+                time.sleep(10)
 
         selectors = [
             "ul#productList li",
@@ -621,6 +622,14 @@ def _coupang_rank_crawl(keyword: str, top_n: int = 10) -> pd.DataFrame:
                     break
             except Exception:
                 continue
+
+        # 2. 바로 이 지점에 삽입하세요!
+        if not items:
+            # 현재 브라우저에 무엇이 뜨고 있는지 스크린샷을 찍어 스트림릿에 표시
+            st.image(driver.get_screenshot_as_png(), caption="에러 발생 시점 화면 (차단 여부 확인용)")
+            st.error("랭킹 결과를 찾지 못했습니다. (페이지 구조 변경/차단/로딩 실패 가능)")
+            driver.quit() # 드라이버 종료 필수
+            return None
 
         # 랭킹(1~10위) 상품만 추출
         ranked_items = []
