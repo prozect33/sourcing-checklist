@@ -549,12 +549,191 @@ def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
 # Note: display_profit_metric 함수는 박스형 출력 요청이 없어 제거되었습니다.
 # --- [End of New Functions] ---
 
+# =========================
+# 탭6: 소싱(크롤링)
+# =========================
+def _coupang_rank_crawl(keyword: str, top_n: int = 10) -> pd.DataFrame:
+    """
+    쿠팡 검색 결과에서 '랭킹 마크'가 있는 상품(1~10위)을 수집해 DataFrame으로 반환합니다.
+    - 기존 '크롤링 성공분.txt' 로직을 Streamlit 탭용으로 함수화한 버전입니다.
+    """
+    # ⚠️ selenium/undetected_chromedriver는 환경에 따라 설치/동작이 필요합니다.
+    # (탭6을 안 쓰면 import가 필요 없도록) 함수 내부에서 import합니다.
+    import time
+    import re as _re
+    from urllib.parse import quote_plus
+
+    import undetected_chromedriver as uc
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
+    options = uc.ChromeOptions()
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--incognito")
+
+    # 서버/헤드리스 환경에서 필요할 수 있는 옵션들
+    # (로컬에서 UI 브라우저가 뜨길 원하면 아래 headless 라인은 주석 처리하세요)
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+
+    driver = None
+    try:
+        driver = uc.Chrome(options=options)
+
+        target_url = f"https://www.coupang.com/np/search?q={quote_plus(keyword)}"
+        driver.get(target_url)
+
+        # 페이지 로딩 + 스크롤(동적 컨텐츠 로드 유도) - 성공분 로직 유지
+        time.sleep(5)
+        driver.execute_script("window.scrollTo(0, 500);")
+        time.sleep(2)
+        driver.execute_script("window.scrollTo(0, 1000);")
+        time.sleep(2)
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(2)
+
+        wait = WebDriverWait(driver, 20)
+        try:
+            wait.until(EC.presence_of_element_located((By.ID, "productList")))
+        except Exception:
+            try:
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='ProductUnit']")))
+            except Exception:
+                time.sleep(3)
+
+        selectors = [
+            "ul#productList li",
+            "li[class*='ProductUnit']",
+            "li.search-product",
+            "div[class*='ProductUnit']",
+            "article[class*='product']",
+            "li[class*='product']",
+        ]
+
+        items = []
+        for selector in selectors:
+            try:
+                items = driver.find_elements(By.CSS_SELECTOR, selector)
+                if items:
+                    break
+            except Exception:
+                continue
+
+        # 랭킹(1~10위) 상품만 추출
+        ranked_items = []
+        for item in items:
+            try:
+                rank_elem = item.find_element(By.CSS_SELECTOR, "[class*='RankMark']")
+                rank_text = (rank_elem.text or "").strip()
+                m = _re.search(r"(\d+)", rank_text)
+                if not m:
+                    continue
+                rank = int(m.group(1))
+                if 1 <= rank <= top_n:
+                    ranked_items.append((rank, item))
+            except Exception:
+                continue
+
+        ranked_items.sort(key=lambda x: x[0])
+
+        data_list = []
+        for rank, item in ranked_items[:top_n]:
+            try:
+                # 상품명
+                name_elem = item.find_element(By.CSS_SELECTOR, ".ProductUnit_productNameV2__cV9cw")
+                name = (name_elem.text or "").strip()
+
+                # 리뷰수 (예: "(203)"에서 203 추출)
+                review_count = "리뷰 없음"
+                try:
+                    review_elem = item.find_element(By.CSS_SELECTOR, ".ProductRating_productRating__jjf7W span")
+                    review_text = (review_elem.text or "").strip()
+                    m2 = _re.search(r"\((\d+)\)", review_text)
+                    if m2:
+                        review_count = m2.group(1)
+                except Exception:
+                    pass
+
+                if name:
+                    data_list.append({"랭킹": rank, "상품명": name, "리뷰수": review_count})
+            except Exception:
+                continue
+
+        df = pd.DataFrame(data_list)
+        if not df.empty:
+            df = df.sort_values("랭킹").reset_index(drop=True)
+        return df
+
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                try:
+                    driver.close()
+                except Exception:
+                    pass
+
+
+def render_sourcing_tab():
+    st.subheader("소싱 (쿠팡 검색 랭킹 크롤링)")
+
+    keyword = st.text_input("상품명(검색어)", key="sourcing_keyword", placeholder="예: 레그워머 / 강아지패딩 / 동전지갑")
+
+    col_a, col_b = st.columns([1, 3])
+    with col_a:
+        run = st.button("크롤링 실행", key="btn_run_sourcing")
+    with col_b:
+        st.caption("결과는 아래에 바로 출력됩니다. (환경에 따라 Chrome/selenium 세팅이 필요할 수 있습니다)")
+
+    if run:
+        if not (keyword or "").strip():
+            st.warning("상품명(검색어)을 입력해주세요.")
+            return
+
+        try:
+            with st.spinner("크롤링 중..."):
+                df = _coupang_rank_crawl(keyword.strip(), top_n=10)
+
+            if df.empty:
+                st.info("랭킹(1~10위) 결과를 찾지 못했습니다. (페이지 구조 변경/차단/로딩 실패 가능)")
+                return
+
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+            st.markdown("#### 결과(텍스트)")
+            for _, r in df.iterrows():
+                st.write(f"{int(r['랭킹'])}위 | {r['상품명']} | 리뷰수: {r['리뷰수']}")
+
+            # 원하면 CSV로도 바로 다운 가능
+            csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "CSV 다운로드",
+                data=csv_bytes,
+                file_name=f"쿠팡_{keyword}_랭킹결과.csv",
+                mime="text/csv",
+                key="btn_dl_sourcing_csv",
+            )
+
+        except ModuleNotFoundError as e:
+            st.error(f"필수 패키지가 없습니다: {e}")
+            st.info("터미널에서 아래를 설치하세요: pip install selenium undetected-chromedriver")
+        except Exception as e:
+            st.error(f"크롤링 중 오류가 발생했습니다: {e}")
+
 def main():
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
 
     # 원본 파일의 코드를 4개의 탭으로 분리했습니다.
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석", \"소싱\"])
+
+    with tab6:
+        render_sourcing_tab()
+
 
     with tab1:  # 간단 마진 계산기 탭
 
