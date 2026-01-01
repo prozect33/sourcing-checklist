@@ -5,6 +5,11 @@ import pandas as pd
 import datetime
 import uuid
 import re
+import tempfile
+import csv
+from dataclasses import dataclass
+import openpyxl
+
 from html.parser import HTMLParser
 from ad_analysis_tab import render_ad_analysis_tab
 from supabase import create_client, Client
@@ -549,12 +554,295 @@ def get_date_range(period: str) -> tuple[datetime.date, datetime.date]:
 # Note: display_profit_metric 함수는 박스형 출력 요청이 없어 제거되었습니다.
 # --- [End of New Functions] ---
 
+
+# =========================
+# Sourcing Tool (Tab6)
+# =========================
+
+def _s_norm(s):
+    return re.sub(r"\s+", " ", str(s or "").replace("\n", " ")).strip()
+
+
+def _s_to_int(x, default=0):
+    try:
+        if x in (None, ""):
+            return default
+        return int(float(x))
+    except (TypeError, ValueError):
+        return default
+
+
+def _s_to_float(x, default=0.0):
+    try:
+        if x in (None, ""):
+            return default
+        return float(x)
+    except (TypeError, ValueError):
+        return default
+
+
+def _s_is_brand_x(v):
+    return _s_norm(v).upper() in {"X", "엑스"}
+
+
+def _s_is_shopping_o(v):
+    return _s_norm(v).upper() in {"O", "0", "오"}
+
+
+_S_MONTH_RE = re.compile(r"(?:^|[^0-9])((?:1[0-2])|(?:[1-9]))(?:[^0-9]|$)")
+
+
+def _s_extract_months(text):
+    """'3', '2,7,11', '5 6 7 8' 형태만 지원 ('3~5' 없음)."""
+    t = _s_norm(text)
+    months = set()
+    if not t or ("없음" in t):
+        return months
+    for mm in _S_MONTH_RE.findall(t):
+        try:
+            m = int(mm)
+            if 1 <= m <= 12:
+                months.add(m)
+        except ValueError:
+            continue
+    return months
+
+
+@dataclass(frozen=True)
+class SourcingCriteria:
+    min_coupang_price: int = 10_000
+    max_coupang_price: int = 30_000
+    min_coupang_avg_reviews: float = 100.0
+    max_coupang_avg_reviews: float = 500.0
+    selected_months: frozenset[int] = frozenset()  # empty => 비시즌(계절성=없음)
+
+
+def _s_pick_sheet(wb):
+    return "all" if "all" in wb.sheetnames else wb.sheetnames[0]
+
+
+def _s_build_cols(header_row):
+    cols = {}
+    for i, h in enumerate(header_row):
+        name = _s_norm(h)
+        if name and name not in cols:
+            cols[name] = i
+    return cols
+
+
+def _s_find_first(cols, candidates):
+    for c in candidates:
+        if c in cols:
+            return c
+    return None
+
+
+def _s_find_contains(cols, must_include, must_exclude=()):
+    for name in cols.keys():
+        if all(t in name for t in must_include) and all(t not in name for t in must_exclude):
+            return name
+    return None
+
+
+def _s_find_tokens(cols, include_all=(), exclude_any=()):
+    for name in cols.keys():
+        if exclude_any and any(x in name for x in exclude_any):
+            continue
+        if include_all and not all(x in name for x in include_all):
+            continue
+        return name
+    return None
+
+
+def parse_sourcing_xlsx_stream(xlsx_path: str, criteria: SourcingCriteria, sheet_name: str | None = None):
+    """
+    XLSX 대용량 스트리밍 파서(openpyxl read_only).
+
+    시즌 선택:
+    - 월 선택 0개 => 비시즌(계절성 == '없음')
+    - 월 선택 1개 이상 => 시즌(계절성 == '있음' AND 계절성 월에 선택월 포함)
+    """
+    if any((m < 1 or m > 12) for m in criteria.selected_months):
+        raise ValueError(f"selected_months must be 1..12: {sorted(criteria.selected_months)}")
+
+    wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=True)
+    sheet = sheet_name or _s_pick_sheet(wb)
+    if sheet not in wb.sheetnames:
+        raise ValueError(f"Sheet not found: {sheet}, available={wb.sheetnames}")
+    ws = wb[sheet]
+
+    it = ws.iter_rows(values_only=True)
+    header = next(it)
+    cols = _s_build_cols(header)
+
+    col_keyword = _s_find_first(cols, ["키워드"])
+    if not col_keyword:
+        raise ValueError("Required column missing: 키워드")
+
+    col_brand = _s_find_contains(cols, ["브랜드", "키워드"])
+    col_shopping = _s_find_contains(cols, ["쇼핑성", "키워드"])
+
+    col_cp_price = _s_find_tokens(cols, include_all=["쿠팡", "평균가"])
+    col_cp_avg_reviews = _s_find_tokens(cols, include_all=["쿠팡", "평균리뷰수"])
+    col_cp_total_reviews = _s_find_tokens(cols, include_all=["쿠팡", "총리뷰수"])
+    col_cp_exposed_products = _s_find_tokens(cols, include_all=["쿠팡", "노출상품수"])
+
+    col_last_year_total = _s_find_tokens(cols, include_all=["작년", "검색량"], exclude_any=["최대"])
+    col_last_year_max_month = _s_find_tokens(cols, include_all=["작년", "최대", "검색", "월"], exclude_any=["검색량"])
+    col_last_year_max_month_volume = _s_find_tokens(cols, include_all=["작년", "최대", "검색", "월", "검색량"])
+
+    col_seasonality = _s_find_first(cols, ["계절성"])
+    col_seasonality_month = _s_find_tokens(cols, include_all=["계절성", "월"])
+
+    offseason_mode = not criteria.selected_months
+
+    def get(row, col_name):
+        if not col_name:
+            return None
+        idx = cols.get(col_name)
+        return row[idx] if idx is not None and idx < len(row) else None
+
+    def coupang_avg_reviews(row):
+        v = get(row, col_cp_avg_reviews)
+        if v not in (None, ""):
+            return _s_to_float(v, 0.0)
+        total = _s_to_float(get(row, col_cp_total_reviews), 0.0)
+        denom = _s_to_float(get(row, col_cp_exposed_products), 0.0)
+        return (total / denom) if denom > 0 else 0.0
+
+    def seasonality_pass(row):
+        s = _s_norm(get(row, col_seasonality))
+        if not s:
+            return False
+
+        if "없음" in s:
+            return offseason_mode
+
+        if "있음" in s or s.upper() in {"O", "Y", "YES", "TRUE"}:
+            if offseason_mode:
+                return False
+            months = _s_extract_months(get(row, col_seasonality_month))
+            if not months:
+                return False
+            return bool(months.intersection(criteria.selected_months))
+
+        return False
+
+    def last_year_max_month(row):
+        m = int(float(get(row, col_last_year_max_month) or 0))
+        if not (1 <= m <= 12):
+            raise ValueError(f"Invalid last-year max month: {m}")
+        return m
+
+    results = []
+    seen = set()
+
+    for row in it:
+        keyword = _s_norm(get(row, col_keyword))
+        if not keyword or keyword in seen:
+            continue
+        seen.add(keyword)
+
+        if col_brand and not _s_is_brand_x(get(row, col_brand)):
+            continue
+        if col_shopping and not _s_is_shopping_o(get(row, col_shopping)):
+            continue
+
+        price = _s_to_int(get(row, col_cp_price), 0) if col_cp_price else 0
+        if not (criteria.min_coupang_price <= price <= criteria.max_coupang_price):
+            continue
+
+        avg_rev = coupang_avg_reviews(row)
+        if not (criteria.min_coupang_avg_reviews <= avg_rev <= criteria.max_coupang_avg_reviews):
+            continue
+
+        if not seasonality_pass(row):
+            continue
+
+        results.append(
+            {
+                "키워드": keyword,
+                "작년 검색량": _s_to_int(get(row, col_last_year_total), 0),
+                "작년 최대검색월": last_year_max_month(row),
+                "작년최대 검색월 검색량": _s_to_int(get(row, col_last_year_max_month_volume), 0),
+                "쿠팡 평균가": price,
+                "쿠팡 평균 리뷰수": round(avg_rev, 2),
+            }
+        )
+
+    return results
+
+
+def _s_toggle_button(label: str, pressed: bool, key: str) -> bool:
+    shown = f"✅ {label}" if pressed else label
+    if st.button(shown, key=key):
+        return not pressed
+    return pressed
+
+
+def _s_month_selector(key: str = "sourcing_months") -> set[int]:
+    """
+    12개 버튼(1~12월) 토글. 기본(empty)=비시즌.
+    """
+    if key not in st.session_state:
+        st.session_state[key] = set()
+
+    months = set(st.session_state[key])
+
+    st.markdown("### 월 선택 (복수 선택)")
+    cols = st.columns(6)
+    for m in range(1, 13):
+        col = cols[(m - 1) % 6]
+        selected = m in months
+        next_selected = _s_toggle_button(f"{m}월", selected, key=f"{key}_{m}")
+        if next_selected != selected:
+            if next_selected:
+                months.add(m)
+            else:
+                months.remove(m)
+
+    st.session_state[key] = months
+    st.caption("모드: 시즌(있음)" if months else "모드: 비시즌(없음)")
+    return months
+
+
+def render_sourcing_tab():
+    st.subheader("🧰 소싱툴 (엑셀 파싱)")
+
+    months = _s_month_selector()
+    uploaded = st.file_uploader("엑셀 업로드(.xlsx)", type=["xlsx"], key="sourcing_xlsx_uploader")
+
+    if st.button("파싱 실행", type="primary", key="sourcing_run"):
+        if uploaded is None:
+            st.warning("파일 업로드가 필요합니다.")
+            st.stop()
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(uploaded.getbuffer())
+            xlsx_path = tmp.name
+
+        crit = SourcingCriteria(selected_months=frozenset(months))
+        rows = parse_sourcing_xlsx_stream(xlsx_path, criteria=crit, sheet_name="all")
+
+        st.success(f"완료: {len(rows)} rows")
+        st.dataframe(rows, use_container_width=True)
+
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        st.download_button(
+            "CSV 다운로드",
+            data=df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="sourcing_filtered.csv",
+            mime="text/csv",
+            key="sourcing_download",
+        )
+
 def main():
     if 'show_product_info' not in st.session_state:
         st.session_state.show_product_info = False
 
     # 원본 파일의 코드를 4개의 탭으로 분리했습니다.
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["간단 마진계산기", "상품 정보 입력", "일일정산", "판매현황", "광고분석", "소싱툴"])
 
     with tab1:  # 간단 마진 계산기 탭
 
@@ -1663,6 +1951,9 @@ def main():
 
     with tab5:
         render_ad_analysis_tab(supabase)
+
+    with tab6:
+        render_sourcing_tab()
 
 if __name__ == "__main__":
     # 메인 실행 전에 탭 1의 세션 상태 키 초기화 보장
