@@ -1231,8 +1231,18 @@ def main():
 
                     PRODUCT_PICKER_OPTIONS = ["(선택 안 함)"] + product_names
 
+                    # ✅ 업로드 파일 단위 '제외' 상태 유지 (자동 입력 폼 전용)
+                    upload_sig = f"{uploaded_html.name}:{uploaded_html.size}"
+                    excluded_state_key = f"auto_excluded_campaigns::{upload_sig}"
+                    if excluded_state_key not in st.session_state:
+                        st.session_state[excluded_state_key] = set()
+
+
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
+
+                        camp_key = f"{upload_sig}:{i}:{camp.campaign_name}"
+                        is_excluded = camp_key in st.session_state[excluded_state_key]
 
                         if f"{prefix}_product_picker" not in st.session_state:
                             st.session_state[f"{prefix}_product_picker"] = "(선택 안 함)"
@@ -1261,7 +1271,19 @@ def main():
                             st.session_state[f"{prefix}_autofill_sig"] = sig
 
                         with st.container(border=True):
-                            st.markdown(f"#### {i}. {camp.campaign_name}")
+                            left, right = st.columns([8, 2])
+                            with left:
+                                st.markdown(f"#### {i}. {camp.campaign_name}")
+                                st.caption(f"📅 적용 날짜: {st.session_state['auto_report_date']}")
+                            with right:
+                                if not is_excluded:
+                                    if st.button("🗑️ 제외", key=f"{prefix}_exclude_btn"):
+                                        st.session_state[excluded_state_key].add(camp_key)
+                                        st.rerun()
+
+                            if is_excluded:
+                                st.caption("🚫 제외됨 (저장 제외)")
+                                continue
 
                             st.selectbox(
                                 "",
@@ -1271,8 +1293,6 @@ def main():
                                 label_visibility="collapsed",
                             )
 
-                            # ✅ 개별 달력 제거, 공통 달력 날짜만 적용
-                            st.caption(f"📅 적용 날짜: {st.session_state['auto_report_date']}")
 
                             st.markdown("#### 전체 판매")
 
@@ -1396,9 +1416,16 @@ def main():
                     if st.button("전체 저장 (N건 일괄)", key="auto_save_all"):
                         errors = []
                         payloads = []
+                        excluded = set(st.session_state.get(excluded_state_key, set()))
+                        skipped = 0
 
                         for i, camp in enumerate(parsed_campaigns, start=1):
                             prefix = f"auto_{i}"
+                            camp_key = f"{upload_sig}:{i}:{camp.campaign_name}"
+
+                            if camp_key in excluded:
+                                skipped += 1
+                                continue
 
                             picked = (st.session_state.get(f"{prefix}_product_picker") or "").strip()
                             product_name = "" if picked in ("", "(선택 안 함)") else picked
@@ -1453,6 +1480,8 @@ def main():
                                 for _, _, _, _, data_to_save in payloads:
                                     supabase.rpc("upsert_daily_sales", {"p_data": data_to_save}).execute()
                                 st.success(f"{len(payloads)}건 저장 완료 ✅")
+                                if skipped:
+                                    st.info(f"제외 처리: {skipped}건")
                             except Exception as e:
                                 st.error(f"저장 중 오류: {e}")
 
