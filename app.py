@@ -2005,7 +2005,7 @@ def main():
 
                         # 4. 전체 총 합계 행(Total Row) 계산
                         total_row = pd.DataFrame([{
-                            'rep_name': '합계',
+                            'rep_name': '총 합계',
                             'purchase_cost': p_summary['purchase_cost'].sum(),
                             'logistics_cost': p_summary['logistics_cost'].sum(),
                             'customs_duty': p_summary['customs_duty'].sum(),
