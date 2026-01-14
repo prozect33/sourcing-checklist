@@ -1979,6 +1979,55 @@ def main():
                 except Exception as e:
                     st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
+                st.markdown("---")
+                st.subheader("📦 상품별 누적 매입 현황 (전체 차수 합산)")
+
+                try:
+                    # Supabase에서 매입 데이터 전체 가져오기
+                    p_res = supabase.table("products").select("product_name, purchase_cost, logistics_cost, customs_duty").execute()
+                    
+                    if p_res.data:
+                        df_p = pd.DataFrame(p_res.data)
+                        
+                        # 1. 'n차' 제거 및 이름 통일
+                        df_p['rep_name'] = df_p['product_name'].apply(lambda x: re.sub(r'\d+차', '', str(x)).strip())
+                        
+                        # 2. 상품별 합산 (매입비, 물류비, 관세)
+                        p_summary = df_p.groupby('rep_name').agg({
+                            'purchase_cost': 'sum',
+                            'logistics_cost': 'sum',
+                            'customs_duty': 'sum'
+                        }).reset_index()
+                        
+                        # 3. 상품별 총 합계 열 추가
+                        p_summary['item_total'] = p_summary['purchase_cost'] + p_summary['logistics_cost'] + p_summary['customs_duty']
+                        p_summary = p_summary.sort_values('rep_name')
+
+                        # 4. 전체 총 합계 행(Total Row) 계산
+                        total_row = pd.DataFrame([{
+                            'rep_name': '⚠️ 전체 총 합계',
+                            'purchase_cost': p_summary['purchase_cost'].sum(),
+                            'logistics_cost': p_summary['logistics_cost'].sum(),
+                            'customs_duty': p_summary['customs_duty'].sum(),
+                            'item_total': p_summary['item_total'].sum()
+                        }])
+                        
+                        # 결과 합치기
+                        final_df = pd.concat([p_summary, total_row], ignore_index=True)
+
+                        # 5. 천 단위 콤마 포맷팅
+                        formatted_df = final_df.copy()
+                        for col in ['purchase_cost', 'logistics_cost', 'customs_duty', 'item_total']:
+                            formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
+
+                        # 컬럼명 변경 후 출력
+                        formatted_df.columns = ["대표 상품명", "총 매입비", "총 물류비", "총 관세", "상품별 총 합계"]
+                        st.table(formatted_df)
+                    else:
+                        st.info("등록된 매입 데이터가 없습니다.")
+                except Exception as e:
+                    st.error(f"누적 매입 현황 계산 중 오류: {e}")
+
     with tab5:
         render_ad_analysis_tab(supabase)
 
