@@ -1980,7 +1980,7 @@ def main():
                     st.error(f"판매 현황을 불러오는 중 오류가 발생했습니다: {e}")
 
                 st.markdown("---")
-                st.subheader("📦 상품별 누적 매입 현황 (전체 차수 합산)")
+                st.subheader("상품별 누적 매입 현황 (전체 차수 합산)")
 
                 try:
                     # Supabase에서 매입 데이터 전체 가져오기
@@ -2005,7 +2005,7 @@ def main():
 
                         # 4. 전체 총 합계 행(Total Row) 계산
                         total_row = pd.DataFrame([{
-                            'rep_name': '⚠️ 전체 총 합계',
+                            'rep_name': '전체 총 합계',
                             'purchase_cost': p_summary['purchase_cost'].sum(),
                             'logistics_cost': p_summary['logistics_cost'].sum(),
                             'customs_duty': p_summary['customs_duty'].sum(),
