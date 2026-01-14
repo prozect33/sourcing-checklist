@@ -2017,24 +2017,12 @@ def main():
 
                         # 5. 천 단위 콤마 포맷팅
                         formatted_df = final_df.copy()
-
                         for col in ['purchase_cost', 'logistics_cost', 'customs_duty', 'item_total']:
                             formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
 
-                        formatted_df = formatted_df.rename(columns={
-                            'rep_name': '대표 상품명',
-                            'purchase_cost': '매입비',
-                            'logistics_cost': '물류비',
-                            'customs_duty': '관세',
-                            'item_total': '합계'
-                        })
-
-                        st.dataframe(
-                            formatted_df,
-                            hide_index=True,
-                            use_container_width=True
-                        )
-
+                        # 컬럼명 변경 후 출력
+                        formatted_df.columns = ["대표 상품명", "총 매입비", "총 물류비", "총 관세", "상품별 총 합계"]
+                        st.dataframe(formatted_df, hide_index=True, use_container_width=True)
                     else:
                         st.info("등록된 매입 데이터가 없습니다.")
                 except Exception as e:
