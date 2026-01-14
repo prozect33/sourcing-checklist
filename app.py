@@ -2017,25 +2017,11 @@ def main():
 
                         # 5. 천 단위 콤마 포맷팅
                         formatted_df = final_df.copy()
-                        
-                        # 안전하게 원래 이름이 있을 때만 콤마 작업 수행
                         for col in ['purchase_cost', 'logistics_cost', 'customs_duty', 'item_total']:
-                            if col in formatted_df.columns:
-                                formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
+                            formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
 
-                        # ★ 열을 통째로 갈아치우지 않고, 이름만 하나씩 맵핑해서 변경 (증발 방지)
-                        rename_rule = {
-                            'purchase_cost': '매입비',
-                            'logistics_cost': '물류비',
-                            'customs_duty': '관세',
-                            'item_total': '합계',
-                            'rep_name': '대표 상품명' # 코드 상단의 그룹화 이름에 맞춤
-                        }
-                        
-                        # 명시적으로 이름 변경 실행
-                        formatted_df = formatted_df.rename(columns=rename_rule)
-                        
-                        # 최종 출력 (번호 제거)
+                        # 컬럼명 변경 후 출력
+                        formatted_df.columns = ["대표 상품명", "총 매입비", "총 물류비", "총 관세", "상품별 총 합계"]
                         st.dataframe(formatted_df, hide_index=True, use_container_width=True)
                     else:
                         st.info("등록된 매입 데이터가 없습니다.")
