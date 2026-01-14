@@ -2015,13 +2015,22 @@ def main():
                         # 결과 합치기
                         final_df = pd.concat([p_summary, total_row], ignore_index=True)
 
-                        # 5. 천 단위 콤마 포맷팅
+                        # 5. 천 단위 콤마 포맷팅 (먼저 데이터부터 변환)
                         formatted_df = final_df.copy()
-                        for col in ['purchase_cost', 'logistics_cost', 'customs_duty', 'item_total']:
-                            formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
+                        
+                        # 원래 영문 컬럼명 리스트
+                        cols_to_fix = ['purchase_cost', 'logistics_cost', 'customs_duty', 'item_total']
+                        
+                        for col in cols_to_fix:
+                            # 데이터가 있는 경우만 콤마 변환 수행
+                            if col in formatted_df.columns:
+                                formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
 
-                        # 컬럼명 변경 후 출력
-                        formatted_df.columns = ["대표 상품명", "총 매입비", "총 물류비", "총 관세", "상품별 총 합계"]
+                        # ★ 모든 변환이 끝난 '마지막'에 이름을 한꺼번에 교체 ★
+                        # 이 줄이 실행되는 순간, 표의 껍데기 이름만 싹 바뀝니다.
+                        formatted_df.columns = ["대표 상품명", "매입비", "물류비", "관세", "합계"]
+                        
+                        # 최종 출력
                         st.dataframe(formatted_df, hide_index=True, use_container_width=True)
                     else:
                         st.info("등록된 매입 데이터가 없습니다.")
