@@ -2005,7 +2005,7 @@ def main():
 
                         # 4. 전체 총 합계 행(Total Row) 계산
                         total_row = pd.DataFrame([{
-                            'rep_name': '전체 총 합계',
+                            'rep_name': '합계',
                             'purchase_cost': p_summary['purchase_cost'].sum(),
                             'logistics_cost': p_summary['logistics_cost'].sum(),
                             'customs_duty': p_summary['customs_duty'].sum(),
@@ -2021,7 +2021,7 @@ def main():
                             formatted_df[col] = formatted_df[col].apply(lambda x: f"{int(x):,}")
 
                         # 컬럼명 변경 후 출력
-                        formatted_df.columns = ["대표 상품명", "총 매입비", "총 물류비", "총 관세", "상품별 총 합계"]
+                        formatted_df.columns = ["대표 상품명", "매입비", "물류비", "관세", "합계"]
                         st.dataframe(formatted_df, hide_index=True, use_container_width=True)
                     else:
                         st.info("등록된 매입 데이터가 없습니다.")
