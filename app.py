@@ -382,11 +382,13 @@ def parse_running_campaigns(html_text: str):
 
     out = []
     for r in rows:
-        status = r[i_status]
-        if "운영 중" not in status:
+        # 기존: status = r[i_status] (상태 열의 '운영 중' 텍스트 확인)
+        # 변경: 행 전체 데이터(r) 중 'ON'이라는 텍스트가 포함된 요소가 있는지 확인
+        if not any("ON" == str(cell).strip() for cell in r):
             continue
 
         name = _strip_edit_delete_suffix(r[i_name])
+        status = r[i_status] # 상태 텍스트는 정보 저장용으로만 사용 
 
         if not name:
             continue
