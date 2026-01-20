@@ -1559,7 +1559,7 @@ def main():
                     else:
                         st.info("선택된 상품의 상세 정보가 없습니다.")
 
-                report_date = st.date_input("날짜 선택", datetime.date.today())
+                report_date = st.date_input("날짜 선택", datetime.date.today() - datetime.timedelta(days=1))
                 st.markdown("---")
 
                 st.markdown("#### 전체 판매")
