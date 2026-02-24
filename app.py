@@ -127,6 +127,18 @@ def load_config_from_supabase():
 
 config = load_config_from_supabase()
 
+def can_save_daily_record(
+    total_sales_qty: int,
+    total_revenue: int,
+    ad_sales_qty: int,
+    ad_revenue: int,
+    ad_cost: int,
+) -> bool:
+    # 판매(수량/매출) 또는 광고(광고비/전환수/광고매출) 중 하나라도 있으면 저장 허용
+    has_sales = (int(total_sales_qty) > 0) or (int(total_revenue) > 0)
+    has_ads = (int(ad_cost) > 0) or (int(ad_sales_qty) > 0) or (int(ad_revenue) > 0)
+    return has_sales or has_ads
+
 # 상품 정보 입력 상태 초기화 (탭2)
 if "product_name_input" not in st.session_state: st.session_state["product_name_input_default"] = ""
 if "sell_price_input" not in st.session_state: st.session_state.sell_price_input = ""
@@ -1389,7 +1401,7 @@ def main():
                             ad_revenue_input = int(st.session_state.get(f"{prefix}_ad_revenue", 0))
                             ad_cost = int(st.session_state.get(f"{prefix}_ad_cost", 0))
 
-                            if product_name and total_sales_qty > 0 and total_revenue > 0:
+                            if product_name and can_save_daily_record(total_sales_qty, total_revenue, ad_sales_qty, ad_revenue_input, ad_cost):
                                 resp_prod = (
                                     supabase.table("products")
                                     .select("*")
@@ -1442,8 +1454,9 @@ def main():
                             if not product_name:
                                 errors.append(f"[{i}] 상품명을 선택해주세요")
                                 continue
-                            if total_sales_qty <= 0 or total_revenue <= 0:
-                                errors.append(f"[{i}] 전체 판매 수량/매출액 입력 필요")
+
+                            if not can_save_daily_record(total_sales_qty, total_revenue, ad_sales_qty, ad_revenue_input, ad_cost):
+                                errors.append(f"[{i}] 판매(수량/매출) 또는 광고(광고비/전환수/광고매출) 중 1개는 필요")
                                 continue
 
                             response = (
@@ -1654,8 +1667,15 @@ def main():
                 if st.button("판매 기록 저장"):
                     if selected_product_name == "상품을 선택해주세요":
                         st.error("상품을 먼저 선택해야 판매 기록을 저장할 수 있습니다.")
-                    elif st.session_state.total_sales_qty == 0 or st.session_state.total_revenue == 0:
-                        st.error("전체 판매 수량과 매출액을 입력해야 저장할 수 있습니다.")
+                    elif not can_save_daily_record(
+                        st.session_state.total_sales_qty,
+                        st.session_state.total_revenue,
+                        st.session_state.ad_sales_qty,
+                        st.session_state.ad_revenue,
+                        st.session_state.ad_cost,
+                    ):
+                        st.error("판매(수량/매출) 또는 광고(광고비/전환수/광고매출) 중 1개는 입력해야 저장할 수 있습니다.")
+
                     else:
                         try:
                             current_total_sales_qty = st.session_state.total_sales_qty
