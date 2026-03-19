@@ -1113,7 +1113,7 @@ def main():
 
                 st.text_input("기타", key="etc_cost_input")
 
-# --- 실시간 수익성 분석 (일일정산 & 판매현황 로직 100% 동기화) ---
+# --- 실시간 수익성 분석 (소수점 절사 및 정수 출력 버전) ---
                 st.markdown("---")
                 st.subheader("📊 실시간 수익성 분석 (예측)")
                 
@@ -1139,42 +1139,35 @@ def main():
                     vat_v = 1.1
                     q_calc = qty_v if qty_v > 0 else 1
                     
-                    # [일일정산 탭 로직] 각 항목을 수량으로 나눈 뒤 '반올림'하지 않고 합산 (float 유지)
-                    u_p = p_c / q_calc
-                    u_l = l_c / q_calc
-                    u_c = c_d / q_calc
-                    u_e = e_c / q_calc
+                    # 단위당 원가 (소수점 이하 절사)
+                    u_p = int(p_c / q_calc)
+                    u_l = int(l_c / q_calc)
+                    u_c = int(c_d / q_calc)
+                    u_e = int(e_c / q_calc)
                     unit_invest = u_p + u_l + u_c + u_e
 
-                    # [중요] 일일정산 탭은 수수료와 배송비 계산 시 won() 함수로 반올림함
-                    # won() 함수가 정의되어 있다면 사용하고, 없다면 동일한 로직(round) 적용
-                    def sync_won(val):
-                        return int(float(val) + 0.5)
+                    # 수수료 및 배송비 (VAT 1.1 적용 후 소수점 이하 절사)
+                    actual_fee = int(s_p * (f_r / 100) * vat_v)
+                    actual_inout = int(i_c * vat_v)
+                    
+                    # 마진 계산
+                    margin_p = int(s_p - actual_fee - actual_inout - unit_invest)
+                    
+                    # 지표 산출 (모두 정수형으로 변환)
+                    # 마진율
+                    m_ratio = int((margin_p / s_p * 100)) if s_p > 0 else 0
+                    # ROI
+                    roi_v = int((margin_p / unit_invest * 100)) if unit_invest > 0 else 0
+                    # 손익분기 ROAS
+                    be_roas_v = int((s_p / margin_p * 100)) if margin_p > 0 else 0
 
-                    actual_fee = sync_won(s_p * (f_r / 100) * vat_v)
-                    actual_inout = sync_won(i_c * vat_v)
-                    
-                    # 마진 계산 (판매가 - 수수료 - 배송비 - 원가합계)
-                    # 여기서 소수점을 유지해야 38.33%가 나옵니다.
-                    margin_p = s_p - actual_fee - actual_inout - unit_invest
-                    
-                    # 1. 마진율 (목표: 38.33%)
-                    m_ratio = (margin_p / s_p * 100) if s_p > 0 else 0
-                    
-                    # 2. ROI (목표: 154%) -> 판매현황 탭의 기준
-                    roi_v = (margin_p / unit_invest * 100) if unit_invest > 0 else 0
-                    
-                    # 3. 손익분기 ROAS (목표: 260.87%)
-                    be_roas_v = (s_p / margin_p * 100) if margin_p > 0 else 0
-
-                    # 화면 출력
+                    # 화면 출력 (소수점 없이 정수+% 로만 표시)
                     m_col1, m_col2, m_col3 = st.columns(3)
-                    # 마진율과 ROAS는 소수점 2자리, ROI는 판매현황처럼 정수로 출력하거나 소수점 선택
-                    m_col1.metric("마진율", f"{m_ratio:.2f}%")
-                    m_col2.metric("ROI", f"{int(roi_v)}%") # 판매현황 154%에 맞춤
-                    m_col3.metric("손익분기 ROAS", f"{be_roas_v:.2f}%")
+                    m_col1.metric("마진율", f"{m_ratio}%")
+                    m_col2.metric("ROI", f"{roi_v}%")
+                    m_col3.metric("손익분기 ROAS", f"{be_roas_v}%")
                     
-                    st.caption(f"💡 **데이터 동기화:** 일일정산(38.33%) 및 판매현황(154%) 로직 적용됨")
+                    st.caption(f"💡 모든 수치는 소수점 이하를 제외한 정수 기준입니다.")
                     
                 except Exception:
                     pass
