@@ -1166,9 +1166,7 @@ def main():
                     m_col1.metric("마진율", f"{m_ratio}%")
                     m_col2.metric("ROI", f"{roi_v}%")
                     m_col3.metric("손익분기 ROAS", f"{be_roas_v}%")
-                    
-                    st.caption(f"💡 모든 수치는 소수점 이하를 제외한 정수 기준입니다.")
-                    
+                                        
                 except Exception:
                     pass
                 
