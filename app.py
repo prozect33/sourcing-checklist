@@ -1178,61 +1178,6 @@ def main():
                                 st.error(f"데이터 삭제 중 오류가 발생했습니다: {e}")
 
                 else:
-                    
-# --- 실시간 수익성 분석 섹션 (일일정산/판매현황 로직 적용) ---
-                st.markdown("---")
-                st.subheader("📊 실시간 수익성 분석 (예측)")
-
-                try:
-                    # 세션 상태에서 실시간 입력값 추출 (파일 내 정의된 safe_float 활용)
-                    s_price = safe_float(st.session_state.get("sell_price_input", 0))
-                    f_rate  = safe_float(st.session_state.get("fee_rate_input", 0))
-                    i_cost  = safe_float(st.session_state.get("inout_shipping_cost_input", 0))
-                    p_cost  = safe_float(st.session_state.get("purchase_cost_input", 0))
-                    qty     = safe_float(st.session_state.get("quantity_input", 1))
-                    l_cost  = safe_float(st.session_state.get("logistics_cost_input", 0))
-                    c_duty  = safe_float(st.session_state.get("customs_duty_input", 0))
-                    e_cost  = safe_float(st.session_state.get("etc_cost_input", 0))
-
-                    # 계산용 변수 설정 (부가세 1.1 반영)
-                    vat = 1.1
-                    qty_calc = qty if qty > 0 else 1
-                    
-                    # [판매현황 탭 기준] 개당 매입 원가 (매입+물류+관세+기타) / 수량
-                    unit_invest_cost = (p_cost + l_cost + c_duty + e_cost) / qty_calc
-
-                    # [일일정산 탭 기준] 마진 계산
-                    # 공식: 판매가 - (수수료*1.1) - (입출고비*1.1) - 개당 매입원가
-                    margin_profit = (
-                        s_price 
-                        - (s_price * (f_rate / 100) * vat) 
-                        - (i_cost * vat) 
-                        - unit_invest_cost
-                    )
-                    
-                    # 지표 산출
-                    margin_ratio = (margin_profit / s_price * 100) if s_price > 0 else 0
-                    be_roas = (s_price / margin_profit * 100) if margin_profit > 0 else 0
-                    
-                    # [판매현황 탭 기준] ROI 계산
-                    # 공식: 순이익 / 개당 매입 원가
-                    roi = (margin_profit / unit_invest_cost * 100) if unit_invest_cost > 0 else 0
-
-                    # 화면 출력
-                    res_col1, res_col2, res_col3 = st.columns(3)
-                    res_col1.metric("마진율 (예측)", f"{margin_ratio:.2f}%")
-                    res_col2.metric("ROI (예측)", f"{roi:.2f}%")
-                    res_col3.metric("손익분기 ROAS", f"{be_roas:.2f}%")
-
-                    if margin_profit <= 0 and s_price > 0:
-                        st.error("⚠️ 현재 설정은 역마진입니다! 판매가나 원가를 조정하세요.")
-
-                except Exception:
-                    pass
-                
-                st.markdown("---")
-
-                if st.button("상품 저장하기"):
                     if st.button("상품 저장하기"):
                         if validate_inputs():
                             try:
