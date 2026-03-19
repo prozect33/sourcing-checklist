@@ -1113,6 +1113,48 @@ def main():
 
                 st.text_input("기타", key="etc_cost_input")
 
+# --- 실시간 수익성 분석 (일일정산/판매현황 로직) ---
+                st.markdown("---")
+                st.subheader("📊 실시간 수익성 분석 (예측)")
+                
+                try:
+                    # 입력값들이 text_input이므로 숫자로 변환 필요
+                    def get_val(key):
+                        val = st.session_state.get(key, "0").replace(",", "").replace("원", "")
+                        try: return float(val) if val else 0.0
+                        except: return 0.0
+
+                    s_p = get_val("sell_price_input")
+                    f_r = get_val("fee_rate_input")
+                    i_c = get_val("inout_shipping_cost_input")
+                    p_c = get_val("purchase_cost_input")
+                    qty_v = get_val("quantity_input")
+                    l_c = get_val("logistics_cost_input")
+                    c_d = get_val("customs_duty_input")
+                    e_c = get_val("etc_cost_input")
+
+                    vat_v = 1.1
+                    q_calc = qty_v if qty_v > 0 else 1
+                    u_invest = (p_c + l_c + c_d + e_c) / q_calc
+
+                    # 마진 계산 (일일정산 탭 방식: 수수료/입출고비 부가세 반영)
+                    m_prof = (s_p - (s_p * f_r / 100 * vat_v) - (i_c * vat_v) - u_invest)
+                    
+                    # 지표 산출
+                    m_ratio = (m_prof / s_p * 100) if s_p > 0 else 0
+                    be_roas_v = (s_p / m_prof * 100) if m_prof > 0 else 0
+                    roi_v = (m_prof / u_invest * 100) if u_invest > 0 else 0
+
+                    # 화면 출력
+                    m_col1, m_col2, m_col3 = st.columns(3)
+                    m_col1.metric("마진율", f"{m_ratio:.2f}%")
+                    m_col2.metric("ROI", f"{roi_v:.2f}%")
+                    m_col3.metric("손익분기 ROAS", f"{be_roas_v:.2f}%")
+                    
+                except:
+                    pass
+                st.markdown("---")
+
                 logistics_cost = safe_int(st.session_state.logistics_cost_input)
                 customs_duty = safe_int(st.session_state.customs_duty_input)
                 etc_cost = safe_int(st.session_state.etc_cost_input)
