@@ -1113,12 +1113,12 @@ def main():
 
                 st.text_input("기타", key="etc_cost_input")
 
-# --- 실시간 수익성 분석 (일일정산 & 판매현황 로직 정밀 일치화) ---
+# --- 실시간 수익성 분석 (일일정산 탭 로직과 100% 일치) ---
                 st.markdown("---")
                 st.subheader("📊 실시간 수익성 분석 (예측)")
                 
                 try:
-                    # 1. 입력값 가져오기 (세션 상태에서 직접 참조 및 클리닝)
+                    # 1. 입력값 가져오기 및 클리닝
                     def get_clean_val(key):
                         val = st.session_state.get(key, "0")
                         if isinstance(val, str):
@@ -1137,41 +1137,44 @@ def main():
                     c_d = get_clean_val("customs_duty_input")    # 총관세
                     e_c = get_clean_val("etc_cost_input")        # 총기타비용
 
+                    # 앱 공통 설정: VAT 1.1 적용
                     vat_v = 1.1
                     q_calc = qty_v if qty_v > 0 else 1
                     
-                    # [일일정산 탭과 일치] 단위당 원가 계산 (각 항목별 int 처리 후 합산)
-                    # 탭3의 정산 로직은 소수점 오차를 방지하기 위해 각 항목을 나눈 뒤 정수화하여 합산함
-                    u_p = int(p_c / q_calc)
-                    u_l = int(l_c / q_calc)
-                    u_c = int(c_d / q_calc)
-                    u_e = int(e_c / q_calc)
-                    unit_invest = u_p + u_l + u_c + u_e
+                    # [앱 로직 일치] 단위당 비용 산출 (float 유지)
+                    u_p = p_c / q_calc
+                    u_l = l_c / q_calc
+                    u_c = c_d / q_calc
+                    u_e = e_c / q_calc
+                    unit_invest = u_p + u_l + u_c + u_e  # 투자 원금 (상품 단가 합계)
 
-                    # [일일정산 탭과 일치] 수수료 및 배송비 VAT 반영 (최종 정산값과 맞추기 위해 int 처리)
-                    fee_with_vat = int(s_p * (f_r / 100) * vat_v)
-                    ship_with_vat = int(i_c * vat_v)
+                    # [앱 로직 일치] 판매수수료 및 배송비 (VAT 포함)
+                    # 일일정산 탭 공식: (매출 * 수수료율 / 100 * 1.1)
+                    fee_with_vat = s_p * (f_r / 100) * vat_v
+                    ship_with_vat = i_c * vat_v
                     
-                    # 마진 계산 (판매가 - 실질비용)
+                    # [핵심] 마진 계산: 광고비를 제외한 "상품 마진" 기준 (사진 속 154.54% 산출 근거)
+                    # 공식: 판매가 - 수수료(VAT) - 배송비(VAT) - 단위당 원가합계
                     margin_p = s_p - fee_with_vat - ship_with_vat - unit_invest
                     
-                    # 2. 지표 산출
-                    # 마진율: (마진 / 판매가) * 100
+                    # 2. 지표 산출 (소수점 2자리 포맷팅)
+                    # 마진율: (마진 / 판매가) * 100 -> 사진의 24.08%
                     m_ratio = (margin_p / s_p * 100) if s_p > 0 else 0
                     
-                    # ROI: (마진 / 투자원금) * 100 -> 판매현황 탭의 수익률 기준
+                    # ROI: (마진 / 투자원금) * 100 -> 사진의 49.38%
                     roi_v = (margin_p / unit_invest * 100) if unit_invest > 0 else 0
                     
-                    # 손익분기 ROAS: (판매가 / 마진) * 100 -> 일일정산 탭 기준
+                    # 손익분기 ROAS: (판매가 / 마진) * 100 -> 사진의 154.54%
+                    # 광고비 100원을 썼을 때 마진 100원을 남기기 위한 매출 비율
                     be_roas_v = (s_p / margin_p * 100) if margin_p > 0 else 0
 
-                    # 3. 화면 출력 (탭 3, 4와 동일한 소수점 둘째자리 포맷)
+                    # 3. 화면 출력
                     m_col1, m_col2, m_col3 = st.columns(3)
                     m_col1.metric("마진율", f"{m_ratio:.2f}%")
                     m_col2.metric("ROI", f"{roi_v:.2f}%")
                     m_col3.metric("손익분기 ROAS", f"{be_roas_v:.2f}%")
                     
-                    st.caption(f"💡 **계산 기준:** 단위당 원가 {unit_invest:,}원 (부가세 1.1 및 항목별 절사 반영)")
+                    st.caption(f"💡 **계산 기준:** 단위당 원가 {int(unit_invest):,}원 (일일정산 탭 공식 적용)")
                     
                 except Exception:
                     pass
