@@ -1118,58 +1118,64 @@ def main():
                 st.subheader("📊 실시간 수익성 분석 (예측)")
                 
                 try:
-                    def get_val(key):
-                        val = st.session_state.get(key, "0").replace(",", "").replace("원", "")
-                        try: return float(val) if val else 0.0
-                        except: return 0.0
+                    # 1. 입력값 가져오기 (세션 상태에서 직접 참조 및 클리닝)
+                    def get_clean_val(key):
+                        val = st.session_state.get(key, "0")
+                        if isinstance(val, str):
+                            val = val.replace(",", "").replace("원", "").strip()
+                        try:
+                            return float(val) if val else 0.0
+                        except:
+                            return 0.0
 
-                    # 1. 입력값 가져오기
-                    s_p = get_val("sell_price_input")      # 판매가
-                    f_r = get_val("fee_rate_input")       # 수수료율
-                    i_c = get_val("inout_shipping_cost_input") # 입출고비
-                    p_c = get_val("purchase_cost_input")   # 총매입비
-                    qty_v = get_val("quantity_input")     # 수량
-                    l_c = get_val("logistics_cost_input")  # 총물류비
-                    c_d = get_val("customs_duty_input")    # 총관세
-                    e_c = get_val("etc_cost_input")        # 총기타비용
+                    s_p = get_clean_val("sell_price_input")      # 판매가
+                    f_r = get_clean_val("fee_rate_input")       # 수수료율
+                    i_c = get_clean_val("inout_shipping_cost_input") # 입출고비
+                    p_c = get_clean_val("purchase_cost_input")   # 총매입비
+                    qty_v = get_clean_val("quantity_input")     # 수량
+                    l_c = get_clean_val("logistics_cost_input")  # 총물류비
+                    c_d = get_clean_val("customs_duty_input")    # 총관세
+                    e_c = get_clean_val("etc_cost_input")        # 총기타비용
 
                     vat_v = 1.1
                     q_calc = qty_v if qty_v > 0 else 1
                     
-                    # [중요] 일일정산 탭의 매입단가 계산 방식 일치화 (소수점 버림 처리)
-                    # 일일정산 탭은 각 항목을 수량으로 나눈 뒤 각각 int() 처리를 하여 합산하는 로직을 따름
+                    # [일일정산 탭과 일치] 단위당 원가 계산 (각 항목별 int 처리 후 합산)
+                    # 탭3의 정산 로직은 소수점 오차를 방지하기 위해 각 항목을 나눈 뒤 정수화하여 합산함
                     u_p = int(p_c / q_calc)
                     u_l = int(l_c / q_calc)
                     u_c = int(c_d / q_calc)
                     u_e = int(e_c / q_calc)
                     unit_invest = u_p + u_l + u_c + u_e
 
-                    # [일일정산 탭] 마진 계산 로직 (판매가 - 수수료VAT - 입출고VAT - 매입단가합계)
-                    # 수수료와 입출고비 계산 시에도 일일정산 탭과 동일하게 int 처리 적용
+                    # [일일정산 탭과 일치] 수수료 및 배송비 VAT 반영 (최종 정산값과 맞추기 위해 int 처리)
                     fee_with_vat = int(s_p * (f_r / 100) * vat_v)
                     ship_with_vat = int(i_c * vat_v)
                     
+                    # 마진 계산 (판매가 - 실질비용)
                     margin_p = s_p - fee_with_vat - ship_with_vat - unit_invest
                     
-                    # 2. 지표 산출 (소수점 둘째 자리까지 표기)
+                    # 2. 지표 산출
                     # 마진율: (마진 / 판매가) * 100
                     m_ratio = (margin_p / s_p * 100) if s_p > 0 else 0
                     
-                    # ROI (판매현황 탭 로직): 순이익 / 총 매입원가합계
-                    # 판매현황 탭은 분모에 소수점이 없는 정수형 합계를 사용함
+                    # ROI: (마진 / 투자원금) * 100 -> 판매현황 탭의 수익률 기준
                     roi_v = (margin_p / unit_invest * 100) if unit_invest > 0 else 0
                     
-                    # 손익분기 ROAS (일일정산 탭 로직): (판매가 / 마진) * 100
+                    # 손익분기 ROAS: (판매가 / 마진) * 100 -> 일일정산 탭 기준
                     be_roas_v = (s_p / margin_p * 100) if margin_p > 0 else 0
 
-                    # 3. 화면 출력 (판매현황 및 일일정산 탭의 f"{val:.2f}" 포맷과 일치)
+                    # 3. 화면 출력 (탭 3, 4와 동일한 소수점 둘째자리 포맷)
                     m_col1, m_col2, m_col3 = st.columns(3)
                     m_col1.metric("마진율", f"{m_ratio:.2f}%")
                     m_col2.metric("ROI", f"{roi_v:.2f}%")
                     m_col3.metric("손익분기 ROAS", f"{be_roas_v:.2f}%")
                     
+                    st.caption(f"💡 **계산 기준:** 단위당 원가 {unit_invest:,}원 (부가세 1.1 및 항목별 절사 반영)")
+                    
                 except Exception:
                     pass
+                
                 st.markdown("---")
             
                 logistics_cost = safe_int(st.session_state.logistics_cost_input)
