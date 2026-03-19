@@ -1113,12 +1113,11 @@ def main():
 
                 st.text_input("기타", key="etc_cost_input")
 
-# --- 실시간 수익성 분석 (일일정산/판매현황 로직) ---
+# --- 실시간 수익성 분석 (기존 탭 로직과 100% 일치화) ---
                 st.markdown("---")
                 st.subheader("📊 실시간 수익성 분석 (예측)")
                 
                 try:
-                    # 입력값들이 text_input이므로 숫자로 변환 필요
                     def get_val(key):
                         val = st.session_state.get(key, "0").replace(",", "").replace("원", "")
                         try: return float(val) if val else 0.0
@@ -1135,26 +1134,35 @@ def main():
 
                     vat_v = 1.1
                     q_calc = qty_v if qty_v > 0 else 1
-                    u_invest = (p_c + l_c + c_d + e_c) / q_calc
-
-                    # 마진 계산 (일일정산 탭 방식: 수수료/입출고비 부가세 반영)
-                    m_prof = (s_p - (s_p * f_r / 100 * vat_v) - (i_c * vat_v) - u_invest)
                     
-                    # 지표 산출
-                    m_ratio = (m_prof / s_p * 100) if s_p > 0 else 0
-                    be_roas_v = (s_p / m_prof * 100) if m_prof > 0 else 0
-                    roi_v = (m_prof / u_invest * 100) if u_invest > 0 else 0
+                    # [판매현황 탭 투자비 로직] 
+                    # 원가 합계 = (매입+물류+관세+기타)
+                    total_invest_sum = p_c + l_c + c_d + e_c
+                    unit_invest = total_invest_sum / q_calc
 
-                    # 화면 출력
+                    # [일일정산 탭 마진 로직]
+                    # 수수료와 입출고비에 정확히 1.1(부가세)을 곱한 뒤 차감
+                    margin_p = (s_p - (s_p * f_r / 100 * vat_v) - (i_c * vat_v) - unit_invest)
+                    
+                    # 1. 마진율 (일일정산 기준: 소수점 둘째자리 반올림 출력)
+                    m_ratio = round((margin_p / s_p * 100), 2) if s_p > 0 else 0
+                    
+                    # 2. 손익분기 ROAS (일일정산 기준: 판매가 / 마진 * 100)
+                    be_roas_v = round((s_p / margin_p * 100), 2) if margin_p > 0 else 0
+                    
+                    # 3. ROI (판매현황 _compute_daily 기준: 마진 / 개당투자비 * 100)
+                    roi_v = round((margin_p / unit_invest * 100), 2) if unit_invest > 0 else 0
+
+                    # 화면 출력 (각 탭의 출력 포맷인 .2f 적용)
                     m_col1, m_col2, m_col3 = st.columns(3)
                     m_col1.metric("마진율", f"{m_ratio:.2f}%")
                     m_col2.metric("ROI", f"{roi_v:.2f}%")
                     m_col3.metric("손익분기 ROAS", f"{be_roas_v:.2f}%")
                     
-                except:
+                except Exception:
                     pass
                 st.markdown("---")
-
+            
                 logistics_cost = safe_int(st.session_state.logistics_cost_input)
                 customs_duty = safe_int(st.session_state.customs_duty_input)
                 etc_cost = safe_int(st.session_state.etc_cost_input)
