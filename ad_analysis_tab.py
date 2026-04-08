@@ -520,9 +520,9 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         c = int(sub["cost"].sum()); r = int(sub["revenue_14d"].sum()); o = int(sub["orders_14d"].sum())
         return {
             "영역": name,
-            "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
-            "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
             "주문": o,
+            "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
+            "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
             "ROAS": round(_safe_div(r, c) * 100, 2),
         }
 
