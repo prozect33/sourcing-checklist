@@ -517,13 +517,17 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     total_cost = totals["total_cost"]; total_rev = totals["total_rev"]; total_orders = totals["total_orders"]
 
     def _row(name: str, sub: pd.DataFrame) -> Dict[str, float | int | str]:
-        c = int(sub["cost"].sum()); r = int(sub["revenue_14d"].sum()); o = int(sub["orders_14d"].sum())
+        c = int(sub["cost"].sum()); 
+        r = int(sub["revenue_14d"].sum()); 
+        o = int(sub["orders_14d"].sum()); 
+        clicks = int(sub[CLK_COL].sum())
         return {
             "영역": name,
             "주문": o,
             "매출": r, "매출비율(%)": round(_safe_div(r, total_rev) * 100, 2),
             "광고비": c, "광고비비율(%)": round(_safe_div(c, total_cost) * 100, 2),
             "ROAS": round(_safe_div(r, c) * 100, 2),
+            "평균 CPC": round(_safe_div(c, clicks), 2),
         }
 
     rows = [
