@@ -1,22 +1,17 @@
 # app/ad_analysis_tab.py
 from __future__ import annotations
 
-import html
-import json
-import re
+
+
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import streamlit.components.v1 as components
 
 # ===================== 설정/상수 =====================
-SUPABASE_TABLE = "exclusion_keywords"
-
 DATE_COL = "날짜"
 KW_COL = "키워드"
 SURF_COL = "광고 노출 지면"
@@ -201,215 +196,6 @@ def _display_table(title: str, dff: pd.DataFrame, extra: Iterable[str] | None = 
     st.dataframe(dff.sort_values("cost", ascending=False)[cols].head(200),
                  use_container_width=True, hide_index=True)
 
-def _gather_exclusion_keywords(exclusions: Dict[str, pd.DataFrame]) -> List[str]:
-    seq: List[str] = []
-    for label in ["a", "b", "c", "d"]:
-        df = exclusions.get(label, pd.DataFrame())
-        if not df.empty:
-            seq.extend(df["keyword"].astype(str).tolist())
-    return list(dict.fromkeys(seq))
-
-# ===== 키워드 분리/병합 =====
-def _split_keywords(text: str) -> list[str]:
-    if not text:
-        return []
-    parts = [p.strip() for p in str(text).split("\n")]
-    return [p for p in parts if p != ""]
-
-def _merge_keywords(current: list[str], previous: list[str]) -> list[str]:
-    seen, merged = set(), []
-    for w in current + previous:
-        if w not in seen:
-            seen.add(w); merged.append(w)
-    return merged
-
-def _format_keywords_line_storage(words: list[str]) -> str:
-    cleaned = [w.strip() for w in words]
-    return "\n".join([w for w in cleaned if w != ""])
-
-# ===================== 복사 UI(내용 숨김, 제스처 기반) =====================
-def _copy_button_hidden(text: str, key: str) -> None:
-    """사용자 제스처 후 복사. 브라우저 보안 대비."""
-    safe = html.escape(text or "")
-    safe_js = safe.replace("\r", "").replace("\n", "\\n")
-    components.html(
-        f"""
-        <div style="margin:6px 0;">
-          <button id="btn-{key}" style="padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer;">
-            복사
-          </button>
-          <span id="msg-{key}" style="font-size:13px;color:#4CAF50;margin-left:8px;"></span>
-        </div>
-        <script>
-          const hidden_{key} = "{safe_js}"
-            .replaceAll("&amp;","&").replaceAll("&lt;","<")
-            .replaceAll("&gt;",">").replaceAll("&quot;","\\\"");
-          const btn = document.getElementById("btn-{key}");
-          const msg = document.getElementById("msg-{key}");
-          btn.onclick = async () => {{
-            try {{
-              await navigator.clipboard.writeText(hidden_{key});
-              msg.textContent = "복사됨";
-            }} catch (e) {{
-              try {{
-                const ta = document.createElement('textarea');
-                ta.value = hidden_{key};
-                ta.style.position='fixed'; ta.style.top='-9999px';
-                document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy');
-                document.body.removeChild(ta);
-                msg.textContent = "복사됨";
-              }} catch (e2) {{
-                msg.textContent = "복사 실패";
-              }}
-            }}
-            setTimeout(()=> msg.textContent = "", 2000);
-          }};
-        </script>
-        """,
-        height=40,
-    )
-
-# ===================== Supabase I/O =====================
-def _supabase_rows(res: Any) -> List[Dict]:
-    data = getattr(res, "data", None)
-    if isinstance(data, list):
-        return [r for r in data if isinstance(r, dict)]
-    js = getattr(res, "json", None)
-    if isinstance(js, dict) and isinstance(js.get("data"), list):
-        return [r for r in js["data"] if isinstance(r, dict)]
-    if isinstance(res, dict) and isinstance(res.get("data"), list):
-        return [r for r in res["data"] if isinstance(r, dict)]
-    if isinstance(res, list):
-        return [r for r in res if isinstance(r, dict)]
-    return []
-
-def _save_or_update_merged(supabase: Any, product_name: str, current_words: List[str]) -> tuple[bool, str, str, int]:
-    if supabase is None:
-        return False, "supabase 클라이언트가 없습니다.", "", 0
-    try:
-        sel = (
-            supabase.table(SUPABASE_TABLE)
-            .select("id,product_name,keywords")
-            .eq("product_name", product_name)
-            .limit(1)
-            .execute()
-        )
-        rows = _supabase_rows(sel)
-        prev_words: List[str] = _split_keywords((rows[0].get("keywords", "") if rows else ""))
-
-        merged_words = _merge_keywords(current_words, prev_words)
-        merged_line = _format_keywords_line_storage(merged_words)
-        merged_count = len(merged_words)
-
-        kst = timezone(timedelta(hours=9))
-        saved_at = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S%z")
-        payload = {"product_name": product_name, "saved_at": saved_at, "keywords": merged_line, "count": merged_count}
-
-        if rows:
-            upd = supabase.table(SUPABASE_TABLE).update(payload).eq("product_name", product_name).execute()
-            if hasattr(upd, "error") and upd.error:
-                return False, str(upd.error), "", 0
-        else:
-            ins = supabase.table(SUPABASE_TABLE).insert(payload).execute()
-            if hasattr(ins, "error") and ins.error:
-                return False, str(ins.error), "", 0
-
-        return True, "저장 및 병합 완료", merged_line, merged_count
-    except Exception as e:
-        return False, f"저장/병합 실패: {e}", "", 0
-
-# ===================== 4) 저장/병합/복사 =====================
-def _render_exclusion_union(exclusions: Dict[str, pd.DataFrame], supabase: Any | None) -> None:
-    all_words = _gather_exclusion_keywords(exclusions)
-    if not all_words:
-        return
-
-    current_words = [w for w in all_words if w]
-    product_name = st.text_input("상품명(필수)", key="ex_prod_name", placeholder="")
-
-    do_merge_copy = st.button("저장 및 병합 복사", key="ex_union_merge_copy", disabled=(not product_name.strip()))
-    if do_merge_copy:
-        ok, msg, merged_line, merged_count = _save_or_update_merged(supabase, product_name.strip(), current_words)
-        if ok:
-            st.success(f"[{product_name}] {msg}({merged_count})")
-            _copy_button_hidden(merged_line, key="merged_clip_hidden")
-            pairs = st.session_state.get("ex_name_pairs", [])
-            names = [n for n, _ in pairs]
-            if product_name in names:
-                idx = names.index(product_name)
-                pairs[idx] = (product_name, merged_count)
-            else:
-                pairs = [(product_name, merged_count)] + pairs
-            st.session_state["ex_name_pairs"] = pairs
-        else:
-            st.error(msg)
-
-# ===================== 5) 저장된 제외 키워드 (상품명(개수) 목록) =====================
-def _fetch_latest_name_counts(supabase: Any, max_rows: int = 500) -> list[tuple[str, int]]:
-    if supabase is None:
-        return []
-    try:
-        q = (
-            supabase.table(SUPABASE_TABLE)
-            .select("product_name,keywords,saved_at")
-            .order("saved_at", desc=True)
-        )
-        res = q.range(0, max(1, int(max_rows)) - 1).execute() if hasattr(q, "range") else q.limit(int(max_rows)).execute()
-        data = getattr(res, "data", None)
-        if not isinstance(data, list):
-            js = getattr(res, "json", None)
-            if isinstance(js, dict) and isinstance(js.get("data"), list):
-                data = js["data"]
-        if not isinstance(data, list):
-            return []
-        seen, pairs = set(), []
-        for r in data:
-            if not isinstance(r, dict):
-                continue
-            name = str(r.get("product_name", "")).strip()
-            if not name or name in seen:
-                continue
-            seen.add(name)
-            cnt = len(_split_keywords(str(r.get("keywords", "") or "")))
-            pairs.append((name, cnt))
-        return pairs
-    except Exception:
-        return []
-
-def _render_saved_exclusions_names(supabase: Any | None) -> None:
-    st.markdown("### 5) 저장된 제외 키워드 (목록)")
-    if "ex_name_pairs" not in st.session_state:
-        st.session_state["ex_name_pairs"] = _fetch_latest_name_counts(supabase, max_rows=500)
-    if "ex_names_page" not in st.session_state:
-        st.session_state["ex_names_page"] = 0
-
-    pairs: list[tuple[str, int]] = st.session_state["ex_name_pairs"]
-    PAGE_SIZE = 20
-
-    max_page = 0 if not pairs else (len(pairs) - 1) // PAGE_SIZE
-    page = max(0, min(int(st.session_state["ex_names_page"]), max_page))
-    st.session_state["ex_names_page"] = page
-
-    start, end = page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE
-    slice_pairs = pairs[start:end]
-
-    if not slice_pairs:
-        st.info("저장된 항목이 없습니다.")
-    else:
-        for name, cnt in slice_pairs:
-            st.markdown(f"- {name}({cnt})")
-
-    show_prev, show_next = page > 0, page < max_page
-    if show_prev or show_next:
-        cprev, cnext = st.columns(2)
-        with cprev:
-            if show_prev and st.button("이전", key=f"ex_names_prev_{page}", use_container_width=True):
-                st.session_state["ex_names_page"] = page - 1
-                st.experimental_rerun()
-        with cnext:
-            if show_next and st.button("다음", key=f"ex_names_next_{page}", use_container_width=True):
-                st.session_state["ex_names_page"] = page + 1
-                st.experimental_rerun()
 
 # ===================== 차트(수동 컷만) =====================
 def _plot_cpc_curve_plotly_manual(kw: pd.DataFrame, selected: CpcCuts) -> None:
@@ -612,11 +398,7 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     _display_table("c) 전환 시 손익 ROAS 미달", exclusions["c"], extra=["roas_if_1_order"])
     _display_table("d) 손익 ROAS 미달", exclusions["d"])
 
-    # 4) 저장 및 병합 복사
-    _render_exclusion_union(exclusions, supabase)
 
-    # 5) 저장명 목록(상품명(개수))
-    _render_saved_exclusions_names(supabase)
 
 # if __name__ == "__main__":
 #     render_ad_analysis_tab(None)
