@@ -269,6 +269,75 @@ def _compute_exclusions(kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, b
     ex_d = kw[(kw["roas_14d"] > 0) & (kw["roas_14d"] < float(breakeven_roas))].copy()
     return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
 
+# ===================== 일자별 최대 CPC 차트 =====================
+def _plot_daily_max_cpc(df: pd.DataFrame) -> None:
+    """검색 영역의 일자별 최대 CPC를 막대 그래프로 표시."""
+    # 검색 영역 & 키워드 있는 행 & 클릭수 > 0
+    search = df[
+        (df["surface"] == SURF_SEARCH_VALUE) &
+        (df["keyword"] != "-") &
+        (df["clicks"] > 0)
+    ].copy()
+
+    if search.empty:
+        st.caption("검색 영역 데이터가 없어 일자별 최대 CPC를 표시할 수 없습니다.")
+        return
+
+    search["cpc_row"] = search["cost"] / search["clicks"]
+
+    daily = (
+        search.groupby("date")["cpc_row"]
+        .max()
+        .reset_index()
+        .sort_values("date")
+    )
+    daily = daily.tail(31)  # 최대 31일
+
+    dates = [str(d) for d in daily["date"]]
+    cpc_vals = daily["cpc_row"].round(0).astype(int).tolist()
+    avg_cpc = int(round(float(daily["cpc_row"].mean())))
+
+    # 색상: 평균 초과 → 연한 빨강, 이하 → 연한 파랑
+    bar_colors = [
+        "rgba(239,83,80,0.7)" if v > avg_cpc else "rgba(66,133,244,0.7)"
+        for v in cpc_vals
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=dates,
+        y=cpc_vals,
+        marker_color=bar_colors,
+        text=[f"{v:,}" for v in cpc_vals],
+        textposition="outside",
+        hovertemplate="날짜=%{x}<br>최대 CPC=%{y:,}원<extra></extra>",
+        name="일별 최대 CPC",
+    ))
+
+    # 평균선
+    fig.add_hline(
+        y=avg_cpc,
+        line_dash="dot",
+        line_color="gray",
+        line_width=1.5,
+        annotation_text=f"평균 {avg_cpc:,}원",
+        annotation_position="top left",
+        annotation_font_color="gray",
+    )
+
+    fig.update_layout(
+        height=380,
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis_title="날짜",
+        yaxis_title="최대 CPC (원)",
+        xaxis=dict(tickangle=-45),
+        showlegend=False,
+        bargap=0.3,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption("🔵 평균 이하 · 🔴 평균 초과")
+
+
 # ===================== 메인 탭 =====================
 def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     st.subheader("광고분석 (총 14일 기준)")
@@ -390,6 +459,9 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
   · 전체 광고비비중 {shares['cost_share_top']:.2f}% / 검색 광고비비중 {shares['cost_share_top_search']:.2f}%
 """
     )
+
+    st.markdown("### 2-1) 일자별 검색 최대 CPC")
+    _plot_daily_max_cpc(df)
 
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
