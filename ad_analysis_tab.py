@@ -270,7 +270,7 @@ def _compute_exclusions(kw: pd.DataFrame, cuts: CpcCuts, aov_p50_value: float, b
     return {"a": ex_a, "b": ex_b, "c": ex_c, "d": ex_d}
 
 # ===================== 일자별 최대 CPC 차트 =====================
-def _plot_daily_max_cpc(df: pd.DataFrame) -> None:
+def _plot_daily_max_cpc(df: pd.DataFrame, search_avg_cpc: float = 0.0) -> None:
     """검색 영역의 일자별 최대 CPC를 막대 그래프로 표시."""
     # 검색 영역 & 키워드 있는 행 & 클릭수 > 0
     search = df[
@@ -295,7 +295,7 @@ def _plot_daily_max_cpc(df: pd.DataFrame) -> None:
 
     dates = [str(d) for d in daily["date"]]
     cpc_vals = daily["cpc_row"].round(0).astype(int).tolist()
-    avg_cpc = int(round(float(daily["cpc_row"].mean())))
+    avg_cpc = int(round(search_avg_cpc)) if search_avg_cpc > 0 else int(round(float(daily["cpc_row"].mean())))
 
     # 색상: 평균 초과 → 연한 빨강, 이하 → 연한 파랑
     bar_colors = [
@@ -320,7 +320,7 @@ def _plot_daily_max_cpc(df: pd.DataFrame) -> None:
         line_dash="dot",
         line_color="gray",
         line_width=1.5,
-        annotation_text=f"평균 {avg_cpc:,}원",
+        annotation_text=f"검색 평균 CPC {avg_cpc:,}원",
         annotation_position="top left",
         annotation_font_color="gray",
     )
@@ -461,7 +461,9 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
     )
 
     st.markdown("### 2-1) 일자별 검색 최대 CPC")
-    _plot_daily_max_cpc(df)
+    search_df = df[df["surface"] == SURF_SEARCH_VALUE]
+    search_avg_cpc = _safe_div(int(search_df["cost"].sum()), int(search_df["clicks"].sum()))
+    _plot_daily_max_cpc(df, search_avg_cpc)
 
     st.markdown("### 3) 제외 키워드")
     exclusions = _compute_exclusions(kw, sel_cuts, aov50, float(breakeven_roas))
