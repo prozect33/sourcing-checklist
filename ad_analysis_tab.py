@@ -85,10 +85,17 @@ def _load_df(upload) -> pd.DataFrame:
         raise ValueError(f"필수 컬럼 누락: {missing}")
     return df
 
+PROD_COL = "광고집행 상품명"
+
 def _normalize(df_raw: pd.DataFrame) -> pd.DataFrame:
     df = df_raw.copy()
     df["date"] = _to_date(df[DATE_COL])
     df = df[df["date"].notna()].copy()
+    # 대표 상품명: 쉼표 앞 첫 번째 값
+    if PROD_COL in df.columns:
+        df["product"] = df[PROD_COL].astype(str).str.split(",").str[0].str.strip()
+    else:
+        df["product"] = "알 수 없음"
     # ASCII 콤마 제거(줄바꿈 분리와 충돌 방지)
     df["keyword"] = df[KW_COL].astype(str).str.replace(",", "", regex=False)
     df["surface"] = df[SURF_COL].astype(str).fillna("").str.strip()
@@ -363,6 +370,22 @@ def render_ad_analysis_tab(supabase: Any | None = None) -> None:
         return
     if df.empty:
         st.error("유효한 데이터가 없습니다.")
+        return
+
+    # ===================== 상품 선택 =====================
+    products = sorted(df["product"].unique().tolist())
+
+    prev_product = st.session_state.get("ad_selected_product", None)
+    selected_product = st.selectbox("상품 선택", products, key="ad_selected_product")
+
+    # 상품 바뀌면 CPC cut 세션 초기화
+    if prev_product != selected_product:
+        st.session_state.pop("manual_bottom", None)
+        st.session_state.pop("manual_top", None)
+
+    df = df[df["product"] == selected_product].copy()
+    if df.empty:
+        st.error("선택한 상품의 데이터가 없습니다.")
         return
 
     kw, totals = _aggregate_kw(df)
