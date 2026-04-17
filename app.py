@@ -1849,7 +1849,7 @@ def main():
                     st.session_state.daily_sales_page = 1
                 if 'daily_sales_page' not in st.session_state:
                     st.session_state.daily_sales_page = 1
-                PAGE_SIZE = 10 # 한 페이지에 표시할 일수 (10일치)
+                PAGE_SIZE = 20 # 한 페이지에 표시할 건수 (20건)
 
                 # --- 상품 목록 로드 ---
                 product_list = ["(상품을 선택해주세요)"]
