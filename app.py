@@ -2034,6 +2034,8 @@ def main():
                             df_display[display_cols],
                             hide_index=True,
                             use_container_width=True,  # 화면 가로 전체 사용
+                            height=740,  # 이 줄 추가 (행 1개 약 35px + 헤더 35px)
+
                         )
                 
                         # 5. 페이지네이션 버튼
