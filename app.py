@@ -415,7 +415,40 @@ def parse_running_campaigns(html_text: str):
             )
         )
     return out
+    
+def parse_product_ads(html_text: str):
+    row_pattern = r'<div class="rt-tr[^"]*"[^>]*role="row">(.*?)(?=<div class="rt-tr-group|$)'
+    row_htmls = re.findall(row_pattern, html_text, re.DOTALL)
 
+    headers, rows = _parse_react_table(html_text)
+
+    def idx_of(pred):
+        for i, h in enumerate(headers):
+            if pred(h):
+                return i
+        raise KeyError("Required header not found")
+
+    i_cost = idx_of(lambda h: "집행 광고비" in h)
+    i_rev  = idx_of(lambda h: "광고 전환 매출" in h)
+    i_qty  = idx_of(lambda h: "광고 전환 판매수" in h)
+
+    out = []
+    for row_html, r in zip(row_htmls, rows):
+        on_off = re.findall(r'ant-switch-inner">(\w+)</span>', row_html)
+        if not on_off or on_off[0] != "ON":
+            continue
+        names = re.findall(r'title="바로가기"[^>]*>([^<]+)</a>', row_html)
+        name = names[0].strip() if names else ""
+        if not name:
+            continue
+        out.append(ParsedCampaign(
+            campaign_name=name,
+            status="운영 중",
+            ad_cost=_parse_won_like(r[i_cost]),
+            ad_revenue=_parse_won_like(r[i_rev]),
+            ad_sales_qty=_parse_won_like(r[i_qty]),
+        ))
+    return out
 
 def _yesterday_date() -> datetime.date:
     return datetime.date.today() - datetime.timedelta(days=1)
@@ -1272,8 +1305,13 @@ def main():
             if uploaded_html is not None:
                 html_text = uploaded_html.getvalue().decode("utf-8", errors="ignore")
                 try:
-                    parsed_campaigns = parse_running_campaigns(html_text)
-                    st.success(f"운영 중 캠페인 {len(parsed_campaigns)}개 파싱 완료")
+                    is_type2 = not any("캠페인 이름" in h for h in _parse_react_table(html_text)[0])
+                    if is_type2:
+                        parsed_campaigns = parse_product_ads(html_text)
+                        st.success(f"운영 중 상품 {len(parsed_campaigns)}개 파싱 완료")
+                    else:
+                        parsed_campaigns = parse_running_campaigns(html_text)
+                        st.success(f"운영 중 캠페인 {len(parsed_campaigns)}개 파싱 완료")
                 except Exception as e:
                     st.error(f"HTML 파싱 실패: {e}")
                     parsed_campaigns = []
