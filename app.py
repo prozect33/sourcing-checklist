@@ -386,7 +386,7 @@ def parse_running_campaigns(html_text: str):
                 return i
         raise KeyError("Required header not found")
 
-    i_name = idx_of(lambda h: "캠페인 이름" in h)
+    i_name = idx_of(lambda h: "캠페인 이름" in h or "상품명" in h)
     i_status = idx_of(lambda h: h == "상태" or "상태" in h)
     i_cost = idx_of(lambda h: "집행 광고비" in h)
     i_rev = idx_of(lambda h: "광고 전환 매출" in h)
