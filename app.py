@@ -433,7 +433,7 @@ def parse_product_ads(html_text: str):
     i_qty  = idx_of(lambda h: "광고 전환 판매수" in h)
 
     out = []
-    for row_html, r in zip(row_htmls, rows):
+    for row_html, r in zip(row_htmls[1:], rows):
         on_off = re.findall(r'ant-switch-inner">(\w+)</span>', row_html)
         if not on_off or on_off[0] != "ON":
             continue
