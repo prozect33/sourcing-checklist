@@ -420,20 +420,8 @@ def parse_product_ads(html_text: str):
     row_pattern = r'<div class="rt-tr[^"]*"[^>]*role="row">(.*?)(?=<div class="rt-tr-group|$)'
     row_htmls = re.findall(row_pattern, html_text, re.DOTALL)
 
-    headers, rows = _parse_react_table(html_text)
-
-    def idx_of(pred):
-        for i, h in enumerate(headers):
-            if pred(h):
-                return i
-        raise KeyError("Required header not found")
-
-    i_cost = idx_of(lambda h: "집행 광고비" in h)
-    i_rev  = idx_of(lambda h: "광고 전환 매출" in h)
-    i_qty  = idx_of(lambda h: "광고 전환 판매수" in h)
-
     out = []
-    for row_html, r in zip(row_htmls[1:], rows):
+    for row_html in row_htmls[1:]:  # 0번은 헤더행
         on_off = re.findall(r'ant-switch-inner">(\w+)</span>', row_html)
         if not on_off or on_off[0] != "ON":
             continue
@@ -441,12 +429,22 @@ def parse_product_ads(html_text: str):
         name = names[0].strip() if names else ""
         if not name:
             continue
+
+        # gridcell 값 순서대로 추출
+        cells = re.findall(r'role="gridcell"[^>]*>.*?text--flex-ellipsis">(.*?)</div>', row_html, re.DOTALL)
+        cells_clean = [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
+
+        # [3]=광고전환판매수, [4]=광고전환매출, [6]=집행광고비
+        qty  = _parse_won_like(cells_clean[3]) if len(cells_clean) > 3 else 0
+        rev  = _parse_won_like(cells_clean[4]) if len(cells_clean) > 4 else 0
+        cost = _parse_won_like(cells_clean[6]) if len(cells_clean) > 6 else 0
+
         out.append(ParsedCampaign(
             campaign_name=name,
             status="운영 중",
-            ad_cost=_parse_won_like(r[i_cost]),
-            ad_revenue=_parse_won_like(r[i_rev]),
-            ad_sales_qty=_parse_won_like(r[i_qty]),
+            ad_cost=cost,
+            ad_revenue=rev,
+            ad_sales_qty=qty,
         ))
     return out
 
