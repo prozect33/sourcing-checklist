@@ -1433,7 +1433,11 @@ def main():
                     # 정렬된 전체 아이템 (필터링 전)
                     product_options = ["전체"] + sorted(sold_summary.keys())
                     st.session_state.setdefault("sold_product_filter_global", "전체")
-                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])       
+                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
+
+                    # 루프 전에 모든 박스 key를 global 값으로 강제 세팅
+                    for j in range(1, len(parsed_campaigns) + 1):
+                        st.session_state[f"sold_product_filter_{j}"] = st.session_state["sold_product_filter_global"]
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
@@ -1476,9 +1480,10 @@ def main():
                             key=f"sold_product_filter_{i}",
                         )
 
-                        # 값 동기화
+                        # 값 동기화 후 rerun
                         if selected_product != st.session_state["sold_product_filter_global"]:
                             st.session_state["sold_product_filter_global"] = selected_product
+                            st.rerun()
                         
                         if selected_product == "전체":
                             filtered_items = sorted_items_all
