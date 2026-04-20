@@ -1921,7 +1921,7 @@ def main():
                 if sorted_items:
                     st.caption("옵션 제외 기본 상품명 기준 · 매출 높은 순")
                 st.markdown(card_html, unsafe_allow_html=True)
-                st.markdown("<hr style='margin: 20px 0; border-color:#dee2e6;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 100px 0; border-color:#dee2e6;'>", unsafe_allow_html=True)
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
