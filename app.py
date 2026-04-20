@@ -1477,10 +1477,18 @@ def main():
                         if "sold_product_filter_global" not in st.session_state:
                             st.session_state["sold_product_filter_global"] = "전체"
 
+                        if "sold_product_filter_global" not in st.session_state:
+                            st.session_state["sold_product_filter_global"] = "전체"
+
+                        def sync_product_filter(i=i):
+                            st.session_state["sold_product_filter_global"] = st.session_state[f"sold_product_filter_{i}"]
+
                         selected_product = st.selectbox(
                             "📦 상품 선택",
                             product_options,
+                            index=product_options.index(st.session_state["sold_product_filter_global"]) if st.session_state["sold_product_filter_global"] in product_options else 0,
                             key=f"sold_product_filter_{i}",
+                            on_change=sync_product_filter,
                         )
 
                         # 값 동기화 후 rerun
