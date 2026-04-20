@@ -1434,22 +1434,6 @@ def main():
                     product_options = ["전체"] + sorted(sold_summary.keys())
                     sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
 
-                    # 상품 선택 - 루프 밖에서 한 번만
-                    if "sold_product_global" not in st.session_state:
-                        st.session_state["sold_product_global"] = "전체"
-                    selected_product = st.selectbox(
-                        "📦 상품 선택 (전체 적용)",
-                        product_options,
-                        key="sold_product_global"
-                    )
-                    if selected_product == "전체":
-                        sorted_items = sorted_items_all
-                    else:
-                        sorted_items = sorted(
-                            [(bn, v) for bn, v in sold_summary.items() if bn == selected_product],
-                            key=lambda x: -x[1]['revenue']
-                        )
-
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
 
@@ -1483,6 +1467,20 @@ def main():
                             st.session_state[f"{prefix}_autofill_sig"] = sig
                     # 합산 박스 출력 (캠페인마다 반복)
                         if sorted_items:
+                    # 셀렉트박스 표시 (캠페인마다) - 같은 global key 참조
+                        st.selectbox(
+                            "📦 상품 선택",
+                            product_options,
+                            key="sold_product_global",
+                        )
+                        selected_product = st.session_state["sold_product_global"]
+                        if selected_product == "전체":
+                            sorted_items = sorted_items_all
+                        else:
+                            sorted_items = sorted(
+                                [(bn, v) for bn, v in sold_summary.items() if bn == selected_product],
+                                key=lambda x: -x[1]['revenue']
+                            )
                             total_revenue = sum(v['revenue'] for _, v in sorted_items)
                             total_qty = sum(v['qty'] for _, v in sorted_items)
 
