@@ -1519,6 +1519,7 @@ def main():
                             )
                             
                         with st.container(border=True):
+                            
                             left, right = st.columns([8, 2])
                             with left:
                                 st.markdown(f"#### {i}. {camp.campaign_name}")
