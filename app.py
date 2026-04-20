@@ -1293,6 +1293,20 @@ def main():
                                 st.error(f"데이터 저장 중 오류가 발생했습니다: {e}")
 
     with tab3:  # 일일정산
+        st.markdown("""
+            <style>
+            [data-testid="column"]:nth-of-type(2) {
+                height: 80vh;
+                overflow-y: auto;
+            }
+            [data-testid="column"]:nth-of-type(3) {
+                position: sticky;
+                top: 60px;
+                height: fit-content;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
         c1, c2, c3 = st.columns([1, 1, 1])
         with c2:
             st.subheader("일일 정산")
