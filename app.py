@@ -1432,7 +1432,7 @@ def main():
 
                     # 정렬된 전체 아이템 (필터링 전)
                     product_options = ["전체"] + sorted(sold_summary.keys())
-                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
+                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])       
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
@@ -1465,28 +1465,24 @@ def main():
                             st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
                             st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
                             st.session_state[f"{prefix}_autofill_sig"] = sig
-
-                        # 셀렉트박스 + 합산박스 (캠페인마다 반복)
+# 상품 선택 + 합산 박스 (캠페인마다 반복)
                         selected_product = st.selectbox(
                             "📦 상품 선택",
                             product_options,
-                            key=f"sold_product_{i}",
-                            index=product_options.index(st.session_state.get("sold_product_global", "전체")) if st.session_state.get("sold_product_global", "전체") in product_options else 0,
-                            on_change=lambda: st.session_state.update({"sold_product_global": st.session_state[f"sold_product_{i}"]})
+                            key=f"sold_product_filter_{i}"
                         )
-                        st.session_state["sold_product_global"] = selected_product
 
                         if selected_product == "전체":
-                            sorted_items = sorted_items_all
+                            filtered_items = sorted_items_all
                         else:
-                            sorted_items = sorted(
-                                [(bn, v) for bn, v in sold_summary.items() if bn == selected_product],
-                                key=lambda x: -x[1]['revenue']
-                            )
-
+                            filtered_items = [(bn, v) for bn, v in sold_summary.items() if bn == selected_product]
+                        sorted_items = sorted(filtered_items, key=lambda x: -x[1]['revenue'])
+                        
+                        # 상품 선택 + 합산 박스 (캠페인마다 반복)
                         if sorted_items:
                             total_revenue = sum(v['revenue'] for _, v in sorted_items)
                             total_qty = sum(v['qty'] for _, v in sorted_items)
+
                             if selected_product != "전체":
                                 detail_rows = []
                                 for uf in uploaded_files:
@@ -1497,6 +1493,7 @@ def main():
                                         if item['base_name'] == selected_product:
                                             detail_rows.append(item)
                                 detail_rows.sort(key=lambda x: -x['revenue'])
+                                
                                 rows = "".join([
                                     f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
                                     f"<span style='color:#666;'>{item['full_name'].split(',')[1].strip() if ',' in item['full_name'] else item['full_name']}</span>"
@@ -1512,6 +1509,14 @@ def main():
                                     f"</div>"
                                     for bn, v in sorted_items
                                 ])
+
+                            html_block = (
+                                "<div style='border:1px solid #dee2e6;border-radius:6px;"
+                                "padding:8px 14px;margin-bottom:8px;background:#f8f9fa;font-size:13px;'>"
+                                f"<div style='font-weight:bold;margin-bottom:6px;color:#555;'>💰 총 {total_revenue:,}원 &nbsp;|&nbsp; {total_qty:,}개</div>"
+                                + rows +
+                                "</div>"
+                            )
                             
                         with st.container(border=True):
                             left, right = st.columns([8, 2])
