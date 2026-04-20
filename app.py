@@ -1443,6 +1443,8 @@ def main():
                     for j in range(1, len(parsed_campaigns) + 1):
                         st.session_state[f"sold_product_filter_{j}"] = global_val
 
+                    for i, camp in enumerate(parsed_campaigns, start=1):
+                        prefix = f"auto_{i}"
                         camp_key = f"{upload_sig}:{i}:{camp.campaign_name}"
                         is_excluded = camp_key in st.session_state[excluded_state_key]
 
