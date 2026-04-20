@@ -1487,9 +1487,6 @@ def main():
                         )
 
                         # 값 동기화
-                        if selected_product != st.session_state["sold_product_filter_global"]:
-                            st.session_state["sold_product_filter_global"] = selected_product
-                        
                         if selected_product == "전체":
                             filtered_items = sorted_items_all
                         else:
