@@ -1296,6 +1296,22 @@ def main():
         c1, c2, c3 = st.columns([1, 1, 1])
         with c2:
             st.subheader("일일 정산")
+            # ... 기존 c2 코드 그대로
+
+        with c3:
+            st.markdown("""
+                <div style='
+                    position: sticky;
+                    top: 60px;
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 16px;
+                '>
+                    <b>📋 참고 정보</b><br><br>
+                    🧪 테스트 중입니다
+                </div>
+            """, unsafe_allow_html=True)
 
             uploaded_files = st.file_uploader(
                 "쿠팡 HTML 업로드 (복수 선택 가능)",
