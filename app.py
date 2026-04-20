@@ -1517,6 +1517,7 @@ def main():
                                 + rows +
                                 "</div>"
                             )
+                            st.markdown(html_block, unsafe_allow_html=True)
                             
                         with st.container(border=True):
                             left, right = st.columns([8, 2])
