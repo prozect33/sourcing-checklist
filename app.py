@@ -1436,11 +1436,12 @@ def main():
                     sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
 
                     # 루프 전에 모든 박스 key를 global 값으로 강제 세팅
+                    global_val = st.session_state.get("sold_product_filter_global", "전체")
+                    if global_val not in product_options:
+                        global_val = "전체"
+                        st.session_state["sold_product_filter_global"] = "전체"
                     for j in range(1, len(parsed_campaigns) + 1):
-                        st.session_state[f"sold_product_filter_{j}"] = st.session_state["sold_product_filter_global"]
-
-                    for i, camp in enumerate(parsed_campaigns, start=1):
-                        prefix = f"auto_{i}"
+                        st.session_state[f"sold_product_filter_{j}"] = global_val
 
                         camp_key = f"{upload_sig}:{i}:{camp.campaign_name}"
                         is_excluded = camp_key in st.session_state[excluded_state_key]
