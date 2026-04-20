@@ -1474,10 +1474,16 @@ def main():
                         if f"sold_product_filter_{i}" not in st.session_state:
                             st.session_state[f"sold_product_filter_{i}"] = st.session_state["sold_product_filter_global"]
                         
-                        selected_product = st.selectbox(
+                        def update_global():
+                            st.session_state["sold_product_filter_global"] = st.session_state["controller"]
+                            st.rerun()
+
+                        st.selectbox(
                             "📦 상품 선택",
                             product_options,
-                            key=f"sold_product_filter_{i}",
+                            index=product_options.index(st.session_state["sold_product_filter_global"]),
+                            key=f"display_{i}",
+                            disabled=True,
                         )
 
                         # 값 동기화
