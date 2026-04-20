@@ -1886,17 +1886,16 @@ def main():
 
             sorted_items = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
 
-            st.markdown("### 📦 상품별 판매 합산")
-            if sorted_items:
-                st.caption("옵션 제외 기본 상품명 기준 · 매출 높은 순")
-                for bn, v in sorted_items:
-                    qty     = v['qty']
-                    revenue = v['revenue']
-                    options = v['options']
-                    color   = "#e8f5e9" if revenue >= 0 else "#ffebee"
-                    border  = "#66bb6a" if revenue >= 0 else "#ef5350"
-                    st.markdown(
-                        f"""
+            def render_sold_block():
+                if sorted_items:
+                    cards = ""
+                    for bn, v in sorted_items:
+                        qty     = v['qty']
+                        revenue = v['revenue']
+                        options = v['options']
+                        color  = "#e8f5e9" if revenue >= 0 else "#ffebee"
+                        border = "#66bb6a" if revenue >= 0 else "#ef5350"
+                        cards += f"""
                         <div style='
                             background:{color};
                             border-left: 4px solid {border};
@@ -1910,11 +1909,19 @@ def main():
                             <div>🛒 <b>{qty:,}개</b> &nbsp;|&nbsp; 💰 <b>{revenue:,}원</b></div>
                             <div style='color:gray; font-size:12px;'>옵션 {options}개</div>
                         </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.info("HTML 파일을 업로드하면\n상품별 판매 합산이 표시됩니다.")
+                        """
+                    return cards
+                else:
+                    return "<div style='color:gray; font-size:13px; padding:10px;'>HTML 파일을 업로드하면<br>상품별 판매 합산이 표시됩니다.</div>"
+
+            card_html = render_sold_block()
+
+            for _ in range(10):
+                st.markdown("### 📦 상품별 판매 합산")
+                if sorted_items:
+                    st.caption("옵션 제외 기본 상품명 기준 · 매출 높은 순")
+                st.markdown(card_html, unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 20px 0; border-color:#dee2e6;'>", unsafe_allow_html=True)
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
