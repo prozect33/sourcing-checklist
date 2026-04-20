@@ -1395,6 +1395,8 @@ def main():
                     if uploaded_files:
                         for uf in uploaded_files:
                             ht = uf.getvalue().decode("utf-8", errors="ignore")
+                            if '판매된 상품 목록' not in ht:
+                                continue  # 광고 HTML은 건너뜀
                             parsed_sold = parse_sold_items_from_html(ht)
                             for bn, v in parsed_sold.items():
                                 if bn not in sold_summary:
@@ -1402,7 +1404,22 @@ def main():
                                 sold_summary[bn]['qty']     += v['qty']
                                 sold_summary[bn]['revenue'] += v['revenue']
                                 sold_summary[bn]['options'] += v['options']
-                    sorted_items = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])                    
+
+                    # 상품 선택 셀렉트박스
+                    product_options = ["전체"] + sorted(sold_summary.keys())
+                    selected_product = st.selectbox(
+                        "📦 상품 선택",
+                        product_options,
+                        key="sold_product_filter"
+                    )
+
+                    # 선택에 따라 필터링
+                    if selected_product == "전체":
+                        filtered_items = list(sold_summary.items())
+                    else:
+                        filtered_items = [(bn, v) for bn, v in sold_summary.items() if bn == selected_product]
+
+                    sorted_items = sorted(filtered_items, key=lambda x: -x[1]['revenue'])                 
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
