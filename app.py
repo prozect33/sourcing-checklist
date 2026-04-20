@@ -1465,11 +1465,18 @@ def main():
                             st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
                             st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
                             st.session_state[f"{prefix}_autofill_sig"] = sig
-# 상품 선택 + 합산 박스 (캠페인마다 반복)
+                            
+                        # 상품 선택 + 합산 박스 (캠페인마다 반복)
+                        selected_product = st.selectbox(
+                            
+                        # 전체 공유 상품 선택값 초기화
+                        if "sold_product_global" not in st.session_state:
+                            st.session_state["sold_product_global"] = "전체"
+
                         selected_product = st.selectbox(
                             "📦 상품 선택",
                             product_options,
-                            key=f"sold_product_filter_{i}"
+                            key="sold_product_global"
                         )
 
                         if selected_product == "전체":
