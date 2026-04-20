@@ -1432,7 +1432,23 @@ def main():
 
                     # 정렬된 전체 아이템 (필터링 전)
                     product_options = ["전체"] + sorted(sold_summary.keys())
-                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])       
+                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
+
+                    # 상품 선택 - 루프 밖에서 한 번만 (전체 공유)
+                    if "sold_product_global" not in st.session_state:
+                        st.session_state["sold_product_global"] = "전체"
+                    selected_product = st.selectbox(
+                        "📦 상품 선택 (전체 적용)",
+                        product_options,
+                        key="sold_product_global"
+                    )
+                    if selected_product == "전체":
+                        sorted_items = sorted_items_all
+                    else:
+                        sorted_items = sorted(
+                            [(bn, v) for bn, v in sold_summary.items() if bn == selected_product],
+                            key=lambda x: -x[1]['revenue']
+                        )   
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
@@ -1466,10 +1482,6 @@ def main():
                             st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
                             st.session_state[f"{prefix}_autofill_sig"] = sig
                             
-                        # 상품 선택 + 합산 박스 (캠페인마다 반복)
-                        selected_product = st.selectbox(
-
-                        if selected_product == "전체":
                             filtered_items = sorted_items_all
                         else:
                             filtered_items = [(bn, v) for bn, v in sold_summary.items() if bn == selected_product]
