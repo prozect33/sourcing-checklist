@@ -1469,25 +1469,18 @@ def main():
                     # 상품 선택 + 합산 박스 (캠페인마다 반복)
                         if "sold_product_filter_global" not in st.session_state:
                             st.session_state["sold_product_filter_global"] = "전체"
-                        
-                        # global 값으로 먼저 덮어쓰기
-                        if f"sold_product_filter_{i}" not in st.session_state:
-                            st.session_state[f"sold_product_filter_{i}"] = st.session_state["sold_product_filter_global"]
-                        
-                        def update_global():
-                            st.session_state["sold_product_filter_global"] = st.session_state["controller"]
-                            st.rerun()
 
-                        st.selectbox(
+                        selected_product = st.selectbox(
                             "📦 상품 선택",
                             product_options,
-                            index=product_options.index(st.session_state["sold_product_filter_global"]),
-                            key=f"display_{i}",
-                            disabled=True,
+                            key=f"sold_product_filter_{i}",
                         )
 
                         # 값 동기화
-                        if st.session_state["sold_product_filter_global"] == "전체":
+                        if selected_product != st.session_state["sold_product_filter_global"]:
+                            st.session_state["sold_product_filter_global"] = selected_product
+                        
+                        if selected_product == "전체":
                             filtered_items = sorted_items_all
                         else:
                             filtered_items = [(bn, v) for bn, v in sold_summary.items() if bn == selected_product]
@@ -1498,7 +1491,7 @@ def main():
                             total_revenue = sum(v['revenue'] for _, v in sorted_items)
                             total_qty = sum(v['qty'] for _, v in sorted_items)
 
-                            if st.session_state["sold_product_filter_global"] != "전체":
+                            if selected_product != "전체":
                                 detail_rows = []
                                 for uf in uploaded_files:
                                     ht = uf.getvalue().decode("utf-8", errors="ignore")
