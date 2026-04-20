@@ -1432,6 +1432,7 @@ def main():
 
                     # 정렬된 전체 아이템 (필터링 전)
                     product_options = ["전체"] + sorted(sold_summary.keys())
+                    st.session_state.setdefault("sold_product_filter_global", "전체")
                     sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])       
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
@@ -1476,7 +1477,7 @@ def main():
                             "📦 상품 선택",
                             product_options,
                             index=product_options.index(st.session_state["sold_product_filter_global"]) if st.session_state["sold_product_filter_global"] in product_options else 0,
-                            key=f"sold_product_filter_{i}",
+                            key="sold_product_filter_global",
                             on_change=sync_product_filter,
                         )
 
