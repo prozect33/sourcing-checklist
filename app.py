@@ -443,6 +443,31 @@ def parse_sold_items_from_html(html_text: str) -> dict:
         agg[bn]['options'] += 1
 
     return dict(agg)
+
+def parse_sold_items_detail(html_text: str) -> list:
+    import re
+    sold_pos = html_text.find('판매된 상품 목록')
+    if sold_pos < 0:
+        return []
+    section = html_text[sold_pos:sold_pos + 40000]
+    tr_blocks = re.findall(r'<tr data-v-1c64ce3b="">(.*?)</tr>', section, re.DOTALL)
+    results = []
+    for tr in tr_blocks:
+        name_m = re.search(r'<p data-v-1c64ce3b="">(.*?)</p>', tr)
+        rev_m  = re.search(r'<td data-v-1c64ce3b="">([-\d,]+원)</td>', tr)
+        qty_m  = re.search(r'<td data-v-1c64ce3b="">([-\d]+개)</td>', tr)
+        if not name_m:
+            continue
+        full_name = name_m.group(1).strip()
+        rev = int(rev_m.group(1).replace(',', '').replace('원', '')) if rev_m else 0
+        qty = int(qty_m.group(1).replace('개', '')) if qty_m else 0
+        results.append({
+            'full_name': full_name,
+            'base_name': full_name.split(',')[0].strip(),
+            'qty': qty,
+            'revenue': rev,
+        })
+    return results
     
 def parse_product_ads(html_text: str):
     row_pattern = r'<div class="rt-tr[^"]*"[^>]*role="row">(.*?)(?=<div class="rt-tr-group|$)'
@@ -1456,13 +1481,33 @@ def main():
                         if sorted_items:
                             total_revenue = sum(v['revenue'] for _, v in sorted_items)
                             total_qty = sum(v['qty'] for _, v in sorted_items)
-                            rows = "".join([
-                                f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
-                                f"<span>{bn}</span>"
-                                f"<span><b>{v['qty']:,}개</b> | <b>{v['revenue']:,}원</b></span>"
-                                f"</div>"
-                                for bn, v in sorted_items
-                            ])
+
+                            if selected_product != "전체":
+                                detail_rows = []
+                                for uf in uploaded_files:
+                                    ht = uf.getvalue().decode("utf-8", errors="ignore")
+                                    if '판매된 상품 목록' not in ht:
+                                        continue
+                                    for item in parse_sold_items_detail(ht):
+                                        if item['base_name'] == selected_product:
+                                            detail_rows.append(item)
+                                detail_rows.sort(key=lambda x: -x['revenue'])
+                                rows = "".join([
+                                    f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
+                                    f"<span style='color:#666;'>{item['full_name'].split(',')[1].strip() if ',' in item['full_name'] else item['full_name']}</span>"
+                                    f"<span><b>{item['qty']:,}개</b> | <b>{item['revenue']:,}원</b></span>"
+                                    f"</div>"
+                                    for item in detail_rows
+                                ])
+                            else:
+                                rows = "".join([
+                                    f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
+                                    f"<span>{bn}</span>"
+                                    f"<span><b>{v['qty']:,}개</b> | <b>{v['revenue']:,}원</b></span>"
+                                    f"</div>"
+                                    for bn, v in sorted_items
+                                ])
+
                             html_block = (
                                 "<div style='border:1px solid #dee2e6;border-radius:6px;"
                                 "padding:8px 14px;margin-bottom:8px;background:#f8f9fa;font-size:13px;'>"
