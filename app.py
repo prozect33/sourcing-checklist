@@ -1501,6 +1501,7 @@ def main():
                                         if item['base_name'] == selected_product:
                                             detail_rows.append(item)
                                 detail_rows.sort(key=lambda x: -x['revenue'])
+                                
                                 rows = "".join([
                                     f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
                                     f"<span style='color:#666;'>{item['full_name'].split(',')[1].strip() if ',' in item['full_name'] else item['full_name']}</span>"
@@ -1524,44 +1525,6 @@ def main():
                                 + rows +
                                 "</div>"
                             )
-                            st.markdown(html_block, unsafe_allow_html=True)
-                            total_revenue = sum(v['revenue'] for _, v in sorted_items)
-                            total_qty = sum(v['qty'] for _, v in sorted_items)
-
-                            if selected_product != "전체":
-                                detail_rows = []
-                                for uf in uploaded_files:
-                                    ht = uf.getvalue().decode("utf-8", errors="ignore")
-                                    if '판매된 상품 목록' not in ht:
-                                        continue
-                                    for item in parse_sold_items_detail(ht):
-                                        if item['base_name'] == selected_product:
-                                            detail_rows.append(item)
-                                detail_rows.sort(key=lambda x: -x['revenue'])
-                                rows = "".join([
-                                    f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
-                                    f"<span style='color:#666;'>{item['full_name'].split(',')[1].strip() if ',' in item['full_name'] else item['full_name']}</span>"
-                                    f"<span><b>{item['qty']:,}개</b> | <b>{item['revenue']:,}원</b></span>"
-                                    f"</div>"
-                                    for item in detail_rows
-                                ])
-                            else:
-                                rows = "".join([
-                                    f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
-                                    f"<span>{bn}</span>"
-                                    f"<span><b>{v['qty']:,}개</b> | <b>{v['revenue']:,}원</b></span>"
-                                    f"</div>"
-                                    for bn, v in sorted_items
-                                ])
-
-                            html_block = (
-                                "<div style='border:1px solid #dee2e6;border-radius:6px;"
-                                "padding:8px 14px;margin-bottom:8px;background:#f8f9fa;font-size:13px;'>"
-                                f"<div style='font-weight:bold;margin-bottom:6px;color:#555;'>💰 총 {total_revenue:,}원 &nbsp;|&nbsp; {total_qty:,}개</div>"
-                                + rows +
-                                "</div>"
-                            )
-                            st.markdown(html_block, unsafe_allow_html=True)
                             
                         with st.container(border=True):
                             left, right = st.columns([8, 2])
