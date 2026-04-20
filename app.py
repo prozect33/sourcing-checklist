@@ -1438,13 +1438,9 @@ def main():
                         key="sold_product_filter"
                     )
 
-                    # 선택에 따라 필터링
-                    if selected_product == "전체":
-                        filtered_items = list(sold_summary.items())
-                    else:
-                        filtered_items = [(bn, v) for bn, v in sold_summary.items() if bn == selected_product]
-
-                    sorted_items = sorted(filtered_items, key=lambda x: -x[1]['revenue'])                 
+                    # 정렬된 전체 아이템 (필터링 전)
+                    product_options = ["전체"] + sorted(sold_summary.keys())
+                    sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])       
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
@@ -1477,8 +1473,58 @@ def main():
                             st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
                             st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
                             st.session_state[f"{prefix}_autofill_sig"] = sig
-                    # 상단 합산 박스
+# 상품 선택 + 합산 박스 (캠페인마다 반복)
+                        selected_product = st.selectbox(
+                            "📦 상품 선택",
+                            product_options,
+                            key=f"sold_product_filter_{i}"
+                        )
+
+                        if selected_product == "전체":
+                            filtered_items = sorted_items_all
+                        else:
+                            filtered_items = [(bn, v) for bn, v in sold_summary.items() if bn == selected_product]
+                        sorted_items = sorted(filtered_items, key=lambda x: -x[1]['revenue'])
+                        
+                        # 상품 선택 + 합산 박스 (캠페인마다 반복)
                         if sorted_items:
+                            total_revenue = sum(v['revenue'] for _, v in sorted_items)
+                            total_qty = sum(v['qty'] for _, v in sorted_items)
+
+                            if selected_product != "전체":
+                                detail_rows = []
+                                for uf in uploaded_files:
+                                    ht = uf.getvalue().decode("utf-8", errors="ignore")
+                                    if '판매된 상품 목록' not in ht:
+                                        continue
+                                    for item in parse_sold_items_detail(ht):
+                                        if item['base_name'] == selected_product:
+                                            detail_rows.append(item)
+                                detail_rows.sort(key=lambda x: -x['revenue'])
+                                rows = "".join([
+                                    f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
+                                    f"<span style='color:#666;'>{item['full_name'].split(',')[1].strip() if ',' in item['full_name'] else item['full_name']}</span>"
+                                    f"<span><b>{item['qty']:,}개</b> | <b>{item['revenue']:,}원</b></span>"
+                                    f"</div>"
+                                    for item in detail_rows
+                                ])
+                            else:
+                                rows = "".join([
+                                    f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
+                                    f"<span>{bn}</span>"
+                                    f"<span><b>{v['qty']:,}개</b> | <b>{v['revenue']:,}원</b></span>"
+                                    f"</div>"
+                                    for bn, v in sorted_items
+                                ])
+
+                            html_block = (
+                                "<div style='border:1px solid #dee2e6;border-radius:6px;"
+                                "padding:8px 14px;margin-bottom:8px;background:#f8f9fa;font-size:13px;'>"
+                                f"<div style='font-weight:bold;margin-bottom:6px;color:#555;'>💰 총 {total_revenue:,}원 &nbsp;|&nbsp; {total_qty:,}개</div>"
+                                + rows +
+                                "</div>"
+                            )
+                            st.markdown(html_block, unsafe_allow_html=True)
                             total_revenue = sum(v['revenue'] for _, v in sorted_items)
                             total_qty = sum(v['qty'] for _, v in sorted_items)
 
