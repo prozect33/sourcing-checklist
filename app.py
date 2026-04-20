@@ -1434,7 +1434,7 @@ def main():
                     product_options = ["전체"] + sorted(sold_summary.keys())
                     sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
 
-                    # 상품 선택 - 루프 밖에서 한 번만 (전체 공유)
+                    # 상품 선택 - 루프 밖에서 한 번만
                     if "sold_product_global" not in st.session_state:
                         st.session_state["sold_product_global"] = "전체"
                     selected_product = st.selectbox(
@@ -1448,7 +1448,7 @@ def main():
                         sorted_items = sorted(
                             [(bn, v) for bn, v in sold_summary.items() if bn == selected_product],
                             key=lambda x: -x[1]['revenue']
-                        )   
+                        )
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
