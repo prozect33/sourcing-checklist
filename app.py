@@ -1430,14 +1430,6 @@ def main():
                                 sold_summary[bn]['revenue'] += v['revenue']
                                 sold_summary[bn]['options'] += v['options']
 
-                    # 상품 선택 셀렉트박스
-                    product_options = ["전체"] + sorted(sold_summary.keys())
-                    selected_product = st.selectbox(
-                        "📦 상품 선택",
-                        product_options,
-                        key="sold_product_filter"
-                    )
-
                     # 정렬된 전체 아이템 (필터링 전)
                     product_options = ["전체"] + sorted(sold_summary.keys())
                     sorted_items_all = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])       
