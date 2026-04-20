@@ -1844,19 +1844,20 @@ def main():
                         except Exception as e:
                             st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
         with c3:
-            st.markdown("""
-                <div style='
-                    position: sticky;
-                    top: 60px;
-                    background: #f8f9fa;
-                    border: 1px solid #dee2e6;
-                    border-radius: 8px;
-                    padding: 16px;
-                '>
-                    <b>📋 참고 정보</b><br><br>
-                    🧪 테스트 중입니다
-                </div>
-            """, unsafe_allow_html=True)
+            for i in range(10):
+                st.markdown(f"""
+                    <div style='
+                        background: #f8f9fa;
+                        border: 1px solid #dee2e6;
+                        border-radius: 8px;
+                        padding: 12px 16px;
+                        margin-bottom: 8px;
+                        font-size: 14px;
+                    '>
+                        <b>상품 {i+1}</b><br>
+                        🧪 테스트 중입니다
+                    </div>
+                """, unsafe_allow_html=True)
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
