@@ -1469,7 +1469,10 @@ def main():
                     # 상품 선택 + 합산 박스 (캠페인마다 반복)
                         if "sold_product_filter_global" not in st.session_state:
                             st.session_state["sold_product_filter_global"] = "전체"
-
+                        
+                        # global 값으로 먼저 덮어쓰기
+                        st.session_state[f"sold_product_filter_{i}"] = st.session_state["sold_product_filter_global"]
+                        
                         selected_product = st.selectbox(
                             "📦 상품 선택",
                             product_options,
