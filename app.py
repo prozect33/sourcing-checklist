@@ -1297,26 +1297,32 @@ def main():
         with c2:
             st.subheader("일일 정산")
 
-            uploaded_html = st.file_uploader("쿠팡 광고 HTML 업로드", type=["html", "htm"], key="daily_html")
+            uploaded_files = st.file_uploader(
+                "쿠팡 HTML 업로드 (복수 선택 가능)",
+                type=["html", "htm"],
+                key="daily_html",
+                accept_multiple_files=True
+            )
 
             parsed_campaigns = []
-            if uploaded_html is not None:
-                html_text = uploaded_html.getvalue().decode("utf-8", errors="ignore")
-                try:
-                    is_type2 = not any("캠페인 이름" in h for h in _parse_react_table(html_text)[0])
-                    if is_type2:
-                        parsed_campaigns = parse_product_ads(html_text)
-                        st.success(f"운영 중 상품 {len(parsed_campaigns)}개 파싱 완료")
-                    else:
-                        parsed_campaigns = parse_running_campaigns(html_text)
-                        st.success(f"운영 중 캠페인 {len(parsed_campaigns)}개 파싱 완료")
-                except Exception as e:
-                    st.error(f"HTML 파싱 실패: {e}")
-                    parsed_campaigns = []
+            if uploaded_files:
+                for uploaded_html in uploaded_files:
+                    html_text = uploaded_html.getvalue().decode("utf-8", errors="ignore")
+                    try:
+                        is_type2 = not any("캠페인 이름" in h for h in _parse_react_table(html_text)[0])
+                        if is_type2:
+                            result = parse_product_ads(html_text)
+                            st.success(f"[{uploaded_html.name}] 운영 중 상품 {len(result)}개 파싱 완료")
+                        else:
+                            result = parse_running_campaigns(html_text)
+                            st.success(f"[{uploaded_html.name}] 운영 중 캠페인 {len(result)}개 파싱 완료")
+                        parsed_campaigns.extend(result)
+                    except Exception as e:
+                        st.error(f"[{uploaded_html.name}] 파싱 실패: {e}")
 
             st.markdown("---")
 
-            if uploaded_html is not None:
+            if uploaded_files:
                 if not parsed_campaigns:
                     st.info("HTML 업로드하면 자동 입력됩니다. 업로드가 없거나 캠페인 0개면 아래 수동으로 입력하세요.")
                 else:
@@ -1340,7 +1346,7 @@ def main():
                     PRODUCT_PICKER_OPTIONS = ["(선택 안 함)"] + product_names
 
                     # ✅ 업로드 파일 단위 '제외' 상태 유지 (자동 입력 폼 전용)
-                    upload_sig = f"{uploaded_html.name}:{uploaded_html.size}"
+                    upload_sig = ":".join([f"{f.name}:{f.size}" for f in uploaded_files])
                     excluded_state_key = f"auto_excluded_campaigns::{upload_sig}"
                     if excluded_state_key not in st.session_state:
                         st.session_state[excluded_state_key] = set()
@@ -1359,7 +1365,7 @@ def main():
                         st.session_state.setdefault(f"{prefix}_total_revenue", 0)
                         st.session_state.setdefault(f"{prefix}_coupon_unit", 0)
 
-                        sig = (uploaded_html.name, uploaded_html.size, camp.campaign_name)
+                        sig = (upload_sig, i, camp.campaign_name)
 
                         cur_qty = st.session_state.get(f"{prefix}_ad_sales_qty")
                         cur_rev = st.session_state.get(f"{prefix}_ad_revenue")
