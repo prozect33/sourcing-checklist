@@ -415,6 +415,34 @@ def parse_running_campaigns(html_text: str):
             )
         )
     return out
+
+def parse_sold_items_from_html(html_text: str) -> dict:
+    import re
+    from collections import defaultdict
+
+    sold_pos = html_text.find('판매된 상품 목록')
+    if sold_pos < 0:
+        return {}
+
+    section = html_text[sold_pos:sold_pos + 40000]
+    tr_blocks = re.findall(r'<tr data-v-1c64ce3b="">(.*?)</tr>', section, re.DOTALL)
+
+    agg = defaultdict(lambda: {'qty': 0, 'revenue': 0, 'options': 0})
+    for tr in tr_blocks:
+        name_m = re.search(r'<p data-v-1c64ce3b="">(.*?)</p>', tr)
+        rev_m  = re.search(r'<td data-v-1c64ce3b="">([-\d,]+원)</td>', tr)
+        qty_m  = re.search(r'<td data-v-1c64ce3b="">([-\d]+개)</td>', tr)
+        if not name_m:
+            continue
+        name = name_m.group(1).strip()
+        rev  = int(rev_m.group(1).replace(',', '').replace('원', '')) if rev_m else 0
+        qty  = int(qty_m.group(1).replace('개', '')) if qty_m else 0
+        bn   = name.split(',')[0].strip()
+        agg[bn]['qty']     += qty
+        agg[bn]['revenue'] += rev
+        agg[bn]['options'] += 1
+
+    return dict(agg)
     
 def parse_product_ads(html_text: str):
     row_pattern = r'<div class="rt-tr[^"]*"[^>]*role="row">(.*?)(?=<div class="rt-tr-group|$)'
@@ -1844,19 +1872,49 @@ def main():
                         except Exception as e:
                             st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
         with c3:
-            for i in range(10):
-                st.markdown(f"""
-                    <div style='
-                        background: #f8f9fa;
-                        border: 1px solid #dee2e6;
-                        border-radius: 8px;
-                        padding: 12px 16px;
-                        margin-bottom: 8px;
-                        font-size: 14px;
-                    '>
-                        🧪 테스트 중입니다
-                    </div>
-                """, unsafe_allow_html=True)
+            sold_summary = {}
+            if uploaded_files:
+                for f in uploaded_files:
+                    html_text = f.getvalue().decode("utf-8", errors="ignore")
+                    parsed = parse_sold_items_from_html(html_text)
+                    for bn, v in parsed.items():
+                        if bn not in sold_summary:
+                            sold_summary[bn] = {'qty': 0, 'revenue': 0, 'options': 0}
+                        sold_summary[bn]['qty']     += v['qty']
+                        sold_summary[bn]['revenue'] += v['revenue']
+                        sold_summary[bn]['options'] += v['options']
+
+            sorted_items = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
+
+            st.markdown("### 📦 상품별 판매 합산")
+            if sorted_items:
+                st.caption("옵션 제외 기본 상품명 기준 · 매출 높은 순")
+                for bn, v in sorted_items:
+                    qty     = v['qty']
+                    revenue = v['revenue']
+                    options = v['options']
+                    color   = "#e8f5e9" if revenue >= 0 else "#ffebee"
+                    border  = "#66bb6a" if revenue >= 0 else "#ef5350"
+                    st.markdown(
+                        f"""
+                        <div style='
+                            background:{color};
+                            border-left: 4px solid {border};
+                            border-radius: 6px;
+                            padding: 10px 14px;
+                            margin-bottom: 8px;
+                            font-size: 13px;
+                            line-height: 1.6;
+                        '>
+                            <div style='font-weight:bold; font-size:14px; margin-bottom:2px;'>{bn}</div>
+                            <div>🛒 <b>{qty:,}개</b> &nbsp;|&nbsp; 💰 <b>{revenue:,}원</b></div>
+                            <div style='color:gray; font-size:12px;'>옵션 {options}개</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.info("HTML 파일을 업로드하면\n상품별 판매 합산이 표시됩니다.")
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
