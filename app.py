@@ -1393,6 +1393,19 @@ def main():
                     if excluded_state_key not in st.session_state:
                         st.session_state[excluded_state_key] = set()
 
+                    # 상품 합산 사전 계산
+                    sold_summary = {}
+                    if uploaded_files:
+                        for uf in uploaded_files:
+                            ht = uf.getvalue().decode("utf-8", errors="ignore")
+                            parsed_sold = parse_sold_items_from_html(ht)
+                            for bn, v in parsed_sold.items():
+                                if bn not in sold_summary:
+                                    sold_summary[bn] = {'qty': 0, 'revenue': 0, 'options': 0}
+                                sold_summary[bn]['qty']     += v['qty']
+                                sold_summary[bn]['revenue'] += v['revenue']
+                                sold_summary[bn]['options'] += v['options']
+                    sorted_items = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])                    
 
                     for i, camp in enumerate(parsed_campaigns, start=1):
                         prefix = f"auto_{i}"
@@ -1425,7 +1438,30 @@ def main():
                             st.session_state[f"{prefix}_ad_revenue"] = int(camp.ad_revenue or 0)
                             st.session_state[f"{prefix}_ad_cost"] = int(camp.ad_cost or 0)
                             st.session_state[f"{prefix}_autofill_sig"] = sig
-
+                    # 상단 합산 박스
+                        if sorted_items:
+                            cards_html = ""
+                            for bn, v in sorted_items:
+                                color  = "#e8f5e9" if v['revenue'] >= 0 else "#ffebee"
+                                border_color = "#66bb6a" if v['revenue'] >= 0 else "#ef5350"
+                                cards_html += f"""
+                                <div style='
+                                    background:{color};
+                                    border-left: 4px solid {border_color};
+                                    border-radius: 6px;
+                                    padding: 10px 14px;
+                                    margin-bottom: 6px;
+                                    font-size: 13px;
+                                    line-height: 1.6;
+                                '>
+                                    <div style='font-weight:bold; font-size:14px; margin-bottom:2px;'>{bn}</div>
+                                    <div>🛒 <b>{v['qty']:,}개</b> &nbsp;|&nbsp; 💰 <b>{v['revenue']:,}원</b></div>
+                                    <div style='color:gray; font-size:12px;'>옵션 {v['options']}개</div>
+                                </div>
+                                """
+                            st.markdown(f"#### 📦 상품별 판매 합산", unsafe_allow_html=True)
+                            st.markdown(cards_html, unsafe_allow_html=True)
+                            
                         with st.container(border=True):
                             left, right = st.columns([8, 2])
                             with left:
@@ -1871,57 +1907,6 @@ def main():
 
                         except Exception as e:
                             st.error(f"판매 기록 저장 중 오류가 발생했습니다: {e}")
-        with c3:
-            sold_summary = {}
-            if uploaded_files:
-                for f in uploaded_files:
-                    html_text = f.getvalue().decode("utf-8", errors="ignore")
-                    parsed = parse_sold_items_from_html(html_text)
-                    for bn, v in parsed.items():
-                        if bn not in sold_summary:
-                            sold_summary[bn] = {'qty': 0, 'revenue': 0, 'options': 0}
-                        sold_summary[bn]['qty']     += v['qty']
-                        sold_summary[bn]['revenue'] += v['revenue']
-                        sold_summary[bn]['options'] += v['options']
-
-            sorted_items = sorted(sold_summary.items(), key=lambda x: -x[1]['revenue'])
-
-            def render_sold_block():
-                if sorted_items:
-                    cards = ""
-                    for bn, v in sorted_items:
-                        qty     = v['qty']
-                        revenue = v['revenue']
-                        options = v['options']
-                        color  = "#e8f5e9" if revenue >= 0 else "#ffebee"
-                        border = "#66bb6a" if revenue >= 0 else "#ef5350"
-                        cards += f"""
-                        <div style='
-                            background:{color};
-                            border-left: 4px solid {border};
-                            border-radius: 6px;
-                            padding: 10px 14px;
-                            margin-bottom: 8px;
-                            font-size: 13px;
-                            line-height: 1.6;
-                        '>
-                            <div style='font-weight:bold; font-size:14px; margin-bottom:2px;'>{bn}</div>
-                            <div>🛒 <b>{qty:,}개</b> &nbsp;|&nbsp; 💰 <b>{revenue:,}원</b></div>
-                            <div style='color:gray; font-size:12px;'>옵션 {options}개</div>
-                        </div>
-                        """
-                    return cards
-                else:
-                    return "<div style='color:gray; font-size:13px; padding:10px;'>HTML 파일을 업로드하면<br>상품별 판매 합산이 표시됩니다.</div>"
-
-            card_html = render_sold_block()
-
-            for _ in range(10):
-                st.markdown("### 📦 상품별 판매 합산")
-                if sorted_items:
-                    st.caption("옵션 제외 기본 상품명 기준 · 매출 높은 순")
-                st.markdown(card_html, unsafe_allow_html=True)
-                st.markdown("<hr style='margin: 100px 0; border-color:#dee2e6;'>", unsafe_allow_html=True)
 
     with tab4: # 원본 파일의 '세부 마진 계산기' 탭 내부의 '판매 현황' 내용
         c1, c2, c3, c4 = st.columns([0.1, 0.5, 1, 0.6])
