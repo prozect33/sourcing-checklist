@@ -1376,6 +1376,8 @@ def main():
                     if "auto_report_date" not in st.session_state:
                         st.session_state["auto_report_date"] = _yesterday_date()
 
+                    st.date_input("날짜 선택", key="auto_report_date")
+
                     # ✅ 상품명 + (전체/판매) 라벨용 데이터 1회 로드 (for-loop 밖)
                     try:
                         product_names, product_stats = load_product_qty_sales_map()
