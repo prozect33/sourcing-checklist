@@ -1440,27 +1440,27 @@ def main():
                             st.session_state[f"{prefix}_autofill_sig"] = sig
                     # 상단 합산 박스
                         if sorted_items:
-                            cards_html = ""
+                            rows_html = ""
                             for bn, v in sorted_items:
-                                color  = "#e8f5e9" if v['revenue'] >= 0 else "#ffebee"
-                                border_color = "#66bb6a" if v['revenue'] >= 0 else "#ef5350"
-                                cards_html += f"""
-                                <div style='
-                                    background:{color};
-                                    border-left: 4px solid {border_color};
-                                    border-radius: 6px;
-                                    padding: 10px 14px;
-                                    margin-bottom: 6px;
-                                    font-size: 13px;
-                                    line-height: 1.6;
-                                '>
-                                    <div style='font-weight:bold; font-size:14px; margin-bottom:2px;'>{bn}</div>
-                                    <div>🛒 <b>{v['qty']:,}개</b> &nbsp;|&nbsp; 💰 <b>{v['revenue']:,}원</b></div>
-                                    <div style='color:gray; font-size:12px;'>옵션 {v['options']}개</div>
+                                rows_html += f"""
+                                <div style='display:flex; justify-content:space-between; padding: 2px 0; font-size:13px;'>
+                                    <span>{bn}</span>
+                                    <span style='color:#333;'><b>{v['qty']:,}개</b> &nbsp;|&nbsp; <b>{v['revenue']:,}원</b></span>
                                 </div>
                                 """
-                            st.markdown(f"#### 📦 상품별 판매 합산", unsafe_allow_html=True)
-                            st.markdown(cards_html, unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div style='
+                                border: 1px solid #dee2e6;
+                                border-radius: 6px;
+                                padding: 8px 14px;
+                                margin-bottom: 8px;
+                                background: #f8f9fa;
+                                font-size: 13px;
+                            '>
+                                <div style='font-weight:bold; margin-bottom:6px; color:#555;'>📦 상품별 판매 합산</div>
+                                {rows_html}
+                            </div>
+                            """, unsafe_allow_html=True)
                             
                         with st.container(border=True):
                             left, right = st.columns([8, 2])
