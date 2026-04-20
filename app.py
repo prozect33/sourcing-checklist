@@ -1359,8 +1359,8 @@ def main():
                             result = parse_running_campaigns(html_text)
                             st.success(f"[{uploaded_html.name}] 운영 중 캠페인 {len(result)}개 파싱 완료")
                         parsed_campaigns.extend(result)
-                    except Exception as e:
-                        st.error(f"[{uploaded_html.name}] 파싱 실패: {e}")
+                    except Exception:
+                        pass
 
             st.markdown("---")
 
