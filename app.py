@@ -1440,6 +1440,8 @@ def main():
                             st.session_state[f"{prefix}_autofill_sig"] = sig
                     # 상단 합산 박스
                         if sorted_items:
+                            total_revenue = sum(v['revenue'] for _, v in sorted_items)
+                            total_qty = sum(v['qty'] for _, v in sorted_items)
                             rows = "".join([
                                 f"<div style='display:flex;justify-content:space-between;padding:2px 0;font-size:13px;'>"
                                 f"<span>{bn}</span>"
@@ -1450,7 +1452,7 @@ def main():
                             html_block = (
                                 "<div style='border:1px solid #dee2e6;border-radius:6px;"
                                 "padding:8px 14px;margin-bottom:8px;background:#f8f9fa;font-size:13px;'>"
-                                "<div style='font-weight:bold;margin-bottom:6px;color:#555;'>📦 상품별 판매 합산</div>"
+                                f"<div style='font-weight:bold;margin-bottom:6px;color:#555;'>💰 총 {total_revenue:,}원 &nbsp;|&nbsp; {total_qty:,}개</div>"
                                 + rows +
                                 "</div>"
                             )
