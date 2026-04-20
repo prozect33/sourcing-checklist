@@ -1498,7 +1498,7 @@ def main():
                             total_revenue = sum(v['revenue'] for _, v in sorted_items)
                             total_qty = sum(v['qty'] for _, v in sorted_items)
 
-                            if selected_product != "전체":
+                            if st.session_state["sold_product_filter_global"] != "전체":
                                 detail_rows = []
                                 for uf in uploaded_files:
                                     ht = uf.getvalue().decode("utf-8", errors="ignore")
