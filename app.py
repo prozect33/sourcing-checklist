@@ -1854,7 +1854,6 @@ def main():
                         margin-bottom: 8px;
                         font-size: 14px;
                     '>
-                        <b>상품 {i+1}</b><br>
                         🧪 테스트 중입니다
                     </div>
                 """, unsafe_allow_html=True)
